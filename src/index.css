@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-warm-canvas: #FAF7F2;
+    --bg-warm-card: #FFFFFF;
+    --bg-warm-stone: #F3EFE8;
+    --border-warm: #E6E0D4;
+    --text-warm-dark: #24221F;
+    --text-warm-muted: #615C54;
+    --accent-warm-bronze: #8E5B3E;
+    --accent-silent-sage: #456254;
+  }
+
+  body {
+    background-color: #FAF7F2;
+    color: #24221F;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+}
+
+/* Warm & Silent Theme Custom Utilities */
+.warm-silent-gradient {
+  background: linear-gradient(135deg, #27231E 0%, #342E28 50%, #201D1A 100%);
+}
+
+.warm-silent-subtle {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F9F7F3 100%);
+}
+

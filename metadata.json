@@ -1,0 +1,6 @@
+{
+  "name": "Sopan Hospital Neurology Hospital and Institute",
+  "description": "Premier Super-Speciality Neurology, Neurosurgery & Neuro-Rehabilitation Center featuring appointment booking, patient portal, disease encyclopedia with 3D VR brain viewer, remote patient monitoring, case study repository, staff payroll, Google reviews, and WhatsApp emergency triage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
