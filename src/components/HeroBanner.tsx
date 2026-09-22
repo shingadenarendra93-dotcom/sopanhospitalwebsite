@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Activity, 
   Calendar, 
@@ -12,7 +12,9 @@ import {
   Camera,
   Upload,
   Stethoscope,
-  MessageCircle
+  MessageCircle,
+  Newspaper,
+  CheckCircle2
 } from 'lucide-react';
 
 interface HeroBannerProps {
@@ -27,22 +29,56 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const [customPhoto, setCustomPhoto] = useState<string | null>(() => {
     return localStorage.getItem('sopan_dr_custom_photo') || null;
   });
+  const [photoSavedNotice, setPhotoSavedNotice] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Clear any legacy SVG representations from local storage
+    const stored = localStorage.getItem('sopan_dr_custom_photo');
+    if (stored && (stored.includes('svg') || stored.includes('data:image/svg'))) {
+      localStorage.removeItem('sopan_dr_custom_photo');
+      setCustomPhoto(null);
+    }
+
+    const handleSync = () => {
+      const updated = localStorage.getItem('sopan_dr_custom_photo');
+      if (updated && !updated.includes('svg')) {
+        setCustomPhoto(updated);
+      }
+    };
+    window.addEventListener('sopan_photo_updated', handleSync);
+    return () => window.removeEventListener('sopan_photo_updated', handleSync);
+  }, []);
+
+  const processImageFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setCustomPhoto(result);
+      localStorage.setItem('sopan_dr_custom_photo', result);
+      window.dispatchEvent(new Event('sopan_photo_updated'));
+      setPhotoSavedNotice(true);
+      setTimeout(() => setPhotoSavedNotice(false), 5000);
+
+      // Also persist permanently to server's public directory
+      fetch('/api/upload-doctor-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoDataUrl: result })
+      }).catch((err) => console.warn('Could not sync photo to server:', err));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        setCustomPhoto(result);
-        localStorage.setItem('sopan_dr_custom_photo', result);
-      };
-      reader.readAsDataURL(file);
+      processImageFile(file);
     }
   };
 
-  const doctorPhotoSrc = customPhoto || '/ChatGPT Image May 26, 2026, 01_51_43 PM (2).png';
+  const doctorPhotoSrc = (customPhoto && !customPhoto.includes('svg')) ? customPhoto : '/DSC_0050.JPG';
 
   return (
     <div className="space-y-6">
@@ -80,12 +116,30 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               </button>
 
               <button
+                id="hero-btn-symptom-checker"
+                onClick={() => onNavigate('symptom-checker')}
+                className="px-5 py-3 rounded-2xl bg-[#F5ECE0] hover:bg-[#EBDFD0] text-[#7A492B] border border-[#DFD1BE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
+              >
+                <Activity className="w-4 h-4 text-[#8E5B3E]" />
+                Symptom Checker
+              </button>
+
+              <button
                 id="hero-btn-stories"
                 onClick={() => onNavigate('stories')}
                 className="px-5 py-3 rounded-2xl bg-white hover:bg-[#FAF6F0] text-[#383025] border border-[#DACFBE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4 text-[#8E5B3E]" />
                 Patient Success Stories
+              </button>
+
+              <button
+                id="hero-btn-news"
+                onClick={() => onNavigate('news')}
+                className="px-5 py-3 rounded-2xl bg-[#FAF5EC] hover:bg-[#F0E6D5] text-[#8E5B3E] border border-[#DACFBE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
+              >
+                <Newspaper className="w-4 h-4 text-[#8E5B3E]" />
+                Latest Neuro News
               </button>
 
               <button
@@ -102,24 +156,41 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           {/* Right Hero: Doctor Profile Showcase with Photo and Warm Bright Card */}
           <div className="lg:col-span-5 bg-white/95 border border-[#E6DBCA] rounded-3xl p-5 sm:p-6 space-y-4 shadow-sm backdrop-blur-xs">
             <div className="flex items-start gap-4">
-              <div className="relative group shrink-0">
+              <div 
+                className={`relative group shrink-0 transition-all ${isDragging ? 'ring-3 ring-[#8E5B3E] ring-offset-2 scale-105' : ''}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    processImageFile(file);
+                  }
+                }}
+              >
                 <img
                   src={doctorPhotoSrc}
-                  alt="Dr. Sanjay Sopan Varade"
+                  alt="Dr. Sanjay Sopan Varade (MD, DM Neuro)"
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     const target = e.currentTarget;
-                    if (!target.src.includes('unsplash')) {
-                      target.src = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=800&q=80';
+                    if (!target.src.includes('doctor-photo.png')) {
+                      target.src = '/doctor-photo.png';
                     }
                   }}
-                  className="w-22 h-22 rounded-2xl object-cover border-2 border-[#D8C7B0] shrink-0 shadow-xs"
+                  className="w-22 h-22 rounded-2xl object-cover border-2 border-[#D8C7B0] shrink-0 shadow-xs cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Dr. Sanjay Sopan Varade (MD, DM Neuro) - Permanent Verified Portrait"
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  title="Upload / Change Doctor Photo"
-                  className="absolute -bottom-1.5 -right-1.5 p-1.5 bg-[#8E5B3E] hover:bg-[#784A31] text-white rounded-full shadow-md transition-transform hover:scale-110"
+                  title="Update / Manage Doctor Photo"
+                  className="absolute -bottom-1.5 -right-1.5 p-1.5 bg-[#8E5B3E] hover:bg-[#784A31] text-white rounded-full shadow-md transition-transform hover:scale-110 cursor-pointer"
                 >
                   <Camera className="w-3.5 h-3.5" />
                 </button>
@@ -143,6 +214,12 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 </h3>
                 <div className="text-xs text-[#8E5B3E] font-semibold">MD, DM Neuro (CMC Vellore)</div>
                 <div className="text-[11px] text-[#6B6254]">Director & Chief Consultant Neurologist</div>
+                {photoSavedNotice && (
+                  <div className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 mt-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span>Photo updated & saved!</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -173,21 +250,32 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             </div>
 
             {/* Quick interactive shortcuts */}
-            <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+            <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
               <button
-                onClick={() => onNavigate('vr-brain')}
-                className="p-2.5 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-2 shadow-xs"
+                id="hero-quick-symptom-checker"
+                onClick={() => onNavigate('symptom-checker')}
+                className="p-2 rounded-xl bg-[#FAF5EE] hover:bg-[#F2E8DC] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs"
               >
-                <Glasses className="w-4 h-4 text-[#8E5B3E]" />
-                <span className="font-medium">3D / VR Brain</span>
+                <Activity className="w-3.5 h-3.5 text-[#8E5B3E] shrink-0" />
+                <span className="font-medium text-[11px] truncate">Checker</span>
               </button>
 
               <button
-                onClick={() => onNavigate('stories')}
-                className="p-2.5 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-2 shadow-xs"
+                id="hero-quick-vr"
+                onClick={() => onNavigate('vr-brain')}
+                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs"
               >
-                <Sparkles className="w-4 h-4 text-[#456254]" />
-                <span className="font-medium">Success Stories</span>
+                <Glasses className="w-3.5 h-3.5 text-[#8E5B3E] shrink-0" />
+                <span className="font-medium text-[11px] truncate">3D Brain</span>
+              </button>
+
+              <button
+                id="hero-quick-stories"
+                onClick={() => onNavigate('stories')}
+                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#456254] shrink-0" />
+                <span className="font-medium text-[11px] truncate">Stories</span>
               </button>
             </div>
           </div>

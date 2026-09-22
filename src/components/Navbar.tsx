@@ -15,7 +15,9 @@ import {
   ShieldCheck, 
   Zap,
   MessageCircle,
-  Sparkles
+  Sparkles,
+  Newspaper,
+  Stethoscope
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -34,7 +36,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   const navItems = [
+    { id: 'symptom-checker', label: 'Symptom Checker', icon: <Stethoscope className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'stories', label: 'Success Stories', icon: <Sparkles className="w-4 h-4 text-[#8E5B3E]" /> },
+    { id: 'news', label: 'Neuro News', icon: <Newspaper className="w-4 h-4 text-[#456254]" /> },
     { id: 'appointments', label: 'Book OPD (₹1,500)', icon: <Calendar className="w-4 h-4" /> },
     { id: 'reviews', label: 'Reviews (4.9★)', icon: <Star className="w-4 h-4 fill-amber-500 text-amber-500" /> },
     { id: 'vr-brain', label: '3D/VR Brain', icon: <Glasses className="w-4 h-4" /> },

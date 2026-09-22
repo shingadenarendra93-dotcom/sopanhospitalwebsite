@@ -27,7 +27,7 @@ export const DOCTORS: Doctor[] = [
     opdFee: 1500,
     rating: 4.96,
     reviewCount: 742,
-    avatarUrl: '/ChatGPT Image May 26, 2026, 01_51_43 PM (2).png',
+    avatarUrl: '/DSC_0050.JPG',
     bio: 'Senior Chief Neurologist & Director heading Sopan Hospital and Neurology Institute, Nashik with over 35+ years of distinguished clinical mastery. Renowned Neurophysician with MBBS, MD (Internal Medicine), and DM (Neurology from Christian Medical College - CMC Vellore). Specialized in Hyper-Acute Ischemic Stroke Interventions, Intractable Epilepsy & Video EEG, Parkinson’s Disease & Movement Disorders, Refractory Migraine, Vertigo, and Neuro-Critical Care.',
     languages: ['English', 'Marathi', 'Hindi']
   }

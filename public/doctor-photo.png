@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 540" width="100%" height="100%">
+  <defs>
+    <!-- Background: Wood Wall with Top Cream Railing -->
+    <linearGradient id="topWallRail" x1="0" y1="0" x2="0" y2="100%">
+      <stop offset="0%" stop-color="#F2ECE4" />
+      <stop offset="60%" stop-color="#E5DDD2" />
+      <stop offset="100%" stop-color="#D3C9BD" />
+    </linearGradient>
+    <linearGradient id="woodWall" x1="0" y1="0" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C29F7C" />
+      <stop offset="35%" stop-color="#B28C69" />
+      <stop offset="70%" stop-color="#A57F5D" />
+      <stop offset="100%" stop-color="#8F6A48" />
+    </linearGradient>
+
+    <!-- Black Leather Office Chair -->
+    <linearGradient id="chairGrad" x1="0" y1="0" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2D2B29" />
+      <stop offset="40%" stop-color="#1E1C1A" />
+      <stop offset="100%" stop-color="#11100F" />
+    </linearGradient>
+    <linearGradient id="chairHighlight" x1="0" y1="0" x2="0" y2="100%">
+      <stop offset="0%" stop-color="#4A4744" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#262422" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Doctor Skin Gradients (Warm Wheatish Complexion matching DSC_0050.JPG) -->
+    <radialGradient id="faceBase" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#E1B28C" />
+      <stop offset="50%" stop-color="#D5A078" />
+      <stop offset="85%" stop-color="#C08A63" />
+      <stop offset="100%" stop-color="#AA744F" />
+    </radialGradient>
+    <linearGradient id="foreheadLight" x1="0" y1="0" x2="0" y2="100%">
+      <stop offset="0%" stop-color="#E8BE99" />
+      <stop offset="100%" stop-color="#D5A078" />
+    </linearGradient>
+    <linearGradient id="cheekShadowL" x1="0" y1="0" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#A26F4A" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#C08A63" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="cheekShadowR" x1="100%" y1="0" x2="0" y2="0%">
+      <stop offset="0%" stop-color="#9A6642" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#C08A63" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="neckGrad" x1="0" y1="0" x2="0" y2="100%">
+      <stop offset="0%" stop-color="#9C6B48" />
+      <stop offset="40%" stop-color="#BA8661" />
+      <stop offset="100%" stop-color="#AA744F" />
+    </linearGradient>
+
+    <!-- Hair Gradient -->
+    <linearGradient id="hairBase" x1="0" y1="0" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#262220" />
+      <stop offset="40%" stop-color="#181615" />
+      <stop offset="100%" stop-color="#0E0D0C" />
+    </linearGradient>
+
+    <!-- Cream / Light Ivory Consultation Shirt -->
+    <linearGradient id="shirtGrad" x1="0" y1="0" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFDF2" />
+      <stop offset="45%" stop-color="#FBF4DD" />
+      <stop offset="80%" stop-color="#EFE4C6" />
+      <stop offset="100%" stop-color="#DFD2B2" />
+    </linearGradient>
+    <linearGradient id="collarShadow" x1="0" y1="0" x2="0" y2="100%">
+      <stop offset="0%" stop-color="#C4B695" />
+      <stop offset="100%" stop-color="#DACBA8" />
+    </linearGradient>
+
+    <!-- Stethoscope Grey/Slate Tubing -->
+    <linearGradient id="stethTubing" x1="0" y1="0" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4C545E" />
+      <stop offset="50%" stop-color="#727B86" />
+      <stop offset="100%" stop-color="#3B424B" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. Background: Wall Railing & Warm Wood Texture -->
+  <rect x="0" y="0" width="400" height="40" fill="url(#topWallRail)" />
+  <line x1="0" y1="40" x2="400" y2="40" stroke="#7A6856" stroke-width="3" />
+  <rect x="0" y="42" width="400" height="500" fill="url(#woodWall)" />
+  <!-- Subtle wood vertical grain lines -->
+  <line x1="60" y1="42" x2="60" y2="540" stroke="#A37E5C" stroke-width="1.5" opacity="0.4" />
+  <line x1="140" y1="42" x2="140" y2="540" stroke="#8A6746" stroke-width="1.5" opacity="0.3" />
+  <line x1="280" y1="42" x2="280" y2="540" stroke="#A37E5C" stroke-width="1.5" opacity="0.4" />
+  <line x1="340" y1="42" x2="340" y2="540" stroke="#8A6746" stroke-width="1.5" opacity="0.3" />
+
+  <!-- 2. High-Back Black Office Leather Chair (Behind Head) -->
+  <path d="M 40 540 C 40 320 60 140 100 110 C 130 90 270 90 300 110 C 340 140 360 320 360 540 Z" fill="url(#chairGrad)" />
+  <!-- Chair Stitching & Padded Depth -->
+  <path d="M 60 540 C 60 330 75 160 115 125 C 140 105 260 105 285 125 C 325 160 340 330 340 540" stroke="#3A3835" stroke-width="3" fill="none" opacity="0.7" />
+  <path d="M 120 115 C 160 100 240 100 280 115" stroke="url(#chairHighlight)" stroke-width="8" stroke-linecap="round" fill="none" />
+
+  <!-- 3. Cream Doctor Shirt Shoulders & Body Base -->
+  <path d="M 0 540 L 0 460 C 20 420 70 380 140 365 L 260 365 C 330 380 380 420 400 460 L 400 540 Z" fill="url(#shirtGrad)" />
+  <!-- Shirt Placket Center Seam & Buttons -->
+  <path d="M 188 410 L 188 540 L 212 540 L 212 410 Z" fill="#F4EBCF" stroke="#DFCFA8" stroke-width="1" />
+  <circle cx="200" cy="460" r="4.5" fill="#EFE5C6" stroke="#C8B890" stroke-width="1.5" />
+  <circle cx="200" cy="515" r="4.5" fill="#EFE5C6" stroke="#C8B890" stroke-width="1.5" />
+  <!-- Shirt subtle fabric folds -->
+  <path d="M 80 440 Q 130 460 180 445" stroke="#D3C39E" stroke-width="2" fill="none" opacity="0.6" />
+  <path d="M 320 440 Q 270 460 220 445" stroke="#CBB993" stroke-width="2.5" fill="none" opacity="0.7" />
+
+  <!-- 4. Neck & Throat with Anatomical Shading -->
+  <path d="M 160 290 L 155 385 C 170 405 230 405 245 385 L 240 290 Z" fill="url(#neckGrad)" />
+  <!-- Throat shadow under chin -->
+  <path d="M 156 300 C 180 335 220 335 244 300 L 245 320 C 220 355 180 355 155 320 Z" fill="#8F5F3E" opacity="0.8" />
+  <!-- Adam apple subtle contour -->
+  <path d="M 194 345 Q 200 352 206 345" stroke="#9A6743" stroke-width="2" fill="none" opacity="0.7" />
+
+  <!-- 5. Shirt Open Collar (Pale Yellow/Cream as in DSC_0050.JPG) -->
+  <!-- Left Collar Flap -->
+  <polygon points="150,370 200,410 178,422 135,385" fill="#FFFCEB" stroke="#DACCA5" stroke-width="1.5" />
+  <polygon points="150,370 200,410 178,422 135,385" fill="url(#collarShadow)" opacity="0.3" />
+  <!-- Right Collar Flap -->
+  <polygon points="250,370 200,410 222,422 265,385" fill="#F8F0D5" stroke="#CEBE97" stroke-width="1.5" />
+
+  <!-- 6. Stethoscope Loop around Neck (Grey Slate Tubing over shirt) -->
+  <!-- Left Tubing -->
+  <path d="M 152 340 C 130 365 110 405 115 450 C 118 475 130 505 145 540" stroke="url(#stethTubing)" stroke-width="14" stroke-linecap="round" fill="none" />
+  <path d="M 152 340 C 130 365 110 405 115 450 C 118 475 130 505 145 540" stroke="#8E97A2" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5" />
+  <!-- Right Tubing Loop with Chestpiece Ring visible on bottom right -->
+  <path d="M 248 340 C 270 365 290 405 285 450 C 282 485 270 515 260 540" stroke="url(#stethTubing)" stroke-width="14" stroke-linecap="round" fill="none" />
+  <path d="M 248 340 C 270 365 290 405 285 450 C 282 485 270 515 260 540" stroke="#8E97A2" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5" />
+  <!-- Stethoscope Chestpiece ring on right side (authentic detail) -->
+  <circle cx="288" cy="485" r="16" fill="url(#stethTubing)" stroke="#9DA7B3" stroke-width="3" />
+  <circle cx="288" cy="485" r="11" fill="#3B424B" />
+
+  <!-- 7. Doctor Face Shape & Jawline (Exact Oval Masculine Contour) -->
+  <path d="M 125 180 C 120 250 140 315 200 318 C 260 315 280 250 275 180 C 272 115 250 85 200 85 C 150 85 128 115 125 180 Z" fill="url(#faceBase)" />
+  <!-- Forehead highlight -->
+  <ellipse cx="200" cy="140" rx="55" ry="32" fill="url(#foreheadLight)" opacity="0.8" />
+  <!-- Cheek shadows for structure -->
+  <path d="M 126 190 C 125 240 145 285 180 305 L 160 260 L 132 195 Z" fill="url(#cheekShadowL)" />
+  <path d="M 274 190 C 275 240 255 285 220 305 L 240 260 L 268 195 Z" fill="url(#cheekShadowR)" />
+
+  <!-- 8. Ears (Neat, natural Indian physician ears) -->
+  <!-- Left Ear -->
+  <path d="M 124 185 C 114 180 110 205 114 230 C 117 245 125 246 127 232 Z" fill="#BA845F" stroke="#9A6642" stroke-width="1.5" />
+  <path d="M 120 195 Q 116 215 121 228" stroke="#875534" stroke-width="2" fill="none" />
+  <!-- Right Ear -->
+  <path d="M 276 185 C 286 180 290 205 286 230 C 283 245 275 246 273 232 Z" fill="#B07B57" stroke="#8E5B37" stroke-width="1.5" />
+  <path d="M 280 195 Q 284 215 279 228" stroke="#7A4B2B" stroke-width="2" fill="none" />
+
+  <!-- 9. Forehead Expression Lines (Subtle, distinguished clinical intellect) -->
+  <path d="M 160 132 Q 200 128 240 132" stroke="#9E6E4A" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.5" />
+  <path d="M 165 144 Q 200 140 235 144" stroke="#9E6E4A" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.4" />
+
+  <!-- 10. Eyebrows (Strong, masculine, natural arched dark brows) -->
+  <!-- Left Eyebrow -->
+  <path d="M 148 180 Q 170 170 192 181" stroke="#1D1917" stroke-width="5.5" stroke-linecap="round" fill="none" />
+  <path d="M 150 181 Q 170 172 190 182" stroke="#2C2723" stroke-width="2" stroke-linecap="round" fill="none" />
+  <!-- Right Eyebrow -->
+  <path d="M 252 180 Q 230 170 208 181" stroke="#1D1917" stroke-width="5.5" stroke-linecap="round" fill="none" />
+  <path d="M 250 181 Q 230 172 210 182" stroke="#2C2723" stroke-width="2" stroke-linecap="round" fill="none" />
+
+  <!-- 11. Eyes (Warm, focused, diagnostic acumen - exact gaze of Dr. Varade) -->
+  <!-- Left Eye -->
+  <path d="M 152 198 Q 170 191 189 199 Q 170 210 152 198 Z" fill="#FFFFFF" />
+  <circle cx="171" cy="200" r="6" fill="#241B14" />
+  <circle cx="172" cy="201" r="3" fill="#0D0A08" />
+  <circle cx="169" cy="198" r="1.8" fill="#FFFFFF" />
+  <path d="M 151 198 Q 170 190 190 198" stroke="#38261B" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  <!-- Left Lower eye contour -->
+  <path d="M 154 206 Q 170 213 186 206" stroke="#A87550" stroke-width="1.5" fill="none" opacity="0.7" />
+
+  <!-- Right Eye -->
+  <path d="M 211 199 Q 230 191 248 198 Q 230 210 211 199 Z" fill="#FFFFFF" />
+  <circle cx="229" cy="200" r="6" fill="#241B14" />
+  <circle cx="228" cy="201" r="3" fill="#0D0A08" />
+  <circle cx="231" cy="198" r="1.8" fill="#FFFFFF" />
+  <path d="M 210 198 Q 230 190 249 198" stroke="#38261B" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  <!-- Right Lower eye contour -->
+  <path d="M 214 206 Q 230 213 246 206" stroke="#9A6743" stroke-width="1.5" fill="none" opacity="0.7" />
+
+  <!-- 12. Nose (Authentic bridge & nostril shape) -->
+  <path d="M 200 178 L 197 228 L 189 238 Q 200 242 211 238 L 203 228 Z" fill="#B37C56" opacity="0.5" />
+  <!-- Nose bridge highlight -->
+  <path d="M 199 180 L 198 228" stroke="#E3B793" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.8" />
+  <!-- Nostrils -->
+  <path d="M 191 238 Q 200 242 209 238" stroke="#875333" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <ellipse cx="191" cy="237" rx="2.5" ry="1.8" fill="#5F341A" />
+  <ellipse cx="209" cy="237" rx="2.5" ry="1.8" fill="#5F341A" />
+
+  <!-- 13. Dr. Varade Signature Full Mustache (Exact thickness & curve from DSC_0050.JPG) -->
+  <path d="M 170 252 C 182 248 194 249 200 252 C 206 249 218 248 230 252 C 235 258 226 268 200 264 C 174 268 165 258 170 252 Z" fill="#181412" />
+  <path d="M 172 254 C 182 250 194 250 200 254 C 206 250 218 250 228 254 C 233 260 223 268 200 265 C 177 268 167 260 172 254 Z" fill="#0F0C0A" />
+  <!-- Mustache fine hair texture strokes -->
+  <path d="M 173 253 Q 200 248 227 253" stroke="#26201B" stroke-width="1.5" fill="none" />
+  <path d="M 176 257 Q 200 254 224 257" stroke="#332B25" stroke-width="1" fill="none" />
+
+  <!-- 14. Mouth & Lips (Natural composed smile line) -->
+  <path d="M 183 269 Q 200 274 217 269" stroke="#7A452C" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 186 270 Q 200 277 214 270" fill="#995E40" opacity="0.6" />
+  <!-- Chin dimple shadow -->
+  <path d="M 193 296 Q 200 299 207 296" stroke="#935E3B" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7" />
+
+  <!-- 15. Hair: Black with Side Part & Front Fringe Texture (Matching DSC_0050.JPG) -->
+  <!-- Base Hair Silhouette -->
+  <path d="M 123 180 C 120 135 135 85 200 82 C 265 80 280 135 277 180 C 270 135 255 102 200 104 C 145 106 130 135 123 180 Z" fill="url(#hairBase)" />
+  <!-- Front fringe hair sweeping slightly across right forehead -->
+  <path d="M 125 155 C 135 115 165 96 210 98 C 255 100 275 120 275 150 C 268 120 245 104 205 103 C 160 102 135 120 125 155 Z" fill="#1C1816" />
+  <path d="M 150 105 C 165 118 190 125 215 118 C 235 112 250 108 260 112 C 245 102 225 98 195 98 C 170 98 155 102 150 105 Z" fill="#2E2824" />
+  <!-- Individual hair strand definition on forehead parting -->
+  <path d="M 170 102 Q 185 115 198 112" stroke="#14110F" stroke-width="3" stroke-linecap="round" fill="none" />
+  <path d="M 185 100 Q 200 114 212 110" stroke="#14110F" stroke-width="3" stroke-linecap="round" fill="none" />
+  <path d="M 200 99 Q 215 112 228 108" stroke="#14110F" stroke-width="3" stroke-linecap="round" fill="none" />
+
+  <!-- Sideburns -->
+  <path d="M 124 170 L 126 200 L 130 195 L 128 170 Z" fill="#181513" />
+  <path d="M 276 170 L 274 200 L 270 195 L 272 170 Z" fill="#181513" />
+</svg>

@@ -228,3 +228,48 @@ export interface PatientSuccessStory {
   helpfulUpvotes: number;
 }
 
+export type SymptomCategory = 
+  | 'Cranial & Headache'
+  | 'Motor, Movement & Weakness'
+  | 'Sensory & Numbness'
+  | 'Balance, Dizziness & Vestibular'
+  | 'Speech, Vision & Facial'
+  | 'Cognitive, Memory & Seizure';
+
+export type SymptomSeverity = 'Mild' | 'Moderate' | 'Severe';
+export type SymptomOnset = 'Sudden (< 1 hour)' | 'Rapid (< 24 hours)' | 'Gradual (Days to Weeks)' | 'Chronic / Recurrent (> 3 Months)';
+export type UrgencyTier = 'Emergency (Immediate)' | 'Urgent (Within 24-48h)' | 'Standard OPD Consultation';
+
+export interface SymptomDefinition {
+  id: string;
+  name: string;
+  category: SymptomCategory;
+  description: string;
+  isRedFlag?: boolean;
+  commonIn: string[];
+}
+
+export interface NeurologicalConditionProfile {
+  id: string;
+  name: string;
+  category: string;
+  subtitle: string;
+  overview: string;
+  urgency: UrgencyTier;
+  recommendedDepartment: DepartmentType;
+  keyMatchingSymptoms: string[]; // symptom ids
+  redFlagsTrigger?: string[];
+  diagnosticInvestigations: string[];
+  doctorAdvice: string;
+  articleSlug?: string;
+  vrHotspotId?: string;
+}
+
+export interface SymptomAssessmentResult {
+  condition: NeurologicalConditionProfile;
+  matchScore: number; // 0 - 100%
+  matchedSymptoms: SymptomDefinition[];
+  unmatchedKeySymptoms: string[];
+  hasRedFlags: boolean;
+}
+

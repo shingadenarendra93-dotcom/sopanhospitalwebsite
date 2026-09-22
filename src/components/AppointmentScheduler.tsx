@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -25,18 +25,33 @@ import { DOCTORS, INITIAL_APPOINTMENTS } from '../data/mockData';
 interface AppointmentSchedulerProps {
   initialDoctorId?: string;
   initialDiseaseContext?: string;
+  initialSymptoms?: string;
+  autoOpenBooking?: boolean;
   onAppointmentBooked?: (newApt: Appointment) => void;
 }
 
 export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   initialDoctorId,
   initialDiseaseContext,
+  initialSymptoms,
+  autoOpenBooking,
   onAppointmentBooked
 }) => {
   const [doctorsList] = useState<Doctor[]>(DOCTORS);
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentType>('All');
   const [searchDoctor, setSearchDoctor] = useState<string>('');
+  const [customDoctorPhoto, setCustomDoctorPhoto] = useState<string | null>(() => {
+    return localStorage.getItem('sopan_dr_custom_photo') || null;
+  });
+
+  useEffect(() => {
+    const handleSync = () => {
+      setCustomDoctorPhoto(localStorage.getItem('sopan_dr_custom_photo') || null);
+    };
+    window.addEventListener('sopan_photo_updated', handleSync);
+    return () => window.removeEventListener('sopan_photo_updated', handleSync);
+  }, []);
   
   // Booking Wizard Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
@@ -52,8 +67,23 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [patientGender, setPatientGender] = useState<'Male' | 'Female' | 'Other'>('Male');
   const [patientPhone, setPatientPhone] = useState<string>('');
   const [patientEmail, setPatientEmail] = useState<string>('');
-  const [symptoms, setSymptoms] = useState<string>(initialDiseaseContext ? `Consultation for ${initialDiseaseContext}` : '');
+  const [symptoms, setSymptoms] = useState<string>(
+    initialSymptoms || (initialDiseaseContext ? `Consultation for ${initialDiseaseContext}` : '')
+  );
   const [lastConfirmedAppointment, setLastConfirmedAppointment] = useState<Appointment | null>(null);
+
+  useEffect(() => {
+    if (initialSymptoms) {
+      setSymptoms(initialSymptoms);
+      const doc = doctorsList.find(d => d.id === (initialDoctorId || 'doc-sanjay-varade')) || doctorsList[0];
+      if (doc) {
+        setSelectedDoctor(doc);
+        setSelectedTimeSlot(doc.timeSlots[0] || '11:00 AM');
+        setIsBookingModalOpen(true);
+        setBookingStep(2);
+      }
+    }
+  }, [initialSymptoms, initialDoctorId, doctorsList]);
 
   const departments: DepartmentType[] = [
     'All',
@@ -202,13 +232,13 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
             <div>
               <div className="flex items-start gap-4 mb-4">
                 <img
-                  src={doctor.avatarUrl}
+                  src={(customDoctorPhoto && !customDoctorPhoto.includes('svg')) ? customDoctorPhoto : (doctor.avatarUrl || '/DSC_0050.JPG')}
                   alt={doctor.name}
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     const target = e.currentTarget;
-                    if (!target.src.includes('unsplash')) {
-                      target.src = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=800&q=80';
+                    if (!target.src.includes('doctor-photo.png')) {
+                      target.src = '/doctor-photo.png';
                     }
                   }}
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-[#DFD6C8] shrink-0 shadow-xs"

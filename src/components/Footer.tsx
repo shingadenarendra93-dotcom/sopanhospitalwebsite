@@ -69,6 +69,11 @@ export const Footer: React.FC<FooterProps> = ({
                 </button>
               </li>
               <li>
+                <button onClick={() => onNavigate('news')} className="hover:text-[#221B14] text-[#456254] transition-colors font-semibold flex items-center gap-1">
+                  <span>📰</span> Latest Neurology News & Research
+                </button>
+              </li>
+              <li>
                 <button onClick={() => onNavigate('remote-monitoring')} className="hover:text-[#8E5B3E] transition-colors text-left">
                   Remote Monitoring & Triage
                 </button>

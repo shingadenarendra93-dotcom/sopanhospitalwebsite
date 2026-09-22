@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Star, 
   CheckCircle2, 
@@ -39,6 +39,17 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
   const [activeAudioStoryId, setActiveAudioStoryId] = useState<string | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState<boolean>(false);
   const [copiedStoryId, setCopiedStoryId] = useState<string | null>(null);
+  const [doctorPhoto, setDoctorPhoto] = useState<string | null>(() => {
+    return localStorage.getItem('sopan_dr_custom_photo') || null;
+  });
+
+  useEffect(() => {
+    const handleSync = () => {
+      setDoctorPhoto(localStorage.getItem('sopan_dr_custom_photo') || null);
+    };
+    window.addEventListener('sopan_photo_updated', handleSync);
+    return () => window.removeEventListener('sopan_photo_updated', handleSync);
+  }, []);
 
   // New story submission form state
   const [newPatientName, setNewPatientName] = useState<string>('');
@@ -363,13 +374,13 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <img
-              src="/ChatGPT Image May 26, 2026, 01_51_43 PM (2).png"
-              alt="Dr. Sanjay Sopan Varade"
+              src={(doctorPhoto && !doctorPhoto.includes('svg')) ? doctorPhoto : '/DSC_0050.JPG'}
+              alt="Dr. Sanjay Sopan Varade (MD, DM Neuro)"
               referrerPolicy="no-referrer"
               onError={(e) => {
                 const target = e.currentTarget;
-                if (!target.src.includes('unsplash')) {
-                  target.src = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=800&q=80';
+                if (!target.src.includes('doctor-photo.png')) {
+                  target.src = '/doctor-photo.png';
                 }
               }}
               className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-[#D8CFC2] shrink-0 shadow-sm"

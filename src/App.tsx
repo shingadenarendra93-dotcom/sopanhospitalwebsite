@@ -10,6 +10,8 @@ import { CaseStudyDatabase } from './components/CaseStudyDatabase';
 import { StaffPayroll } from './components/StaffPayroll';
 import { GoogleReviews } from './components/GoogleReviews';
 import { PatientSuccessStories } from './components/PatientSuccessStories';
+import { LatestNeurologyNews } from './components/LatestNeurologyNews';
+import { SymptomChecker } from './components/SymptomChecker';
 import { WhatsAppContactModal } from './components/WhatsAppContactModal';
 import { Footer } from './components/Footer';
 import { 
@@ -24,7 +26,11 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('vr-brain');
+  const [activeTab, setActiveTab] = useState<string>('symptom-checker');
+  const [appointmentPrefill, setAppointmentPrefill] = useState<{
+    symptoms?: string;
+    condition?: string;
+  } | null>(null);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
   const [whatsAppDefaultTemplate, setWhatsAppDefaultTemplate] = useState<string>('stroke-emergency');
   const [isEmergencyCallModalOpen, setIsEmergencyCallModalOpen] = useState<boolean>(false);
@@ -32,6 +38,15 @@ export default function App() {
   const handleOpenWhatsApp = (template = 'stroke-emergency') => {
     setWhatsAppDefaultTemplate(template);
     setIsWhatsAppModalOpen(true);
+  };
+
+  const handleBookFromSymptomChecker = (symptomsSummary: string, suspectedCondition?: string) => {
+    setAppointmentPrefill({
+      symptoms: symptomsSummary,
+      condition: suspectedCondition
+    });
+    setActiveTab('appointments');
+    window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
   return (
@@ -58,7 +73,9 @@ export default function App() {
         {/* Dynamic Section Navigation / Sub-tabs */}
         <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-2 shadow-xs flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {[
+            { id: 'symptom-checker', label: 'Interactive Symptom Checker' },
             { id: 'stories', label: 'Patient Success Stories' },
+            { id: 'news', label: 'Latest Neurology News' },
             { id: 'appointments', label: 'Book OPD Appointment' },
             { id: 'reviews', label: 'Google Reviews (4.9★)' },
             { id: 'vr-brain', label: '3D/VR Brain Anatomy' },
@@ -86,6 +103,23 @@ export default function App() {
 
         {/* View Switcher Container */}
         <div className="transition-opacity duration-200">
+          {activeTab === 'symptom-checker' && (
+            <SymptomChecker
+              onBookAppointment={handleBookFromSymptomChecker}
+              onOpenWhatsApp={(customMsg) => {
+                if (customMsg) {
+                  const encoded = encodeURIComponent(customMsg);
+                  window.open(`https://wa.me/919405545521?text=${encoded}`, '_blank');
+                } else {
+                  handleOpenWhatsApp('stroke-emergency');
+                }
+              }}
+              onExploreVR={(hotspotId) => {
+                setActiveTab('vr-brain');
+                window.scrollTo({ top: 380, behavior: 'smooth' });
+              }}
+            />
+          )}
           {activeTab === 'stories' && (
             <PatientSuccessStories
               onBookAppointment={() => {
@@ -95,6 +129,15 @@ export default function App() {
               onOpenReviews={() => {
                 setActiveTab('reviews');
                 window.scrollTo({ top: 400, behavior: 'smooth' });
+              }}
+              onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
+            />
+          )}
+          {activeTab === 'news' && (
+            <LatestNeurologyNews
+              onBookConsultation={() => {
+                setActiveTab('appointments');
+                window.scrollTo({ top: 350, behavior: 'smooth' });
               }}
               onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
             />
@@ -112,7 +155,12 @@ export default function App() {
               }}
             />
           )}
-          {activeTab === 'appointments' && <AppointmentScheduler />}
+          {activeTab === 'appointments' && (
+            <AppointmentScheduler
+              initialSymptoms={appointmentPrefill?.symptoms}
+              initialDiseaseContext={appointmentPrefill?.condition}
+            />
+          )}
           {activeTab === 'patient-portal' && <PatientPortal />}
           {activeTab === 'remote-monitoring' && <RemoteMonitoring />}
           {activeTab === 'case-studies' && <CaseStudyDatabase />}
