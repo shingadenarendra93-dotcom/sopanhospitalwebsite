@@ -35,6 +35,14 @@ export default function App() {
   const [whatsAppDefaultTemplate, setWhatsAppDefaultTemplate] = useState<string>('stroke-emergency');
   const [isEmergencyCallModalOpen, setIsEmergencyCallModalOpen] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    // Keep the doctor photo default: purge any legacy local storage overrides
+    if (typeof window !== 'undefined' && localStorage.getItem('sopan_dr_custom_photo')) {
+      localStorage.removeItem('sopan_dr_custom_photo');
+      window.dispatchEvent(new Event('sopan_photo_updated'));
+    }
+  }, []);
+
   const handleOpenWhatsApp = (template = 'stroke-emergency') => {
     setWhatsAppDefaultTemplate(template);
     setIsWhatsAppModalOpen(true);

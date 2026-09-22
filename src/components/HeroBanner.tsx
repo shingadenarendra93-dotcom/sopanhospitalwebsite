@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { 
   Activity, 
   Calendar, 
@@ -9,8 +9,6 @@ import {
   Phone, 
   Star, 
   Sparkles,
-  Camera,
-  Upload,
   Stethoscope,
   MessageCircle,
   Newspaper,
@@ -26,59 +24,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onNavigate,
   onOpenWhatsApp
 }) => {
-  const [customPhoto, setCustomPhoto] = useState<string | null>(() => {
-    return localStorage.getItem('sopan_dr_custom_photo') || null;
-  });
-  const [photoSavedNotice, setPhotoSavedNotice] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  // Guarantee that the doctor photo stays default (/DSC_0050.JPG)
   useEffect(() => {
-    // Clear any legacy SVG representations from local storage
-    const stored = localStorage.getItem('sopan_dr_custom_photo');
-    if (stored && (stored.includes('svg') || stored.includes('data:image/svg'))) {
+    // Purge any temporary custom photo overrides from localStorage
+    if (localStorage.getItem('sopan_dr_custom_photo')) {
       localStorage.removeItem('sopan_dr_custom_photo');
-      setCustomPhoto(null);
+      window.dispatchEvent(new Event('sopan_photo_updated'));
     }
-
-    const handleSync = () => {
-      const updated = localStorage.getItem('sopan_dr_custom_photo');
-      if (updated && !updated.includes('svg')) {
-        setCustomPhoto(updated);
-      }
-    };
-    window.addEventListener('sopan_photo_updated', handleSync);
-    return () => window.removeEventListener('sopan_photo_updated', handleSync);
   }, []);
 
-  const processImageFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setCustomPhoto(result);
-      localStorage.setItem('sopan_dr_custom_photo', result);
-      window.dispatchEvent(new Event('sopan_photo_updated'));
-      setPhotoSavedNotice(true);
-      setTimeout(() => setPhotoSavedNotice(false), 5000);
-
-      // Also persist permanently to server's public directory
-      fetch('/api/upload-doctor-photo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoDataUrl: result })
-      }).catch((err) => console.warn('Could not sync photo to server:', err));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processImageFile(file);
-    }
-  };
-
-  const doctorPhotoSrc = (customPhoto && !customPhoto.includes('svg')) ? customPhoto : '/DSC_0050.JPG';
+  const doctorPhotoSrc = '/DSC_0050.JPG';
 
   return (
     <div className="space-y-6">
@@ -156,22 +111,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           {/* Right Hero: Doctor Profile Showcase with Photo and Warm Bright Card */}
           <div className="lg:col-span-5 bg-white/95 border border-[#E6DBCA] rounded-3xl p-5 sm:p-6 space-y-4 shadow-sm backdrop-blur-xs">
             <div className="flex items-start gap-4">
-              <div 
-                className={`relative group shrink-0 transition-all ${isDragging ? 'ring-3 ring-[#8E5B3E] ring-offset-2 scale-105' : ''}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) {
-                    processImageFile(file);
-                  }
-                }}
-              >
+              <div className="relative shrink-0">
                 <img
                   src={doctorPhotoSrc}
                   alt="Dr. Sanjay Sopan Varade (MD, DM Neuro)"
@@ -182,25 +122,15 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                       target.src = '/doctor-photo.png';
                     }
                   }}
-                  className="w-22 h-22 rounded-2xl object-cover border-2 border-[#D8C7B0] shrink-0 shadow-xs cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Dr. Sanjay Sopan Varade (MD, DM Neuro) - Permanent Verified Portrait"
+                  className="w-22 h-22 rounded-2xl object-cover border-2 border-[#D8C7B0] shrink-0 shadow-xs"
+                  title="Dr. Sanjay Sopan Varade (MD, DM Neuro) - Default Official Portrait"
                 />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Update / Manage Doctor Photo"
-                  className="absolute -bottom-1.5 -right-1.5 p-1.5 bg-[#8E5B3E] hover:bg-[#784A31] text-white rounded-full shadow-md transition-transform hover:scale-110 cursor-pointer"
+                <div
+                  title="Official Verified Portrait"
+                  className="absolute -bottom-1 -right-1 p-1 bg-emerald-600 text-white rounded-full shadow-xs border-2 border-white"
                 >
-                  <Camera className="w-3.5 h-3.5" />
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -214,12 +144,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 </h3>
                 <div className="text-xs text-[#8E5B3E] font-semibold">MD, DM Neuro (CMC Vellore)</div>
                 <div className="text-[11px] text-[#6B6254]">Director & Chief Consultant Neurologist</div>
-                {photoSavedNotice && (
-                  <div className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 mt-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                    <span>Photo updated & saved!</span>
-                  </div>
-                )}
+                <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 mt-0.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <span>Default Verified Portrait</span>
+                </div>
               </div>
             </div>
 

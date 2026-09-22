@@ -39,16 +39,12 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
   const [activeAudioStoryId, setActiveAudioStoryId] = useState<string | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState<boolean>(false);
   const [copiedStoryId, setCopiedStoryId] = useState<string | null>(null);
-  const [doctorPhoto, setDoctorPhoto] = useState<string | null>(() => {
-    return localStorage.getItem('sopan_dr_custom_photo') || null;
-  });
 
   useEffect(() => {
-    const handleSync = () => {
-      setDoctorPhoto(localStorage.getItem('sopan_dr_custom_photo') || null);
-    };
-    window.addEventListener('sopan_photo_updated', handleSync);
-    return () => window.removeEventListener('sopan_photo_updated', handleSync);
+    // Purge any temporary custom photo overrides to guarantee default photo
+    if (localStorage.getItem('sopan_dr_custom_photo')) {
+      localStorage.removeItem('sopan_dr_custom_photo');
+    }
   }, []);
 
   // New story submission form state
@@ -374,7 +370,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <img
-              src={(doctorPhoto && !doctorPhoto.includes('svg')) ? doctorPhoto : '/DSC_0050.JPG'}
+              src="/DSC_0050.JPG"
               alt="Dr. Sanjay Sopan Varade (MD, DM Neuro)"
               referrerPolicy="no-referrer"
               onError={(e) => {

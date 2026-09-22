@@ -197,7 +197,17 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
     symptoms: '1-Month post mechanical thrombectomy routine Doppler & motor recovery assessment',
     status: 'Confirmed',
     tokenNumber: 'STRK-04',
-    createdAt: '2026-09-18'
+    createdAt: '2026-09-18',
+    reminderSettings: {
+      whatsapp: true,
+      email: true,
+      leadTimeHours: 24,
+      whatsappNumber: '+91 98230 45678',
+      emailAddress: 'rajesh.kulkarni@example.com',
+      status: 'Active',
+      scheduledTimeText: '24 Hours Prior (2026-09-23 at 11:00 AM)',
+      confirmedAt: '2026-09-18'
+    }
   },
   {
     id: 'apt-902',
@@ -215,7 +225,17 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
     symptoms: 'Breakthrough nocturnal myoclonic jerks and Levetiracetam dosage titration',
     status: 'Confirmed',
     tokenNumber: 'EPI-12',
-    createdAt: '2026-09-19'
+    createdAt: '2026-09-19',
+    reminderSettings: {
+      whatsapp: true,
+      email: false,
+      leadTimeHours: 2,
+      whatsappNumber: '+91 94220 11223',
+      emailAddress: 'meera.patel@example.com',
+      status: 'Scheduled',
+      scheduledTimeText: '2 Hours Prior (Today at 12:00 PM)',
+      confirmedAt: '2026-09-19'
+    }
   }
 ];
 

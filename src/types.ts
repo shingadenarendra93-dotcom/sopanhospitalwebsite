@@ -25,6 +25,19 @@ export interface Doctor {
   languages: string[];
 }
 
+export interface ReminderSettings {
+  whatsapp: boolean;
+  email: boolean;
+  leadTimeHours: 24 | 48 | 2 | 1;
+  whatsappNumber?: string;
+  emailAddress?: string;
+  status: 'Scheduled' | 'Sent' | 'Delivered' | 'Active';
+  scheduledTimeText?: string;
+  confirmedAt?: string;
+  lastDispatchedAt?: string;
+  customNotes?: string;
+}
+
 export interface Appointment {
   id: string;
   patientName: string;
@@ -42,6 +55,7 @@ export interface Appointment {
   status: 'Confirmed' | 'Completed' | 'Cancelled';
   tokenNumber: string;
   createdAt: string;
+  reminderSettings?: ReminderSettings;
 }
 
 export interface DiagnosticReport {

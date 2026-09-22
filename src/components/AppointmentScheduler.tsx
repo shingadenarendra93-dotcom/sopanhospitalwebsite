@@ -17,10 +17,17 @@ import {
   Phone,
   Mail,
   ChevronRight,
-  X
+  X,
+  Bell,
+  Send,
+  MessageCircle,
+  Check,
+  Sparkles
 } from 'lucide-react';
-import { Doctor, Appointment, DepartmentType } from '../types';
+import { Doctor, Appointment, DepartmentType, ReminderSettings } from '../types';
 import { DOCTORS, INITIAL_APPOINTMENTS } from '../data/mockData';
+import { AppointmentReminderModal } from './AppointmentReminderModal';
+import { downloadIcsFile, formatAppointmentReminderMessage } from '../utils/calendarUtils';
 
 interface AppointmentSchedulerProps {
   initialDoctorId?: string;
@@ -41,16 +48,12 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentType>('All');
   const [searchDoctor, setSearchDoctor] = useState<string>('');
-  const [customDoctorPhoto, setCustomDoctorPhoto] = useState<string | null>(() => {
-    return localStorage.getItem('sopan_dr_custom_photo') || null;
-  });
 
   useEffect(() => {
-    const handleSync = () => {
-      setCustomDoctorPhoto(localStorage.getItem('sopan_dr_custom_photo') || null);
-    };
-    window.addEventListener('sopan_photo_updated', handleSync);
-    return () => window.removeEventListener('sopan_photo_updated', handleSync);
+    // Ensure default doctor photo by clearing any custom overrides
+    if (localStorage.getItem('sopan_dr_custom_photo')) {
+      localStorage.removeItem('sopan_dr_custom_photo');
+    }
   }, []);
   
   // Booking Wizard Modal State
@@ -71,6 +74,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     initialSymptoms || (initialDiseaseContext ? `Consultation for ${initialDiseaseContext}` : '')
   );
   const [lastConfirmedAppointment, setLastConfirmedAppointment] = useState<Appointment | null>(null);
+
+  // Remind Me Feature State
+  const [optInWhatsappReminder, setOptInWhatsappReminder] = useState<boolean>(true);
+  const [optInEmailReminder, setOptInEmailReminder] = useState<boolean>(true);
+  const [reminderLeadTime, setReminderLeadTime] = useState<24 | 48 | 2 | 1>(24);
+  const [selectedAppointmentForReminder, setSelectedAppointmentForReminder] = useState<Appointment | null>(null);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState<boolean>(false);
+  const [reminderToast, setReminderToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialSymptoms) {
@@ -126,6 +137,25 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     const prefix = deptPrefixMap[selectedDoctor.department] || 'NEURO';
     const token = `${prefix}-${Math.floor(10 + Math.random() * 90)}`;
 
+    const scheduledTimeText = reminderLeadTime === 48 
+      ? '48 Hours Prior' 
+      : reminderLeadTime === 2 
+        ? '2 Hours Prior' 
+        : reminderLeadTime === 1 
+          ? 'Morning of Visit (8:00 AM)' 
+          : '24 Hours Prior';
+
+    const reminderSettings: ReminderSettings = {
+      whatsapp: optInWhatsappReminder,
+      email: optInEmailReminder,
+      leadTimeHours: reminderLeadTime,
+      whatsappNumber: patientPhone || '+91 98000 00000',
+      emailAddress: patientEmail || 'patient@example.com',
+      status: (optInWhatsappReminder || optInEmailReminder) ? 'Active' : 'Scheduled',
+      scheduledTimeText,
+      confirmedAt: new Date().toISOString().split('T')[0]
+    };
+
     const newAppointment: Appointment = {
       id: `apt-${Date.now()}`,
       patientName: patientName || 'Patient',
@@ -142,7 +172,8 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       symptoms: symptoms || 'Routine neurological follow-up',
       status: 'Confirmed',
       tokenNumber: token,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: new Date().toISOString().split('T')[0],
+      reminderSettings
     };
 
     setAppointments(prev => [newAppointment, ...prev]);
@@ -151,6 +182,24 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       onAppointmentBooked(newAppointment);
     }
     setBookingStep(3); // Show confirmation receipt slip
+  };
+
+  const handleSaveReminderSettings = (appointmentId: string, updatedSettings: ReminderSettings) => {
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, reminderSettings: updatedSettings } : a));
+    if (lastConfirmedAppointment && lastConfirmedAppointment.id === appointmentId) {
+      setLastConfirmedAppointment(prev => prev ? { ...prev, reminderSettings: updatedSettings } : null);
+    }
+    const channels = [
+      updatedSettings.whatsapp ? 'WhatsApp' : '',
+      updatedSettings.email ? 'Email' : ''
+    ].filter(Boolean).join(' & ') || 'None';
+    setReminderToast(`Remind Me preferences updated (${channels})!`);
+    setTimeout(() => setReminderToast(null), 3500);
+  };
+
+  const handleOpenReminderModal = (apt: Appointment) => {
+    setSelectedAppointmentForReminder(apt);
+    setIsReminderModalOpen(true);
   };
 
   const cancelAppointment = (id: string) => {
@@ -232,7 +281,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
             <div>
               <div className="flex items-start gap-4 mb-4">
                 <img
-                  src={(customDoctorPhoto && !customDoctorPhoto.includes('svg')) ? customDoctorPhoto : (doctor.avatarUrl || '/DSC_0050.JPG')}
+                  src={doctor.avatarUrl || '/DSC_0050.JPG'}
                   alt={doctor.name}
                   referrerPolicy="no-referrer"
                   onError={(e) => {
@@ -307,13 +356,31 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
       {/* Booked Appointments Status List */}
       <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-3xl p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-[#EAE3D6] pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EAE3D6] pb-3 gap-2">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#8E5B3E]" />
             <h3 className="font-serif font-bold text-base text-[#27231E]">Active Booked Appointments ({appointments.length})</h3>
           </div>
-          <span className="text-xs text-[#7A746B]">Live Hospital OPD Token System</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-[#7A746B]">Live Hospital OPD Token System</span>
+          </div>
         </div>
+
+        {reminderToast && (
+          <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{reminderToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReminderToast(null)}
+              className="text-emerald-700 hover:text-emerald-950 p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         <div className="divide-y divide-[#EAE3D6]">
           {appointments.map(apt => (
@@ -359,10 +426,47 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                       )}
                     </span>
                   </div>
+
+                  {/* Remind Me Status Badge */}
+                  <div className="mt-2 flex items-center gap-2">
+                    {apt.reminderSettings && (apt.reminderSettings.whatsapp || apt.reminderSettings.email) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReminderModal(apt)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors"
+                        title="Click to manage automated reminder settings"
+                      >
+                        <Bell className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>
+                          Remind Me: {[apt.reminderSettings.whatsapp ? 'WhatsApp' : '', apt.reminderSettings.email ? 'Email' : ''].filter(Boolean).join(' & ')}
+                        </span>
+                        <span className="text-emerald-700 font-normal">({apt.reminderSettings.leadTimeHours}h before)</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReminderModal(apt)}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-colors"
+                        title="Opt-in for WhatsApp & Email reminders"
+                      >
+                        <Bell className="w-3 h-3 text-amber-600 shrink-0" />
+                        <span>Remind Me: Not configured (Click to opt-in)</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleOpenReminderModal(apt)}
+                  className="text-xs text-[#8E5B3E] hover:text-[#784A31] px-3.5 py-1.5 rounded-xl bg-[#FAF2EB] hover:bg-[#F3E5D8] border border-[#E4CEBC] font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+                  title="Configure automated WhatsApp & Email reminders"
+                >
+                  <Bell className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                  Remind Me
+                </button>
                 {apt.status === 'Confirmed' && (
                   <button
                     onClick={() => cancelAppointment(apt.id)}
@@ -591,6 +695,92 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     />
                   </div>
 
+                  {/* Remind Me Notification Preferences */}
+                  <div className="bg-[#FAF7F2] p-4 rounded-2xl border border-[#E6E0D4] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-[#8E5B3E]/10 text-[#8E5B3E] flex items-center justify-center">
+                          <Bell className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-[#27231E]">Automated 'Remind Me' Alerts</h4>
+                          <p className="text-[11px] text-[#6E675D]">Opt-in for timely appointment & token notifications</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold bg-[#8E5B3E]/10 text-[#8E5B3E] px-2 py-0.5 rounded-full">
+                        Free Automated Service
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-[#EAE3D6] bg-white cursor-pointer select-none hover:bg-emerald-50/40 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={optInWhatsappReminder}
+                          onChange={e => setOptInWhatsappReminder(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold text-[#27231E] flex items-center gap-1">
+                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            WhatsApp Reminder
+                          </span>
+                          <p className="text-[10px] text-[#7A7265] mt-0.5">
+                            Sends OPD token pass & location alert to {patientPhone || 'mobile'}
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-[#EAE3D6] bg-white cursor-pointer select-none hover:bg-amber-50/40 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={optInEmailReminder}
+                          onChange={e => setOptInEmailReminder(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-gray-300"
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold text-[#27231E] flex items-center gap-1">
+                            <Mail className="w-3.5 h-3.5 text-amber-600" />
+                            Email Reminder (.ics)
+                          </span>
+                          <p className="text-[10px] text-[#7A7265] mt-0.5">
+                            Calendar file & pre-consultation checklist to {patientEmail || 'email'}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {(optInWhatsappReminder || optInEmailReminder) && (
+                      <div className="pt-2 border-t border-[#EAE3D6]">
+                        <label className="block text-[11px] font-semibold text-[#6E675D] mb-1.5 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-[#8E5B3E]" />
+                          Notify me:
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px]">
+                          {[
+                            { hours: 24 as const, label: '24h Prior' },
+                            { hours: 48 as const, label: '48h Prior' },
+                            { hours: 2 as const, label: '2h Prior' },
+                            { hours: 1 as const, label: 'Morning of visit' }
+                          ].map(opt => (
+                            <button
+                              key={opt.hours}
+                              type="button"
+                              onClick={() => setReminderLeadTime(opt.hours)}
+                              className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                                reminderLeadTime === opt.hours
+                                  ? 'bg-[#8E5B3E] text-white border-[#8E5B3E] font-bold'
+                                  : 'bg-white text-[#6E675D] border-[#EAE3D6] hover:bg-[#FAF7F2]'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="bg-cyan-50/60 p-3 rounded-xl border border-cyan-100 flex items-center justify-between text-xs">
                     <div>
                       <div className="font-semibold text-cyan-900">Total Consultation Fee</div>
@@ -687,6 +877,64 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     </div>
                   </div>
 
+                  {/* Automated Remind Me Status Card & Instant Actions */}
+                  <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                          <Bell className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-[#27231E]">Automated 'Remind Me' Service</h4>
+                            <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                              Active
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#6E675D]">
+                            Scheduled alert: {lastConfirmedAppointment.reminderSettings?.scheduledTimeText || '24 Hours Prior'} via {[
+                              lastConfirmedAppointment.reminderSettings?.whatsapp ? 'WhatsApp' : '',
+                              lastConfirmedAppointment.reminderSettings?.email ? 'Email' : ''
+                            ].filter(Boolean).join(' & ') || 'WhatsApp'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReminderModal(lastConfirmedAppointment)}
+                        className="text-xs text-[#8E5B3E] hover:underline font-semibold"
+                      >
+                        Customize
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const msg = formatAppointmentReminderMessage(lastConfirmedAppointment);
+                          const cleanNumber = (lastConfirmedAppointment.reminderSettings?.whatsappNumber || lastConfirmedAppointment.patientPhone).replace(/[^\d]/g, '');
+                          const url = `https://wa.me/${cleanNumber.length === 10 ? '91' + cleanNumber : cleanNumber || '919422011223'}?text=${encodeURIComponent(msg)}`;
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}
+                        className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        Send Token to WhatsApp
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => downloadIcsFile(lastConfirmedAppointment)}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#D8CFC2] text-xs font-semibold text-[#27231E] flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                        Add to Calendar (.ics)
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between pt-2">
                     <button
                       onClick={() => window.print()}
@@ -708,6 +956,17 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           </div>
         </div>
       )}
+
+      {/* Remind Me Configuration Modal */}
+      <AppointmentReminderModal
+        appointment={selectedAppointmentForReminder}
+        isOpen={isReminderModalOpen}
+        onClose={() => {
+          setIsReminderModalOpen(false);
+          setSelectedAppointmentForReminder(null);
+        }}
+        onSaveReminder={handleSaveReminderSettings}
+      />
     </div>
   );
 };
