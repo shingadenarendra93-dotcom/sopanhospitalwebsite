@@ -24,7 +24,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onNavigate,
   onOpenWhatsApp
 }) => {
-  // Guarantee that the doctor photo stays default (/DSC_0050.JPG)
+  // Guarantee that the doctor photo stays default (/DSC_0050.png)
   useEffect(() => {
     // Purge any temporary custom photo overrides from localStorage
     if (localStorage.getItem('sopan_dr_custom_photo')) {
@@ -33,7 +33,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     }
   }, []);
 
-  const doctorPhotoSrc = '/DSC_0050.JPG';
+  const doctorPhotoSrc = '/DSC_0050.png';
 
   return (
     <div className="space-y-6">

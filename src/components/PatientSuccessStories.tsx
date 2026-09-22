@@ -370,7 +370,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <img
-              src="/DSC_0050.JPG"
+              src="/DSC_0050.png"
               alt="Dr. Sanjay Sopan Varade (MD, DM Neuro)"
               referrerPolicy="no-referrer"
               onError={(e) => {

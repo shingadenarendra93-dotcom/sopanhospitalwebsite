@@ -142,9 +142,9 @@ async function startServer() {
   // Doctor photo handler serving the exact uploaded file or authentic portrait
   const handleDoctorPhotoRequest = (_req: express.Request, res: express.Response) => {
     const candidateNames = [
+      'DSC_0050.png',
       'DSC_0050.JPG',
       'DSC_0050.jpg',
-      'DSC_0050.png',
       'doctor-photo.png',
       'doctor-sanjay-varade.png',
       'ChatGPT Image May 26, 2026, 01_51_43 PM (1).png',

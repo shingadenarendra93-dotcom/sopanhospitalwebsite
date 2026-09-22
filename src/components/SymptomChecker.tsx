@@ -695,7 +695,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
               <div className="space-y-3 pt-3 border-t border-[#EBE3D5]">
                 <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E3DACB] flex items-center gap-3">
                   <img
-                    src="/DSC_0050.JPG"
+                    src="/DSC_0050.png"
                     alt="Dr. Sanjay Sopan Varade"
                     referrerPolicy="no-referrer"
                     onError={(e) => {

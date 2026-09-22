@@ -281,7 +281,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
             <div>
               <div className="flex items-start gap-4 mb-4">
                 <img
-                  src={doctor.avatarUrl || '/DSC_0050.JPG'}
+                  src={doctor.avatarUrl || '/DSC_0050.png'}
                   alt={doctor.name}
                   referrerPolicy="no-referrer"
                   onError={(e) => {
