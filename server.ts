@@ -2,16 +2,12 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { WebSocketServer, WebSocket } from 'ws';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 let aiClient: GoogleGenAI | null = null;
 
