@@ -77,21 +77,6 @@ export const GeminiChatbot: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Safe helper to parse JSON responses and prevent "Unexpected end of JSON input" errors
-  const safeParseResponse = async (res: Response): Promise<{ ok: boolean; data: any }> => {
-    try {
-      const rawText = await res.text();
-      if (!rawText || rawText.trim().length === 0) {
-        return { ok: res.ok, data: {} };
-      }
-      const data = JSON.parse(rawText);
-      return { ok: res.ok, data };
-    } catch (parseErr) {
-      console.warn('Could not parse response as JSON:', parseErr);
-      return { ok: false, data: {} };
-    }
-  };
-
   // Handle Send Message
   const handleSendMessage = async (textToSend?: string) => {
     const promptText = (textToSend || input).trim();
@@ -125,17 +110,15 @@ export const GeminiChatbot: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: promptText, language })
         });
-        const { data } = await safeParseResponse(res);
+        const data = await res.json();
 
         const modelMsg: ChatMessage = {
           id: 'model-' + Date.now(),
           role: 'model',
-          content: data?.text || (language === 'mr' 
-            ? 'सोपान हॉस्पिटल नाशिक: डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या ओपीडी तपासणीसाठी ०२५३ २३१७३६४ वर संपर्क साधा.' 
-            : 'Sopan Hospital Neurology Institute: Please consult our OPD desk at 0253 2317364 for expert neurology appointments with Dr. Sanjay Sopan Varade.'),
+          content: data.text || 'No response returned from search grounding.',
           model: 'gemini-3.5-flash (Google Search Grounded)',
-          sources: data?.sources || [],
-          searchQueries: data?.searchQueries || [],
+          sources: data.sources || [],
+          searchQueries: data.searchQueries || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -147,7 +130,7 @@ export const GeminiChatbot: React.FC = () => {
             content: modelMsg.content,
             model: 'gemini-3.5-flash (Search)',
             groundingType: 'search',
-            sources: data?.sources
+            sources: data.sources
           });
         }
       } else if (groundingMode === 'maps') {
@@ -178,16 +161,14 @@ export const GeminiChatbot: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: promptText, userLocation, language })
         });
-        const { data } = await safeParseResponse(res);
+        const data = await res.json();
 
         const modelMsg: ChatMessage = {
           id: 'model-' + Date.now(),
           role: 'model',
-          content: data?.text || (language === 'mr'
-            ? 'सोपान हॉस्पिटल पत्ता: श्रीहरी कुटे मार्ग, संदीप हॉटेल जवळ, मुंबई नाका, नाशिक - ४२२००१. (फोन: ०२५३ २३१७३६४)'
-            : 'Sopan Hospital Location: Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001. Landmark: Mumbai Naka junction. (Hotline: 0253 2317364)'),
+          content: data.text || 'No location details returned.',
           model: 'gemini-3.5-flash (Google Maps Grounded)',
-          places: data?.places || [],
+          places: data.places || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -199,17 +180,15 @@ export const GeminiChatbot: React.FC = () => {
             content: modelMsg.content,
             model: 'gemini-3.5-flash (Maps)',
             groundingType: 'maps',
-            sources: data?.places
+            sources: data.places
           });
         }
       } else {
-        // Multi-turn conversation: exclude system/error messages to preserve Gemini user/model turn schema
-        const chatHistory = [...messages, userMsg]
-          .filter(m => m.role === 'user' || m.role === 'model')
-          .map(m => ({
-            role: m.role,
-            content: m.content
-          }));
+        // Multi-turn conversation with chosen model (gemini-3.5-flash, gemini-3.1-pro-preview, gemini-3.1-flash-lite)
+        const chatHistory = [...messages, userMsg].map(m => ({
+          role: m.role,
+          content: m.content
+        }));
 
         const res = await fetch('/api/gemini/chat', {
           method: 'POST',
@@ -220,17 +199,13 @@ export const GeminiChatbot: React.FC = () => {
             language
           })
         });
-        const { data } = await safeParseResponse(res);
-
-        const fallbackDefault = language === 'mr'
-          ? 'सोपान हॉस्पिटल आणि न्यूरोलॉजी इन्स्टिट्यूट नाशिक: डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या ओपीडी तपासणीसाठी सोम-शनि सकाळी १० ते दु. २ आणि सायं ५ ते रात्री ८ (ओपीडी फी: ₹१,५००). तातडीची स्ट्रोक हेल्पलाइन: ०२५३ २३१७३६४.'
-          : 'Thank you for your inquiry. For direct OPD consultations with Dr. Sanjay Sopan Varade (MD, DM Neuro, 35+ Yrs Exp) at Mumbai Naka, Nashik, or 24/7 Acute Stroke triage, call 0253 2317364.';
+        const data = await res.json();
 
         const modelMsg: ChatMessage = {
           id: 'model-' + Date.now(),
           role: 'model',
-          content: data?.text || fallbackDefault,
-          model: data?.model || selectedModel,
+          content: data.text || 'Thank you for your inquiry. Please consult with our neuro reception desk at 0253 2317364 for immediate assistance.',
+          model: data.model || selectedModel,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -245,16 +220,13 @@ export const GeminiChatbot: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.warn('Chat interaction handled gracefully:', err);
-      const safeErrorFallback = language === 'mr'
-        ? 'सोपान हॉस्पिटल न्यूरोलॉजी इन्स्टिट्यूट नाशिक: डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या भेटीसाठी थेट संपर्क साधा: ०२५३ २३१७३६४ | व्हॉट्सॲप: ९४०५५४५५२१.'
-        : 'Sopan Hospital & Neurology Institute Desk: For clinical guidance or appointments with Dr. Sanjay Sopan Varade (MD, DM Neuro), please contact 0253 2317364 directly.';
+      console.error('Error sending message:', err);
       setMessages(prev => [
         ...prev,
         {
-          id: 'model-' + Date.now(),
-          role: 'model',
-          content: safeErrorFallback,
+          id: 'err-' + Date.now(),
+          role: 'system',
+          content: `⚠️ Note: An error occurred while communicating with the AI service. If this persists, please contact Sopan Hospital Directly at 0253 2317364. (${err.message})`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -313,8 +285,8 @@ export const GeminiChatbot: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ audioBase64: base64data, mimeType })
         });
-        const { data } = await safeParseResponse(res);
-        if (data?.text) {
+        const data = await res.json();
+        if (data.text) {
           setInput(data.text);
         }
         setIsTranscribing(false);
