@@ -1,28 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Star, 
   CheckCircle2, 
-  MessageSquare, 
   ThumbsUp, 
-  Award, 
   ShieldCheck, 
-  Plus, 
-  Filter, 
-  Search, 
-  X,
-  Building2
+  X, 
+  HeartHandshake, 
+  Lock, 
+  UserX
 } from 'lucide-react';
 import { GoogleReview } from '../types';
-import { INITIAL_REVIEWS } from '../data/mockData';
+import { 
+  loadStoredReviews, 
+  saveStoredReviews 
+} from '../utils/feedbackUtils';
+import { PatientExperienceFeedbackModalOrSection } from './PatientExperienceFeedback';
 
 interface GoogleReviewsProps {
   onOpenSuccessStories?: () => void;
 }
 
 export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStories }) => {
-  const [reviews, setReviews] = useState<GoogleReview[]>(INITIAL_REVIEWS);
+  const [reviews, setReviews] = useState<GoogleReview[]>(() => loadStoredReviews());
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('All');
+  const [sourceFilter, setSourceFilter] = useState<'All' | 'Google' | 'AnonymousFeedback'>('All');
   const [showWriteModal, setShowWriteModal] = useState<boolean>(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
 
   // New review form
   const [authorName, setAuthorName] = useState<string>('');
@@ -30,6 +33,18 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
   const [deptTreated, setDeptTreated] = useState<string>('Comprehensive Stroke Center');
   const [doctorMentioned, setDoctorMentioned] = useState<string>('Dr. Sanjay Sopan Varade MD, DM Neuro');
   const [reviewText, setReviewText] = useState<string>('');
+
+  useEffect(() => {
+    const handleSync = () => {
+      setReviews(loadStoredReviews());
+    };
+    window.addEventListener('sopan_reviews_updated', handleSync);
+    window.addEventListener('sopan_patient_feedback_updated', handleSync);
+    return () => {
+      window.removeEventListener('sopan_reviews_updated', handleSync);
+      window.removeEventListener('sopan_patient_feedback_updated', handleSync);
+    };
+  }, []);
 
   const departments = [
     'All',
@@ -40,11 +55,21 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
   ];
 
   const filteredReviews = reviews.filter(r => {
-    return selectedDeptFilter === 'All' || r.departmentTreated === selectedDeptFilter;
+    const matchesDept = selectedDeptFilter === 'All' || r.departmentTreated === selectedDeptFilter;
+    const matchesSource = 
+      sourceFilter === 'All' ? true :
+      sourceFilter === 'Google' ? !r.isAnonymousFeedback :
+      r.isAnonymousFeedback === true;
+    return matchesDept && matchesSource;
   });
 
+  const anonymousCount = reviews.filter(r => r.isAnonymousFeedback).length;
+  const googleCount = reviews.filter(r => !r.isAnonymousFeedback).length;
+
   const handleLike = (id: string) => {
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, helpfulCount: r.helpfulCount + 1 } : r));
+    const updated = reviews.map(r => r.id === id ? { ...r, helpfulCount: r.helpfulCount + 1 } : r);
+    setReviews(updated);
+    saveStoredReviews(updated);
   };
 
   const handleSubmitReview = (e: React.FormEvent) => {
@@ -63,7 +88,9 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
       helpfulCount: 0
     };
 
-    setReviews([newRev, ...reviews]);
+    const updated = [newRev, ...reviews];
+    setReviews(updated);
+    saveStoredReviews(updated);
     setShowWriteModal(false);
     setAuthorName('');
     setReviewText('');
@@ -104,44 +131,120 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
                   <Star key={s} className="w-5 h-5 fill-current" />
                 ))}
               </div>
-              <span className="text-xs text-[#7A746B] font-semibold">(1,420+ Verified Reviews)</span>
+              <span className="text-xs text-[#7A746B] font-semibold">(1,420+ Verified Reviews & Feedback)</span>
             </div>
             <h2 className="text-lg sm:text-xl font-serif font-bold text-[#27231E]">
-              Google Verified Patient & Family Testimonials
+              Google Verified Patient & Experience Testimonials
             </h2>
             <p className="text-[#635E56] text-xs sm:text-sm mt-0.5">
-              Read authentic experiences from patients treated at Sopan Hospital Neurology & Neuroscience Institute under Dr. Sanjay Sopan Varade (MD, DM Neuro • 35+ Years Experience).
+              Authentic reviews and anonymous post-consultation feedback from outpatients and families treated under Chief Neurologist <strong className="text-[#27231E]">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> at Mumbai Naka, Nashik.
             </p>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2.5 w-full lg:w-auto">
           <button
+            id="btn-patient-experience-feedback"
+            onClick={() => setShowFeedbackModal(true)}
+            className="px-5 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
+            title="Submit anonymous post-consultation feedback"
+          >
+            <HeartHandshake className="w-4 h-4 text-emerald-200" />
+            <span>Post-Consultation Feedback</span>
+          </button>
+
+          <button
             id="btn-write-google-review"
             onClick={() => setShowWriteModal(true)}
             className="px-5 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
           >
             <Star className="w-4 h-4 fill-white" />
-            Write a Google Review
+            <span>Write a Google Review</span>
           </button>
         </div>
       </div>
 
-      {/* Department Filter Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {departments.map(dept => (
+      {/* Anonymous Feedback Invitation Card */}
+      <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-2xs">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif font-bold text-sm text-[#27231E]">
+                Recent OPD or Tele-Consultation Patient?
+              </h3>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                100% Anonymous Voice
+              </span>
+            </div>
+            <p className="text-xs text-[#635E56] mt-0.5">
+              Share your anonymous reflection on Dr. Sanjay Sopan Varade's consultation, wait times, and hospital care in 60 seconds.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowFeedbackModal(true)}
+          className="px-4 py-2 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-2xs transition-colors"
+        >
+          <HeartHandshake className="w-4 h-4" />
+          <span>Give Anonymous Feedback</span>
+        </button>
+      </div>
+
+      {/* Filter Bars (Source & Department) */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        {/* Source Filter */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl text-xs font-semibold">
           <button
-            key={dept}
-            onClick={() => setSelectedDeptFilter(dept)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
-              selectedDeptFilter === dept
-                ? 'bg-[#342E28] text-white shadow-xs'
-                : 'bg-white text-[#635E56] hover:bg-[#F7F4EE] border border-[#E6E0D4]'
+            type="button"
+            onClick={() => setSourceFilter('All')}
+            className={`px-3 py-1.5 rounded-xl transition-all ${
+              sourceFilter === 'All' ? 'bg-[#342E28] text-white shadow-2xs' : 'text-[#635E56] hover:text-[#27231E]'
             }`}
           >
-            {dept}
+            All Testimonials ({reviews.length})
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => setSourceFilter('AnonymousFeedback')}
+            className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+              sourceFilter === 'AnonymousFeedback' ? 'bg-emerald-700 text-white shadow-2xs' : 'text-[#635E56] hover:text-[#27231E]'
+            }`}
+          >
+            <UserX className="w-3.5 h-3.5" />
+            <span>Anonymous Feedback ({anonymousCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSourceFilter('Google')}
+            className={`px-3 py-1.5 rounded-xl transition-all ${
+              sourceFilter === 'Google' ? 'bg-[#342E28] text-white shadow-2xs' : 'text-[#635E56] hover:text-[#27231E]'
+            }`}
+          >
+            Google Reviews ({googleCount})
+          </button>
+        </div>
+
+        {/* Department Filter Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none w-full sm:w-auto">
+          {departments.map(dept => (
+            <button
+              key={dept}
+              onClick={() => setSelectedDeptFilter(dept)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                selectedDeptFilter === dept
+                  ? 'bg-[#8E5B3E] text-white shadow-xs'
+                  : 'bg-white text-[#635E56] hover:bg-[#F7F4EE] border border-[#E6E0D4]'
+              }`}
+            >
+              {dept}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Reviews Grid */}
@@ -150,37 +253,89 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
           <div
             key={rev.id}
             id={`review-card-${rev.id}`}
-            className="bg-white border border-[#E6E0D4] rounded-3xl p-6 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
+            className={`bg-white border rounded-3xl p-6 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow ${
+              rev.isAnonymousFeedback ? 'border-emerald-200/90 ring-1 ring-emerald-500/10' : 'border-[#E6E0D4]'
+            }`}
           >
             <div>
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#EFE9DF] text-[#7A5338] font-bold text-sm flex items-center justify-center border border-[#DFD6C8]">
-                    {rev.authorName.charAt(0)}
+                  <div className={`w-10 h-10 rounded-2xl font-bold text-sm flex items-center justify-center border shrink-0 ${
+                    rev.isAnonymousFeedback 
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                      : 'bg-[#EFE9DF] text-[#7A5338] border-[#DFD6C8]'
+                  }`}>
+                    {rev.isAnonymousFeedback ? <UserX className="w-5 h-5 text-emerald-700" /> : rev.authorName.charAt(0)}
                   </div>
                   <div>
-                    <h4 className="font-serif font-bold text-sm text-[#27231E] flex items-center gap-1.5">
+                    <h4 className="font-serif font-bold text-sm text-[#27231E] flex flex-wrap items-center gap-1.5">
                       {rev.authorName}
-                      {rev.verifiedPatient && (
-                        <span className="text-[#456254] text-[11px]" title="Google Verified Hospital Patient">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#456254]" />
+                      {rev.isAnonymousFeedback ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5 text-emerald-600" />
+                          Anonymous Post-Consultation
                         </span>
+                      ) : (
+                        rev.verifiedPatient && (
+                          <span className="text-[#456254] text-[11px]" title="Google Verified Hospital Patient">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#456254]" />
+                          </span>
+                        )
                       )}
                     </h4>
-                    <span className="text-[11px] text-[#8C8478]">{rev.relativeTime} • Google Review</span>
+                    <span className="text-[11px] text-[#8C8478]">
+                      {rev.relativeTime} • {rev.isAnonymousFeedback ? 'Verified Outpatient Feedback' : 'Google Review'}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center text-amber-500">
+                <div className="flex items-center text-amber-500 shrink-0">
                   {Array.from({ length: rev.rating }).map((_, i) => (
                     <Star key={i} className="w-3.5 h-3.5 fill-current" />
                   ))}
                 </div>
               </div>
 
+              {/* Feedback dimensions scorecard if available */}
+              {rev.feedbackDimensions && (
+                <div className="my-2.5 p-2.5 rounded-xl bg-[#FAF7F2] border border-[#EAE3D6] grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px]">
+                  {rev.feedbackDimensions.doctorAttentiveness && (
+                    <div>
+                      <span className="text-[#7A746B] block">Doctor Attentiveness:</span>
+                      <strong className="text-[#27231E]">{rev.feedbackDimensions.doctorAttentiveness}.0 ★</strong>
+                    </div>
+                  )}
+                  {rev.feedbackDimensions.explanationClarity && (
+                    <div>
+                      <span className="text-[#7A746B] block">Explanation:</span>
+                      <strong className="text-[#27231E]">{rev.feedbackDimensions.explanationClarity}.0 ★</strong>
+                    </div>
+                  )}
+                  {rev.feedbackDimensions.waitTimeExperience && (
+                    <div>
+                      <span className="text-[#7A746B] block">Wait Time:</span>
+                      <strong className="text-[#27231E]">{rev.feedbackDimensions.waitTimeExperience}.0 ★</strong>
+                    </div>
+                  )}
+                  {rev.feedbackDimensions.staffCourtesy && (
+                    <div>
+                      <span className="text-[#7A746B] block">Staff Courtesy:</span>
+                      <strong className="text-[#27231E]">{rev.feedbackDimensions.staffCourtesy}.0 ★</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="text-xs sm:text-sm text-[#3E3A34] leading-relaxed italic">
                 "{rev.reviewText}"
               </p>
+
+              {rev.wouldRecommend && (
+                <div className="mt-2 text-[11px] font-semibold text-emerald-800 flex items-center gap-1">
+                  <ThumbsUp className="w-3 h-3 text-emerald-600" />
+                  <span>Recommends Dr. Sanjay Sopan Varade & Sopan Hospital</span>
+                </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-[#EFE9DF] flex items-center justify-between text-xs">
@@ -194,6 +349,7 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
               <button
                 onClick={() => handleLike(rev.id)}
                 className="flex items-center gap-1 text-[#8C8478] hover:text-[#27231E] px-2.5 py-1 rounded-xl hover:bg-[#F2ECE1] transition-colors"
+                title="Mark review as helpful"
               >
                 <ThumbsUp className="w-3.5 h-3.5 text-[#8E5B3E]" />
                 <span className="text-[11px] font-semibold">{rev.helpfulCount}</span>
@@ -219,71 +375,72 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
 
             <form onSubmit={handleSubmitReview} className="space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Your Full Name (or Family Member) *</label>
+                <label className="block text-slate-700 font-semibold mb-1">Your Name</label>
                 <input
                   type="text"
                   required
                   value={authorName}
                   onChange={e => setAuthorName(e.target.value)}
-                  placeholder="e.g. Ramesh Kulkarni"
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                  placeholder="e.g. Anand K. Joshi"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-[#8E5B3E]"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Star Rating</label>
+                <label className="block text-slate-700 font-semibold mb-1">Rating</label>
                 <div className="flex items-center gap-2">
                   {[1, 2, 3, 4, 5].map(s => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => setRating(s)}
-                      className="p-1 hover:scale-110 transition-transform"
+                      className="p-1 focus:outline-none"
                     >
                       <Star
-                        className={`w-6 h-6 ${s <= rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
+                        className={`w-6 h-6 ${
+                          s <= rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'
+                        }`}
                       />
                     </button>
                   ))}
-                  <span className="font-bold text-slate-700 ml-2">{rating} out of 5 Stars</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Department Treated</label>
-                  <select
-                    value={deptTreated}
-                    onChange={e => setDeptTreated(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
-                  >
-                    <option value="Comprehensive Stroke Center">Comprehensive Stroke Center</option>
-                    <option value="Neuro-Oncology & Brain Tumors">Neuro-Oncology & Brain Tumors</option>
-                    <option value="Movement Disorders & Parkinson’s">Movement Disorders & Parkinson’s</option>
-                    <option value="Epilepsy & EEG Monitoring">Epilepsy & EEG Monitoring</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Doctor / Specialist</label>
-                  <input
-                    type="text"
-                    value={doctorMentioned}
-                    onChange={e => setDoctorMentioned(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
-                  />
+                  <span className="font-bold text-slate-800 ml-2">{rating}.0 / 5.0</span>
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Share Your Experience & Recovery Story *</label>
+                <label className="block text-slate-700 font-semibold mb-1">Department Treated In</label>
+                <select
+                  value={deptTreated}
+                  onChange={e => setDeptTreated(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-[#8E5B3E]"
+                >
+                  <option value="Comprehensive Stroke Center">Comprehensive Stroke Center</option>
+                  <option value="Movement Disorders & Parkinson’s">Movement Disorders & Parkinson’s</option>
+                  <option value="Epilepsy & EEG Monitoring">Epilepsy & EEG Monitoring</option>
+                  <option value="Neuro-Oncology & Brain Tumors">Neuro-Oncology & Brain Tumors</option>
+                  <option value="Spine & Peripheral Nerve">Spine & Peripheral Nerve</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Attending Neurologist</label>
+                <input
+                  type="text"
+                  value={doctorMentioned}
+                  onChange={e => setDoctorMentioned(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Your Review</label>
                 <textarea
-                  rows={4}
                   required
+                  rows={4}
                   value={reviewText}
                   onChange={e => setReviewText(e.target.value)}
-                  placeholder="Share details about the doctors, surgery, stroke response, nursing care, or patient portal..."
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl"
+                  placeholder="Share details of your consultation, hospital speed, or recovery experience under Dr. Sanjay Varade..."
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-[#8E5B3E]"
                 />
               </div>
 
@@ -291,20 +448,35 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
                 <button
                   type="button"
                   onClick={() => setShowWriteModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold"
+                  className="px-5 py-2 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-bold"
                 >
-                  Publish to Google Reviews
+                  Publish Review
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {/* Patient Experience Feedback Modal */}
+      {showFeedbackModal && (
+        <PatientExperienceFeedbackModalOrSection
+          isModal={true}
+          onClose={() => setShowFeedbackModal(false)}
+          onFeedbackSubmitted={() => {
+            setReviews(loadStoredReviews());
+          }}
+          onViewGoogleReviews={() => {
+            setShowFeedbackModal(false);
+            setSourceFilter('AnonymousFeedback');
+          }}
+        />
       )}
     </div>
   );

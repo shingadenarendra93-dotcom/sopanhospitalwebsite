@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated patient or staff user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["patient", "admin", "doctor"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Patient OPD consultation appointment record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientName": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "age": { "type": "string" },
+        "gender": { "type": "string" },
+        "date": { "type": "string" },
+        "timeSlot": { "type": "string" },
+        "department": { "type": "string" },
+        "tokenNumber": { "type": "string" },
+        "doctor": { "type": "string" },
+        "conditionContext": { "type": "string" },
+        "status": { "type": "string", "enum": ["CONFIRMED", "CANCELLED", "COMPLETED"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["patientName", "contactNumber", "date", "timeSlot", "tokenNumber", "createdAt"]
+    },
+    "PatientFeedback": {
+      "title": "PatientFeedback",
+      "description": "Patient experience feedback and rating record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "overallRating": { "type": "number" },
+        "drAttentiveness": { "type": "number" },
+        "diagnosisClarity": { "type": "number" },
+        "waitTimeScore": { "type": "number" },
+        "staffCourtesy": { "type": "number" },
+        "cleanlinessFacility": { "type": "number" },
+        "recommend": { "type": "boolean" },
+        "reviewText": { "type": "string" },
+        "improvementSuggestions": { "type": "string" },
+        "consultationType": { "type": "string" },
+        "department": { "type": "string" },
+        "opdToken": { "type": "string" },
+        "isAnonymous": { "type": "boolean" },
+        "authorName": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["overallRating", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Message in Gemini multi-turn conversation thread",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model", "system"] },
+        "content": { "type": "string" },
+        "model": { "type": "string" },
+        "groundingType": { "type": "string" },
+        "sources": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles indexed by Firebase Auth UID"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Patient clinic appointments"
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": { "$ref": "#/entities/PatientFeedback" },
+      "description": "Public and anonymous patient experience reviews"
+    },
+    "/users/{userId}/chats/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "User-specific multi-turn AI consultation chat history"
+    }
+  }
+}

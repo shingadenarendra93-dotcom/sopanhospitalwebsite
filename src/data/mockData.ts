@@ -197,6 +197,8 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
     symptoms: '1-Month post mechanical thrombectomy routine Doppler & motor recovery assessment',
     status: 'Confirmed',
     tokenNumber: 'STRK-04',
+    slotNumber: 1,
+    remainingSlotsAtBooking: 49,
     createdAt: '2026-09-18',
     reminderSettings: {
       whatsapp: true,
@@ -225,6 +227,8 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
     symptoms: 'Breakthrough nocturnal myoclonic jerks and Levetiracetam dosage titration',
     status: 'Confirmed',
     tokenNumber: 'EPI-12',
+    slotNumber: 2,
+    remainingSlotsAtBooking: 48,
     createdAt: '2026-09-19',
     reminderSettings: {
       whatsapp: true,

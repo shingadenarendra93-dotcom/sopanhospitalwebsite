@@ -1,4 +1,5 @@
 import React from 'react';
+import { SopanLogo } from './SopanLogo';
 import { 
   Activity, 
   Phone, 
@@ -25,8 +26,8 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Col 1 & 2: Hospital identity */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#8E5B3E] flex items-center justify-center text-white shadow-xs">
-                <Activity className="w-5 h-5 text-[#FAF7F2]" />
+              <div className="p-1 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs flex items-center justify-center">
+                <SopanLogo size="sm" />
               </div>
               <div>
                 <h3 className="text-[#221B14] font-serif font-bold text-base tracking-tight">

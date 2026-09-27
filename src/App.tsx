@@ -9,9 +9,13 @@ import { RemoteMonitoring } from './components/RemoteMonitoring';
 import { CaseStudyDatabase } from './components/CaseStudyDatabase';
 import { StaffPayroll } from './components/StaffPayroll';
 import { GoogleReviews } from './components/GoogleReviews';
+import { PatientExperienceFeedbackModalOrSection } from './components/PatientExperienceFeedback';
 import { PatientSuccessStories } from './components/PatientSuccessStories';
 import { LatestNeurologyNews } from './components/LatestNeurologyNews';
 import { SymptomChecker } from './components/SymptomChecker';
+import { GeminiChatbot } from './components/GeminiChatbot';
+import { AuthProvider } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { WhatsAppContactModal } from './components/WhatsAppContactModal';
 import { Footer } from './components/Footer';
 import { 
@@ -58,8 +62,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F3EE] text-[#27231E] flex flex-col font-sans antialiased selection:bg-[#8E5B3E] selection:text-white">
-      {/* Top Navigation */}
+    <AuthProvider>
+      <LanguageProvider>
+        <div className="min-h-screen bg-[#F6F3EE] text-[#27231E] flex flex-col font-sans antialiased selection:bg-[#8E5B3E] selection:text-white">
+        {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -81,11 +87,13 @@ export default function App() {
         {/* Dynamic Section Navigation / Sub-tabs */}
         <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-2 shadow-xs flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {[
+            { id: 'gemini-assistant', label: 'Gemini AI Assistant' },
             { id: 'symptom-checker', label: 'Interactive Symptom Checker' },
             { id: 'stories', label: 'Patient Success Stories' },
             { id: 'news', label: 'Latest Neurology News' },
             { id: 'appointments', label: 'Book OPD Appointment' },
             { id: 'reviews', label: 'Google Reviews (4.9★)' },
+            { id: 'patient-feedback', label: 'Patient Experience Feedback' },
             { id: 'vr-brain', label: '3D/VR Brain Anatomy' },
             { id: 'diseases', label: 'Diseases & Caregiver Hub' },
             { id: 'patient-portal', label: 'Patient Medical Portal' },
@@ -111,6 +119,7 @@ export default function App() {
 
         {/* View Switcher Container */}
         <div className="transition-opacity duration-200">
+          {activeTab === 'gemini-assistant' && <GeminiChatbot />}
           {activeTab === 'symptom-checker' && (
             <SymptomChecker
               onBookAppointment={handleBookFromSymptomChecker}
@@ -174,6 +183,14 @@ export default function App() {
           {activeTab === 'case-studies' && <CaseStudyDatabase />}
           {activeTab === 'staff-payroll' && <StaffPayroll />}
           {activeTab === 'reviews' && <GoogleReviews />}
+          {activeTab === 'patient-feedback' && (
+            <PatientExperienceFeedbackModalOrSection
+              onViewGoogleReviews={() => {
+                setActiveTab('reviews');
+                window.scrollTo({ top: 380, behavior: 'smooth' });
+              }}
+            />
+          )}
         </div>
       </main>
 
@@ -182,7 +199,7 @@ export default function App() {
         <button
           id="btn-floating-whatsapp"
           onClick={() => handleOpenWhatsApp('stroke-emergency')}
-          className="group relative px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-2xl shadow-emerald-700/40 flex items-center gap-2.5 transition-all transform hover:scale-105"
+          className="group relative px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-2xl shadow-emerald-700/40 flex items-center gap-2.5 transition-all transform hover:scale-105 animate-subtle-pulse"
         >
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-white rounded-full animate-ping" />
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-white rounded-full" />
@@ -278,5 +295,7 @@ export default function App() {
         onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
       />
     </div>
+    </LanguageProvider>
+    </AuthProvider>
   );
 }

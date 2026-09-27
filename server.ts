@@ -1,10 +1,12 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
+import { WebSocketServer, WebSocket } from 'ws';
 
 dotenv.config();
 
@@ -377,6 +379,243 @@ Respond ONLY with the raw JSON array. Do not include markdown code fences or bac
     }
   });
 
+  // --- GEMINI MULTI-TURN CHAT ENDPOINT ---
+  app.post('/api/gemini/chat', async (req, res) => {
+    const ai = getGeminiClient();
+    const { 
+      messages = [], 
+      model = 'gemini-3.5-flash', 
+      systemInstruction,
+      language = 'en'
+    } = req.body;
+
+    const allowedModels = ['gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite'];
+    const selectedModel = allowedModels.includes(model) ? model : 'gemini-3.5-flash';
+
+    const defaultInstruction = language === 'mr'
+      ? `You are the official Sopan Hospital & Neurology Institute AI Assistant for Dr. Sanjay Sopan Varade (MD, DM Neuro) in Nashik, Maharashtra.
+Location: Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001. Hotline: 0253 2317364.
+You MUST respond politely, empathetically, and fluently in Marathi (मराठी) using Devanagari script.
+Explain neurological symptoms, OPD appointment booking (Mon-Sat 10AM-2PM & 5PM-8PM, OPD fee ₹1,500), diagnostic procedures (EEG, EMG, 32-Slice CT, MRI), and patient preparation clearly in Marathi.
+Remind patients that in acute emergencies (facial drop, arm weakness, speech slurring, severe headache), they must immediately contact the 24/7 Stroke Hotline (0253 2317364) or visit the Emergency ICU. If user asks in English, reply in English.`
+      : `You are the official Sopan Hospital & Neurology Institute AI Assistant for Dr. Sanjay Sopan Varade (MD, DM Neuro) in Nashik, Maharashtra.
+Location: Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001. Hotline: 0253 2317364.
+Provide compassionate, medically sound, and clear guidance on neurological symptoms, OPD appointment booking, diagnostic procedures (EEG, EMG, 32-Slice CT, MRI), and patient preparation.
+Remind patients that in acute emergencies (such as sudden weakness, facial drop, or severe headache), they must immediately contact the 24/7 Stroke Hotline (0253 2317364) or visit the Emergency ICU.`;
+
+    if (!ai) {
+      const lastMsg = messages[messages.length - 1]?.content || 'Hello';
+      const demoReply = language === 'mr'
+        ? `सोपान हॉस्पिटल आणि न्यूरोलॉजी इन्स्टिट्यूट नाशिकमध्ये आपले स्वागत आहे! (डेमो मोड: थेट एआय साठी कृपया सिक्रेट्समध्ये GEMINI_API_KEY सेट करा).\n\nआपल्या "${lastMsg}" या प्रश्नासंदर्भात: डॉ. संजय सोपान वराडे (MD, DM Neuro) यांचे क्लिनिक श्रीहरी कुटे मार्ग, मुंबई नाका, नाशिक येथे आहे. ओपीडी वेळ: सोम-शनि सकाळी १० ते दु. २ आणि सायं ५ ते रात्री ८ (ओपीडी फी: ₹१,५००). आपत्कालीन स्ट्रोकसाठी संपर्क: ०२५३ २३१७३६४.`
+        : `Welcome to Sopan Hospital & Neurology Institute! (Demo mode: Please configure GEMINI_API_KEY in Secrets for live AI responses).\n\nRegarding "${lastMsg}": Dr. Sanjay Sopan Varade's clinic is located at Shrihari Kute Marg, Mumbai Naka, Nashik. OPD Timings are Mon-Sat: 10:00 AM – 2:00 PM and 5:00 PM – 8:00 PM. For emergency triage, call 0253 2317364.`;
+      return res.json({
+        text: demoReply,
+        model: selectedModel
+      });
+    }
+
+    try {
+      const contents = messages.map((m: any) => ({
+        role: m.role === 'model' ? 'model' : 'user',
+        parts: [{ text: m.content || '' }]
+      }));
+
+      const response = await ai.models.generateContent({
+        model: selectedModel,
+        contents,
+        config: {
+          systemInstruction: systemInstruction || defaultInstruction
+        }
+      });
+
+      res.json({
+        text: response.text || (language === 'mr' ? 'सोपान हॉस्पिटल न्यूरोलॉजी इन्स्टिट्यूटशी संपर्क साधल्याबद्दल धन्यवाद.' : 'Thank you for consulting Sopan Hospital Neurology Institute.'),
+        model: selectedModel
+      });
+    } catch (err: any) {
+      console.error('Error in /api/gemini/chat:', err);
+      res.status(500).json({ 
+        error: 'Failed to generate chat response', 
+        details: err?.message || String(err) 
+      });
+    }
+  });
+
+  // --- GEMINI GOOGLE SEARCH GROUNDING ENDPOINT ---
+  app.post('/api/gemini/search-grounding', async (req, res) => {
+    const ai = getGeminiClient();
+    const { prompt, language = 'en' } = req.body;
+
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    if (!ai) {
+      return res.json({
+        text: language === 'mr'
+          ? `(गुगल सर्च माहिती पूर्वदृश्य: "${prompt}")\nसोपान हॉस्पिटल आणि न्यूरोलॉजी इन्स्टिट्यूट, नाशिक हे मेंदू आणि मज्जारज्जू विकारांसाठी अग्रगण्य केंद्र आहे. डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या ओपीडीसाठी संपर्क साधा.`
+          : `(Search Grounding preview for: "${prompt}")\nSopan Hospital & Neurology Institute, directed by Dr. Sanjay Sopan Varade, is Nashik's premier neuro center. For live Google Search grounded answers, configure GEMINI_API_KEY in Secrets.`,
+        sources: [
+          { title: 'The Lancet Neurology', uri: 'https://www.thelancet.com/journals/laneur' },
+          { title: 'American Academy of Neurology', uri: 'https://www.aan.com' }
+        ],
+        searchQueries: [prompt]
+      });
+    }
+
+    try {
+      const sysInst = language === 'mr'
+        ? 'You are an accurate clinical research and medical assistant for Sopan Hospital in Nashik. Always use the googleSearch tool to ground your response with verified, recent facts, and provide the explanation in fluent Marathi (मराठी) using Devanagari script.'
+        : 'You are an accurate clinical research and medical assistant for Sopan Hospital. Always use the googleSearch tool to ground your response with verified, recent facts.';
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: prompt,
+        config: {
+          systemInstruction: sysInst,
+          tools: [{ googleSearch: {} }]
+        }
+      });
+
+      const candidate = response.candidates?.[0];
+      const chunks = candidate?.groundingMetadata?.groundingChunks || [];
+      const searchQueries = candidate?.groundingMetadata?.webSearchQueries || [];
+
+      const sources = chunks
+        .filter((c: any) => c.web?.uri)
+        .map((c: any) => ({
+          title: c.web.title || c.web.uri,
+          uri: c.web.uri
+        }));
+
+      res.json({
+        text: response.text || '',
+        sources,
+        searchQueries
+      });
+    } catch (err: any) {
+      console.error('Error in /api/gemini/search-grounding:', err);
+      res.status(500).json({ error: 'Search grounding failed', details: err?.message });
+    }
+  });
+
+  // --- GEMINI GOOGLE MAPS GROUNDING ENDPOINT ---
+  app.post('/api/gemini/maps-grounding', async (req, res) => {
+    const ai = getGeminiClient();
+    const { prompt, userLocation, language = 'en' } = req.body;
+
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    // Default coordinates: Sopan Hospital, Mumbai Naka, Nashik (19.9975° N, 73.7898° E)
+    const lat = userLocation?.latitude || 19.9975;
+    const lng = userLocation?.longitude || 73.7898;
+
+    if (!ai) {
+      return res.json({
+        text: language === 'mr'
+          ? `(गुगल मॅप्स मार्गदर्शन: "${prompt}")\nसोपान हॉस्पिटल आणि न्यूरोलॉजी इन्स्टिट्यूट हे श्रीहरी कुटे मार्ग, संदीप हॉटेल जवळ, मुंबई नाका, नाशिक - ४२२००१ येथे स्थित आहे. मुंबई नाका चौकातून ओल्ड आग्रा रोड व पुणे महामार्गावरून येथे सहज पोहोचता येते.`
+          : `(Maps Grounding preview for "${prompt}")\nSopan Hospital & Neurology Institute is centrally located at Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001. Landmark: Mumbai Naka junction, accessible via Old Agra Road and Pune Highway.`,
+        places: [
+          { 
+            title: 'Sopan Hospital & Neurology Institute, Nashik', 
+            uri: 'https://maps.google.com/?q=Sopan+Hospital+Nashik' 
+          },
+          { 
+            title: 'Mumbai Naka, Nashik', 
+            uri: 'https://maps.google.com/?q=Mumbai+Naka+Nashik' 
+          }
+        ],
+        coordinates: { latitude: lat, longitude: lng }
+      });
+    }
+
+    try {
+      const sysInst = language === 'mr'
+        ? 'You are the geographical and navigation concierge for Sopan Hospital & Neurology Institute in Nashik, Maharashtra. Help users find directions, nearby diagnostic centers, pharmacies, ambulance transport access, and landmarks around Mumbai Naka in fluent Marathi (मराठी).'
+        : 'You are the geographical and navigation concierge for Sopan Hospital & Neurology Institute in Nashik, Maharashtra. Help users find directions, nearby diagnostic centers, pharmacies, ambulance transport access, and landmarks around Mumbai Naka.';
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: prompt,
+        config: {
+          systemInstruction: sysInst,
+          tools: [{ googleMaps: {} }],
+          toolConfig: {
+            retrievalConfig: {
+              latLng: {
+                latitude: lat,
+                longitude: lng
+              }
+            }
+          }
+        }
+      });
+
+      const candidate = response.candidates?.[0];
+      const chunks = candidate?.groundingMetadata?.groundingChunks || [];
+
+      const places = chunks
+        .filter((c: any) => c.maps?.uri || c.maps?.title)
+        .map((c: any) => ({
+          title: c.maps?.title || 'Location on Google Maps',
+          uri: c.maps?.uri || '#'
+        }));
+
+      res.json({
+        text: response.text || '',
+        places,
+        coordinates: { latitude: lat, longitude: lng }
+      });
+    } catch (err: any) {
+      console.error('Error in /api/gemini/maps-grounding:', err);
+      res.status(500).json({ error: 'Maps grounding failed', details: err?.message });
+    }
+  });
+
+  // --- GEMINI AUDIO TRANSCRIBE ENDPOINT ---
+  app.post('/api/gemini/transcribe', async (req, res) => {
+    const ai = getGeminiClient();
+    const { audioBase64, mimeType = 'audio/webm' } = req.body;
+
+    if (!audioBase64) {
+      return res.status(400).json({ error: 'audioBase64 is required' });
+    }
+
+    if (!ai) {
+      return res.json({
+        text: 'Patient reports mild morning headaches, localized to right frontal area for 3 days without visual disturbance. (Demo transcription - configure GEMINI_API_KEY in Secrets for live gemini-3.5-transcribe).'
+      });
+    }
+
+    try {
+      const audioPart = {
+        inlineData: {
+          mimeType,
+          data: audioBase64
+        }
+      };
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-transcribe',
+        contents: {
+          parts: [
+            audioPart,
+            { text: 'Transcribe this patient audio recording accurately. Return only the verbatim transcription text.' }
+          ]
+        }
+      });
+
+      res.json({
+        text: response.text || ''
+      });
+    } catch (err: any) {
+      console.error('Error in /api/gemini/transcribe:', err);
+      res.status(500).json({ error: 'Audio transcription failed', details: err?.message });
+    }
+  });
+
   // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -392,7 +631,79 @@ Respond ONLY with the raw JSON array. Do not include markdown code fences or bac
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  // Create HTTP server to support both Express and WebSockets
+  const httpServer = http.createServer(app);
+
+  // Setup WebSocket Server for Gemini 3.8 Live API Voice conversations
+  const wss = new WebSocketServer({ server: httpServer, path: '/live' });
+
+  wss.on('connection', async (clientWs: WebSocket) => {
+    console.log('Client connected to /live voice session');
+    const ai = getGeminiClient();
+
+    if (!ai) {
+      clientWs.send(JSON.stringify({
+        type: 'info',
+        message: 'Live API requires GEMINI_API_KEY. Connect your API key in Secrets to stream real-time voice with gemini-3.8-live.'
+      }));
+      return;
+    }
+
+    try {
+      const session = await ai.live.connect({
+        model: 'gemini-3.8-live',
+        config: {
+          responseModalities: [Modality.AUDIO],
+          systemInstruction: 'You are the real-time AI Voice Assistant for Sopan Hospital & Neurology Institute in Nashik. Speak kindly, clearly, and supportively to guide patients with their questions about Dr. Sanjay Sopan Varade, neurological symptoms, and OPD appointments.'
+        },
+        callbacks: {
+          onmessage: (msg: any) => {
+            const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+            if (audioData) {
+              clientWs.send(JSON.stringify({ type: 'audio', audio: audioData }));
+            }
+            if (msg.serverContent?.interrupted) {
+              clientWs.send(JSON.stringify({ type: 'interrupted' }));
+            }
+          },
+          onclose: () => {
+            clientWs.close();
+          }
+        }
+      });
+
+      clientWs.on('message', (raw: any) => {
+        try {
+          const parsed = JSON.parse(raw.toString());
+          if (parsed.audio) {
+            session.sendRealtimeInput({
+              audio: { data: parsed.audio, mimeType: 'audio/pcm;rate=16000' }
+            });
+          }
+          if (parsed.text) {
+            session.sendRealtimeInput({
+              text: parsed.text
+            });
+          }
+        } catch (e) {
+          console.error('Error handling WebSocket message:', e);
+        }
+      });
+
+      clientWs.on('close', () => {
+        try {
+          session.close();
+        } catch (e) {
+          // ignore
+        }
+      });
+    } catch (err) {
+      console.error('Error initiating Gemini Live session:', err);
+      clientWs.send(JSON.stringify({ type: 'error', message: 'Failed to initiate Live session' }));
+    }
+  });
+
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Sopan Hospital App Server listening on http://0.0.0.0:${PORT}`);
   });
 }

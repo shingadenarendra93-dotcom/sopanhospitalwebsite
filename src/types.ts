@@ -54,6 +54,8 @@ export interface Appointment {
   symptoms: string;
   status: 'Confirmed' | 'Completed' | 'Cancelled';
   tokenNumber: string;
+  slotNumber?: number;
+  remainingSlotsAtBooking?: number;
   createdAt: string;
   reminderSettings?: ReminderSettings;
 }
@@ -215,6 +217,40 @@ export interface GoogleReview {
   reviewText: string;
   doctorMentioned?: string;
   helpfulCount: number;
+  isAnonymousFeedback?: boolean;
+  feedbackDimensions?: {
+    doctorAttentiveness?: number;
+    explanationClarity?: number;
+    waitTimeExperience?: number;
+    staffCourtesy?: number;
+    facilityCleanliness?: number;
+  };
+  consultationType?: string;
+  wouldRecommend?: boolean;
+  feedbackSuggestions?: string;
+}
+
+export interface PatientExperienceFeedback {
+  id: string;
+  submittedAt: string;
+  isAnonymous: boolean;
+  authorAlias: string; // e.g. "Anonymous Outpatient", "Verified Patient (OPD)", "Caregiver of Stroke Patient"
+  consultationType: 'In-Person Hospital OPD' | 'Tele-Neurology Video Consultation' | 'Acute Stroke Emergency' | 'Neuro-Diagnostic Testing';
+  department: DepartmentType;
+  doctorConsulted: string;
+  overallRating: number; // 1 - 5
+  ratings: {
+    doctorAttentiveness: number; // 1 - 5
+    explanationClarity: number; // 1 - 5
+    waitTimeExperience: number; // 1 - 5
+    staffCourtesy: number; // 1 - 5
+    facilityCleanliness: number; // 1 - 5
+  };
+  whatWentWell: string;
+  suggestionsForImprovement?: string;
+  wouldRecommend: boolean;
+  tokenOrVisitRef?: string;
+  syndicateToPublicReviews: boolean;
 }
 
 export interface PatientSuccessStory {

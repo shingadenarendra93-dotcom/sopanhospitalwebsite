@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Activity, 
   Calendar, 
@@ -12,8 +12,11 @@ import {
   Stethoscope,
   MessageCircle,
   Newspaper,
-  CheckCircle2
+  CheckCircle2,
+  Users,
+  TrendingDown
 } from 'lucide-react';
+import { calculateOpdSlotStats, loadOpdAppointments, TOTAL_OPD_DAILY_SLOTS } from '../utils/opdSlotUtils';
 
 interface HeroBannerProps {
   onNavigate: (tabId: string) => void;
@@ -24,13 +27,21 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onNavigate,
   onOpenWhatsApp
 }) => {
-  // Guarantee that the doctor photo stays default (/DSC_0050.png)
+  const [opdStats, setOpdStats] = useState(() => calculateOpdSlotStats(loadOpdAppointments(), undefined, TOTAL_OPD_DAILY_SLOTS));
+
+  // Guarantee that the doctor photo stays default (/DSC_0050.png) & sync OPD stats
   useEffect(() => {
     // Purge any temporary custom photo overrides from localStorage
     if (localStorage.getItem('sopan_dr_custom_photo')) {
       localStorage.removeItem('sopan_dr_custom_photo');
       window.dispatchEvent(new Event('sopan_photo_updated'));
     }
+
+    const updateStats = () => {
+      setOpdStats(calculateOpdSlotStats(loadOpdAppointments(), undefined, TOTAL_OPD_DAILY_SLOTS));
+    };
+    window.addEventListener('sopan_opd_quota_updated', updateStats);
+    return () => window.removeEventListener('sopan_opd_quota_updated', updateStats);
   }, []);
 
   const doctorPhotoSrc = '/DSC_0050.png';
@@ -59,7 +70,35 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               Comprehensive acute stroke rescue, 32-Slice high-speed CT diagnostic angiography, continuous 24-hr Video-EEG, and dedicated neuro-rehabilitation delivered with warmth, precision, and dignity.
             </p>
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+            {/* Live OPD Quota Descending Counter Badge */}
+            <div 
+              onClick={() => onNavigate('appointments')}
+              className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white/95 hover:bg-white border border-[#E0D5C3] shadow-xs cursor-pointer transition-all hover:border-[#8E5B3E] group select-none"
+              title="Click to view OPD schedule and book appointment"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${opdStats.isFull ? 'bg-rose-400' : 'bg-emerald-400'}`} />
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${opdStats.isFull ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+              </span>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[#6B6153]">Today's OPD Patient Intake:</span>
+                <span className={`font-mono font-bold px-2 py-0.5 rounded-lg border text-xs ${
+                  opdStats.isFull 
+                    ? 'bg-rose-100 text-rose-900 border-rose-200' 
+                    : opdStats.remainingSlots <= 10
+                      ? 'bg-amber-100 text-amber-900 border-amber-200'
+                      : 'bg-emerald-100 text-emerald-900 border-emerald-200'
+                }`}>
+                  {opdStats.remainingSlots} / 50 Slots Available
+                </span>
+                <span className="text-[11px] text-[#8E5B3E] font-semibold hidden sm:inline">
+                  (Descending Live 50 → 0)
+                </span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 text-[#8E5B3E] group-hover:translate-x-0.5 transition-transform" />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 id="hero-btn-book"
                 onClick={() => onNavigate('appointments')}
@@ -174,6 +213,22 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 <a href="tel:02532317364" className="font-bold text-rose-700 hover:underline">
                   0253 2317364
                 </a>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-[#E5DAC8]">
+                <span className="flex items-center gap-1.5 text-[#5C5346]">
+                  <Users className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                  OPD Intake Cap:
+                </span>
+                <span className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-md ${
+                  opdStats.isFull 
+                    ? 'bg-rose-100 text-rose-900 border border-rose-300' 
+                    : opdStats.remainingSlots <= 10
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                      : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                }`}>
+                  {opdStats.remainingSlots} / 50 Left Today
+                </span>
               </div>
             </div>
 

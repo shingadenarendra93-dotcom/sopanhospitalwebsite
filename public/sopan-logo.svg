@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 680" width="100%" height="100%">
+  <defs>
+    <!-- Single braided wreath notch on the circle -->
+    <path id="wreathSegment" d="M 292,185 C 304,188 316,204 322,224 L 310,227 C 305,210 295,198 286,194 Z" fill="#FFFFFF" />
+  </defs>
+
+  <!-- Background White Shield -->
+  <!-- Outer Heraldic Shield Contour -->
+  <path
+    d="M 100,70
+       C 150,115 230,115 300,75
+       C 370,115 450,115 500,70
+       L 500,430
+       C 500,530 400,600 300,640
+       C 200,600 100,530 100,430
+       Z"
+    fill="#FFFFFF"
+    stroke="#0B3C95"
+    stroke-width="16"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+
+  <!-- Circular Outer Blue Ring / Medallion -->
+  <!-- Outer radius ~ 158, Inner radius ~ 104, Center at (300, 345) -->
+  <circle cx="300" cy="345" r="160" fill="#0B3C95" />
+  <circle cx="300" cy="345" r="106" fill="#FFFFFF" />
+
+  <!-- 32 Radial White Braided Segments / Laurel Interlock Pattern -->
+  <g id="wreathRing">
+    <!-- Generated around cx=300, cy=345 with radius ~133 -->
+    <!-- We repeat the 32 radial tooth elements -->
+    <g transform="rotate(0, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(11.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(22.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(33.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(45, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(56.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(67.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(78.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(90, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(101.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(112.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(123.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(135, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(146.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(157.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(168.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(180, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(191.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(202.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(213.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(225, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(236.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(247.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(258.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(270, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(281.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(292.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(303.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(315, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(326.25, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(337.5, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+    <g transform="rotate(348.75, 300, 345)"><path d="M 295,190 C 306,192 318,206 323,225 L 310,229 C 305,213 296,203 288,198 Z" fill="#FFFFFF" /></g>
+  </g>
+
+  <!-- Central Botanical Emblem: 3 Stylized Royal Blue Leaves / Sprout -->
+  <g fill="#0B3C95">
+    <!-- Left Leaf with inner white cut -->
+    <path
+      d="M 294,395
+         C 260,392 230,358 238,300
+         C 246,310 262,330 274,342
+         C 285,354 290,375 294,395
+         Z"
+    />
+    <!-- Left leaf inner vein cut -->
+    <path
+      d="M 248,318
+         C 242,342 254,366 276,375
+         C 265,360 252,340 248,318
+         Z"
+      fill="#FFFFFF"
+    />
+
+    <!-- Right Leaf with inner white cut -->
+    <path
+      d="M 295,395
+         C 328,390 366,355 369,305
+         C 360,320 345,340 330,352
+         C 315,364 305,380 295,395
+         Z"
+    />
+    <!-- Right leaf inner vein cut -->
+    <path
+      d="M 360,320
+         C 362,345 348,368 325,378
+         C 340,362 355,342 360,320
+         Z"
+      fill="#FFFFFF"
+    />
+
+    <!-- Center Upright Petal / Sprout (Tulip / Flame / Feathered Tip) -->
+    <!-- Outer silhouette -->
+    <path
+      d="M 290,388
+         C 285,355 284,335 277,322
+         C 282,315 288,300 282,284
+         C 288,272 292,260 286,242
+         C 292,246 298,252 301,262
+         C 305,248 312,240 315,242
+         C 308,260 312,275 318,284
+         C 312,300 318,315 323,322
+         C 316,335 315,355 310,388
+         Z"
+    />
+    <!-- Internal notch lines for central petal -->
+    <path
+      d="M 285,286 C 295,290 305,290 315,286"
+      stroke="#FFFFFF"
+      stroke-width="3"
+      fill="none"
+    />
+    <path
+      d="M 280,324 C 295,330 305,330 320,324"
+      stroke="#FFFFFF"
+      stroke-width="3.5"
+      fill="none"
+    />
+    <path
+      d="M 299,266 L 300,375"
+      stroke="#FFFFFF"
+      stroke-width="2.5"
+      fill="none"
+    />
+  </g>
+</svg>

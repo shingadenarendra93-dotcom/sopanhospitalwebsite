@@ -28,3 +28,18 @@
   background: linear-gradient(180deg, #FFFFFF 0%, #F9F7F3 100%);
 }
 
+@keyframes subtle-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 10px 25px -5px rgba(5, 150, 105, 0.4), 0 8px 10px -6px rgba(5, 150, 105, 0.3);
+  }
+  50% {
+    transform: scale(1.035);
+    box-shadow: 0 20px 35px -8px rgba(5, 150, 105, 0.55), 0 0 0 6px rgba(16, 185, 129, 0.22);
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 2.5s ease-in-out infinite;
+}
+

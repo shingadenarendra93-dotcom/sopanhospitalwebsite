@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -22,12 +22,31 @@ import {
   Send,
   MessageCircle,
   Check,
-  Sparkles
+  Sparkles,
+  Users,
+  TrendingDown,
+  AlertTriangle,
+  RefreshCw,
+  Sliders,
+  HeartHandshake
 } from 'lucide-react';
 import { Doctor, Appointment, DepartmentType, ReminderSettings } from '../types';
 import { DOCTORS, INITIAL_APPOINTMENTS } from '../data/mockData';
 import { AppointmentReminderModal } from './AppointmentReminderModal';
 import { downloadIcsFile, formatAppointmentReminderMessage } from '../utils/calendarUtils';
+import { OpdSlotCounterMeter } from './OpdSlotCounterMeter';
+import { PatientExperienceFeedbackModalOrSection } from './PatientExperienceFeedback';
+import { SopanLogo } from './SopanLogo';
+import { saveAppointmentToFirestore } from '../lib/firebase';
+import { useAuth } from '../context/AuthContext';
+import { 
+  TOTAL_OPD_DAILY_SLOTS, 
+  calculateOpdSlotStats, 
+  loadOpdAppointments, 
+  saveOpdAppointments,
+  getOpdManualOffset,
+  setOpdManualOffset 
+} from '../utils/opdSlotUtils';
 
 interface AppointmentSchedulerProps {
   initialDoctorId?: string;
@@ -45,17 +64,11 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   onAppointmentBooked
 }) => {
   const [doctorsList] = useState<Doctor[]>(DOCTORS);
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>(() => loadOpdAppointments());
+  const [slotOffset, setSlotOffset] = useState<number>(() => getOpdManualOffset());
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentType>('All');
   const [searchDoctor, setSearchDoctor] = useState<string>('');
 
-  useEffect(() => {
-    // Ensure default doctor photo by clearing any custom overrides
-    if (localStorage.getItem('sopan_dr_custom_photo')) {
-      localStorage.removeItem('sopan_dr_custom_photo');
-    }
-  }, []);
-  
   // Booking Wizard Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -81,7 +94,51 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [reminderLeadTime, setReminderLeadTime] = useState<24 | 48 | 2 | 1>(24);
   const [selectedAppointmentForReminder, setSelectedAppointmentForReminder] = useState<Appointment | null>(null);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState<boolean>(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [reminderToast, setReminderToast] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // Ensure default doctor photo by clearing any custom overrides
+    if (localStorage.getItem('sopan_dr_custom_photo')) {
+      localStorage.removeItem('sopan_dr_custom_photo');
+    }
+
+    const handleSync = () => {
+      setAppointments(loadOpdAppointments());
+      setSlotOffset(getOpdManualOffset());
+    };
+    window.addEventListener('sopan_opd_quota_updated', handleSync);
+    return () => window.removeEventListener('sopan_opd_quota_updated', handleSync);
+  }, []);
+
+  // OPD Quota Statistics (50 slots descending down to 0)
+  const todayOpdStats = useMemo(() => {
+    return calculateOpdSlotStats(appointments, undefined, TOTAL_OPD_DAILY_SLOTS);
+  }, [appointments, slotOffset]);
+
+  const dateOpdStats = useMemo(() => {
+    return calculateOpdSlotStats(appointments, selectedDate, TOTAL_OPD_DAILY_SLOTS);
+  }, [appointments, selectedDate, slotOffset]);
+
+  const handleSimulateBooking = () => {
+    if (todayOpdStats.isFull) return;
+    const nextOffset = slotOffset + 1;
+    setSlotOffset(nextOffset);
+    setOpdManualOffset(nextOffset);
+  };
+
+  const handleSetRemainingSlots = (targetRemaining: number) => {
+    const baseBooked = appointments.filter(a => a.status === 'Confirmed' || a.status === 'Completed').length;
+    const neededOffset = (TOTAL_OPD_DAILY_SLOTS - targetRemaining) - baseBooked;
+    setSlotOffset(neededOffset);
+    setOpdManualOffset(neededOffset);
+  };
+
+  const handleResetSlots = () => {
+    setSlotOffset(0);
+    setOpdManualOffset(0);
+  };
 
   useEffect(() => {
     if (initialSymptoms) {
@@ -124,6 +181,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const handleConfirmBooking = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDoctor) return;
+
+    if (dateOpdStats.remainingSlots <= 0) {
+      alert(`Today's OPD patient quota of ${TOTAL_OPD_DAILY_SLOTS} slots is full for ${selectedDate}. Please select another date or contact 24/7 Emergency Line (0253 2317364).`);
+      return;
+    }
+
+    const assignedSlotNumber = dateOpdStats.nextSlotNumber;
+    const remainingSlotsAfter = Math.max(0, dateOpdStats.remainingSlots - 1);
 
     const deptPrefixMap: Record<string, string> = {
       'Comprehensive Stroke Center': 'STRK',
@@ -172,12 +237,33 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       symptoms: symptoms || 'Routine neurological follow-up',
       status: 'Confirmed',
       tokenNumber: token,
+      slotNumber: assignedSlotNumber,
+      remainingSlotsAtBooking: remainingSlotsAfter,
       createdAt: new Date().toISOString().split('T')[0],
       reminderSettings
     };
 
-    setAppointments(prev => [newAppointment, ...prev]);
+    const updated = [newAppointment, ...appointments];
+    setAppointments(updated);
+    saveOpdAppointments(updated);
     setLastConfirmedAppointment(newAppointment);
+
+    // Persist to Firestore database
+    saveAppointmentToFirestore({
+      patientName: newAppointment.patientName,
+      contactNumber: newAppointment.patientPhone,
+      age: String(newAppointment.patientAge),
+      gender: newAppointment.patientGender,
+      doctor: newAppointment.doctorName,
+      date: newAppointment.date,
+      timeSlot: newAppointment.timeSlot,
+      tokenNumber: newAppointment.tokenNumber,
+      department: newAppointment.department,
+      conditionContext: newAppointment.symptoms,
+      status: 'CONFIRMED',
+      userId: user?.uid
+    });
+
     if (onAppointmentBooked) {
       onAppointmentBooked(newAppointment);
     }
@@ -185,7 +271,9 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   };
 
   const handleSaveReminderSettings = (appointmentId: string, updatedSettings: ReminderSettings) => {
-    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, reminderSettings: updatedSettings } : a));
+    const updated = appointments.map(a => a.id === appointmentId ? { ...a, reminderSettings: updatedSettings } : a);
+    setAppointments(updated);
+    saveOpdAppointments(updated);
     if (lastConfirmedAppointment && lastConfirmedAppointment.id === appointmentId) {
       setLastConfirmedAppointment(prev => prev ? { ...prev, reminderSettings: updatedSettings } : null);
     }
@@ -203,7 +291,9 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   };
 
   const cancelAppointment = (id: string) => {
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: 'Cancelled' } : a));
+    const updated = appointments.map(a => a.id === id ? { ...a, status: 'Cancelled' as const } : a);
+    setAppointments(updated);
+    saveOpdAppointments(updated);
   };
 
   return (
@@ -233,6 +323,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* OPD Patient Live Descending Slots Counter (50 -> 0) */}
+      <OpdSlotCounterMeter
+        stats={todayOpdStats}
+        onSimulateBooking={handleSimulateBooking}
+        onSetRemainingSlots={handleSetRemainingSlots}
+        onResetSlots={handleResetSlots}
+      />
 
       {/* Filters and Search */}
       <div className="space-y-3">
@@ -328,6 +426,22 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     {doctor.availableDays.map(d => d.slice(0, 3)).join(', ')}
                   </span>
                 </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-[#EAE3D6]/80">
+                  <span className="flex items-center gap-1.5 text-[#635E56]">
+                    <Users className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                    Daily OPD Intake:
+                  </span>
+                  <span className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-md ${
+                    todayOpdStats.isFull 
+                      ? 'bg-rose-100 text-rose-800 border border-rose-300' 
+                      : todayOpdStats.remainingSlots <= 10
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  }`}>
+                    {todayOpdStats.remainingSlots} / 50 Slots Left
+                  </span>
+                </div>
               </div>
 
               <p className="text-xs text-[#635E56] mb-4 line-clamp-2 leading-relaxed">
@@ -344,9 +458,13 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               <button
                 id={`btn-book-${doctor.id}`}
                 onClick={() => startBooking(doctor)}
-                className="px-4 py-2 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
+                className={`px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 ${
+                  todayOpdStats.isFull 
+                    ? 'bg-[#B05B48] hover:bg-[#974534]' 
+                    : 'bg-[#8E5B3E] hover:bg-[#784A31]'
+                }`}
               >
-                Book Appointment
+                {todayOpdStats.isFull ? 'OPD Full (Pick Date)' : 'Book Appointment'}
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -386,14 +504,22 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           {appointments.map(apt => (
             <div key={apt.id} className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#EFE9DF] border border-[#DFD6C8] flex flex-col items-center justify-center text-[#7A5338] font-bold shrink-0">
-                  <span className="text-[10px] uppercase font-mono text-[#8E5B3E]">TOKEN</span>
+                <div className="w-14 h-14 rounded-2xl bg-[#EFE9DF] border border-[#DFD6C8] flex flex-col items-center justify-center text-[#7A5338] font-bold shrink-0 shadow-2xs">
+                  <span className="text-[9px] uppercase font-mono text-[#8E5B3E]">TOKEN</span>
                   <span className="text-xs font-black text-[#27231E]">{apt.tokenNumber}</span>
+                  <span className="text-[9px] text-[#7A5338] font-semibold mt-0.5">
+                    {apt.slotNumber ? `Slot #${apt.slotNumber}` : 'OPD Slot'}
+                  </span>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h4 className="font-serif font-bold text-sm text-[#27231E]">{apt.patientName}</h4>
                     <span className="text-xs text-[#7A746B]">({apt.patientAge}y, {apt.patientGender})</span>
+                    {apt.slotNumber && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
+                        OPD Slot #{apt.slotNumber} of 50
+                      </span>
+                    )}
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                       apt.status === 'Confirmed' ? 'bg-[#E3ECE6] text-[#3D5B4C]' : 'bg-[#FBEBEB] text-[#9E3939]'
                     }`}>
@@ -573,6 +699,51 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     />
                   </div>
 
+                  {/* Descending OPD Slot Meter for Date */}
+                  <div className="bg-[#FAF7F2] p-3.5 rounded-2xl border border-[#E6E0D4] space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#27231E] flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                        OPD Patient Quota for {selectedDate}:
+                      </span>
+                      <span className={`font-mono font-bold px-2 py-0.5 rounded-md text-[11px] ${
+                        dateOpdStats.isFull 
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300' 
+                          : dateOpdStats.remainingSlots <= 10
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      }`}>
+                        {dateOpdStats.remainingSlots} / 50 Slots Available
+                      </span>
+                    </div>
+
+                    <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-300 ${
+                          dateOpdStats.isFull ? 'bg-rose-500' : dateOpdStats.remainingSlots <= 10 ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(2, dateOpdStats.percentageBooked))}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-[#7A746B]">
+                      <span>Starting quota: 50 slots</span>
+                      <span className="font-semibold text-[#27231E]">
+                        {dateOpdStats.isFull 
+                          ? 'Capacity reached (0 slots remaining)' 
+                          : `Next Patient: Slot #${dateOpdStats.nextSlotNumber}`}
+                      </span>
+                      <span>Descends to: 0</span>
+                    </div>
+
+                    {dateOpdStats.isFull && (
+                      <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>All 50 OPD slots are booked for {selectedDate}. Please pick another date or call 0253 2317364 for emergency neurological triage.</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                       Available Time Slots
@@ -598,10 +769,15 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   <div className="pt-4 flex justify-end">
                     <button
                       type="button"
+                      disabled={dateOpdStats.isFull}
                       onClick={() => setBookingStep(2)}
-                      className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5"
+                      className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm flex items-center gap-1.5 ${
+                        dateOpdStats.isFull 
+                          ? 'bg-slate-400 cursor-not-allowed opacity-60' 
+                          : 'bg-cyan-600 hover:bg-cyan-700'
+                      }`}
                     >
-                      Next: Patient Details
+                      {dateOpdStats.isFull ? 'OPD Full for This Date (0 Left)' : 'Next: Patient Details'}
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -611,6 +787,16 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               {/* Step 2: Patient Demographics Form */}
               {bookingStep === 2 && (
                 <form onSubmit={handleConfirmBooking} className="space-y-4">
+                  {/* Quota Allocation Notification */}
+                  <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-amber-950">
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <TrendingDown className="w-4 h-4 text-[#8E5B3E]" />
+                      Allocating OPD Patient Slot: #{dateOpdStats.nextSlotNumber} of 50
+                    </span>
+                    <span className="text-[11px] text-amber-800">
+                      Remaining quota will descend from <strong>{dateOpdStats.remainingSlots}</strong> to <strong>{Math.max(0, dateOpdStats.remainingSlots - 1)} slots</strong>
+                    </span>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -814,19 +1000,24 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   <div className="border-2 border-dashed border-cyan-600/40 rounded-2xl p-6 bg-gradient-to-b from-cyan-50/40 to-white relative">
                     {/* Hospital Watermark Header */}
                     <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
-                      <div>
-                        <div className="text-xs font-black tracking-wider text-cyan-800 uppercase">
-                          SOPAN HOSPITAL & NEUROLOGY INSTITUTE
+                      <div className="flex items-center gap-3">
+                        <div className="p-1 rounded-xl bg-white border border-slate-200 shrink-0 shadow-2xs">
+                          <SopanLogo size="sm" />
                         </div>
-                        <div className="text-[10px] text-slate-600">
-                          Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka Nashik - 422001
-                        </div>
-                        <div className="text-[10px] text-rose-600 font-semibold">
-                          24/7 Stroke Hotline: 0253 2317364
+                        <div>
+                          <div className="text-xs font-black tracking-wider text-[#0B3C95] uppercase">
+                            SOPAN HOSPITAL & NEUROLOGY INSTITUTE
+                          </div>
+                          <div className="text-[10px] text-slate-600">
+                            Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka Nashik - 422001
+                          </div>
+                          <div className="text-[10px] text-rose-600 font-semibold">
+                            24/7 Stroke Hotline: 0253 2317364
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-mono font-bold bg-cyan-950 text-cyan-300 px-2.5 py-1 rounded-lg">
+                        <span className="text-xs font-mono font-bold bg-[#0B3C95] text-white px-2.5 py-1 rounded-lg">
                           TOKEN: {lastConfirmedAppointment.tokenNumber}
                         </span>
                       </div>
@@ -847,7 +1038,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mb-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mb-4">
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">Appointment Date</span>
                         <span className="font-semibold text-slate-800">{lastConfirmedAppointment.date}</span>
@@ -857,8 +1048,16 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                         <span className="font-semibold text-slate-800">{lastConfirmedAppointment.timeSlot}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">Consultation Type</span>
-                        <span className="font-semibold text-slate-800">{lastConfirmedAppointment.visitType}</span>
+                        <span className="text-slate-400 block text-[10px] uppercase">OPD Daily Queue</span>
+                        <span className="font-bold text-[#8E5B3E]">
+                          Slot #{lastConfirmedAppointment.slotNumber || 1} of 50
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Remaining Quota</span>
+                        <span className="font-bold text-emerald-700">
+                          {lastConfirmedAppointment.remainingSlotsAtBooking ?? (50 - (lastConfirmedAppointment.slotNumber || 1))} Left
+                        </span>
                       </div>
                     </div>
 
@@ -935,6 +1134,26 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     </div>
                   </div>
 
+                  {/* Post-Consultation Anonymous Feedback Prompt */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
+                    <div className="flex items-center gap-2">
+                      <HeartHandshake className="w-4 h-4 text-[#8E5B3E] shrink-0" />
+                      <div>
+                        <span className="font-bold block">Patient Experience Feedback Program</span>
+                        <span className="text-[11px] text-amber-800">
+                          Post-consultation? Share your 100% anonymous feedback to help Dr. Varade's team.
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowFeedbackModal(true)}
+                      className="px-3 py-1.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shrink-0 shadow-2xs"
+                    >
+                      Give Feedback
+                    </button>
+                  </div>
+
                   <div className="flex items-center justify-between pt-2">
                     <button
                       onClick={() => window.print()}
@@ -967,6 +1186,16 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         }}
         onSaveReminder={handleSaveReminderSettings}
       />
+
+      {/* Patient Experience Feedback Modal */}
+      {showFeedbackModal && lastConfirmedAppointment && (
+        <PatientExperienceFeedbackModalOrSection
+          isModal={true}
+          initialDepartment={lastConfirmedAppointment.department}
+          initialToken={lastConfirmedAppointment.tokenNumber}
+          onClose={() => setShowFeedbackModal(false)}
+        />
+      )}
     </div>
   );
 };
