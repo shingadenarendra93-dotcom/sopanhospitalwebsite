@@ -78,44 +78,51 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-[#FAF8F5]/95 backdrop-blur-md border-b border-[#E6E0D4]">
       {/* 24/7 Stroke Rapid Response Top Emergency Bar */}
-      <div className="bg-gradient-to-r from-[#8B3A3A] via-[#7D3232] to-[#6E2B2B] text-white text-[11px] sm:text-xs py-1.5 px-4 font-medium flex flex-wrap items-center justify-between gap-2 shadow-xs">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-          <span className="tracking-wide">
+      <div className="bg-gradient-to-r from-[#8B3A3A] via-[#7D3232] to-[#6E2B2B] text-white text-[11px] sm:text-xs py-1.5 px-4 font-medium flex items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-2 truncate">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+          </span>
+          <span className="tracking-wide truncate">
             {t('emergency.banner')} {t('emergency.location')}
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <LanguageSwitcher className="bg-white/10 border-white/20 text-white" />
-
+        <div className="flex items-center gap-3 shrink-0 text-xs font-semibold">
           <button
             onClick={onOpenEmergencyCall}
-            className="hover:underline flex items-center gap-1 text-white font-semibold"
+            className="hover:underline flex items-center gap-1.5 text-white"
+            title="Call 24/7 Stroke Emergency Hotline"
           >
             <Phone className="w-3.5 h-3.5" />
-            0253 2317364
+            <span className="hidden sm:inline">0253 2317364</span>
+            <span className="sm:hidden">Call</span>
           </button>
+
+          <span className="text-white/40">|</span>
 
           <button
             onClick={onOpenWhatsApp}
-            className="hidden md:flex items-center gap-1 bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-lg text-white font-semibold"
+            className="hover:underline flex items-center gap-1.5 text-white"
+            title="WhatsApp Stroke Emergency Desk"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            WhatsApp
+            <span className="hidden sm:inline">WhatsApp: 9405545521</span>
+            <span className="sm:hidden">WhatsApp</span>
           </button>
         </div>
       </div>
 
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 py-2">
+        <div className="flex items-center justify-between h-18 py-2 gap-4">
           {/* Hospital Brand & Logo */}
           <div 
             onClick={() => handleNavClick('stories')}
-            className="flex items-center gap-3 cursor-pointer select-none group"
+            className="flex items-center gap-3 cursor-pointer select-none group shrink-0"
           >
-            <div className="p-1 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center">
+            <div className="p-1 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
               <SopanLogo size="md" />
             </div>
             <div>
@@ -127,22 +134,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {t('hospital.tagline')}
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-[#7A5338] tracking-wide">
+              <p className="text-[11px] font-medium text-[#7A5338] tracking-wide line-clamp-1">
                 {t('doctor.title')}
               </p>
             </div>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden xl:flex items-center gap-1">
-            {navItems.map(item => {
+          <nav className="hidden 2xl:flex items-center gap-1">
+            {navItems.slice(0, 6).map(item => {
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
                   id={`nav-link-${item.id}`}
                   onClick={() => handleNavClick(item.id)}
-                  className={`px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${
+                  className={`h-9 px-3 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 shrink-0 ${
                     isActive
                       ? 'bg-[#342E28] text-white shadow-xs'
                       : 'text-[#635E56] hover:text-[#27231E] hover:bg-[#EFE9DF]'
@@ -155,29 +162,29 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
 
-          {/* Action Buttons */}
-          <div className="hidden sm:flex items-center gap-2.5">
+          {/* Action Buttons: Unified Alignment and Consistent Heights */}
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
             {/* Google Firebase Auth Sign In / Profile */}
             {user ? (
-              <div className="flex items-center gap-2 bg-[#FAF7F2] border border-[#D8CFC2] px-3 py-1.5 rounded-2xl shadow-2xs">
+              <div className="h-9 flex items-center gap-2 bg-[#FAF7F2] border border-[#D8CFC2] px-3 rounded-xl shadow-2xs">
                 {user.photoURL ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || 'User'}
-                    className="w-6 h-6 rounded-full object-cover border border-[#8E5B3E]/30"
+                    className="w-5 h-5 rounded-full object-cover border border-[#8E5B3E]/30"
                   />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-[#8E5B3E] text-white flex items-center justify-center text-[10px] font-bold">
+                  <div className="w-5 h-5 rounded-full bg-[#8E5B3E] text-white flex items-center justify-center text-[10px] font-bold">
                     {(user.displayName || user.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
-                <span className="text-xs font-semibold text-[#27231E] max-w-[100px] truncate">
+                <span className="text-xs font-semibold text-[#27231E] max-w-[90px] truncate">
                   {user.displayName?.split(' ')[0] || 'Patient'}
                 </span>
                 <button
                   onClick={() => logOut()}
                   title="Sign Out of Firebase"
-                  className="p-1 text-[#8E867A] hover:text-rose-600 transition-colors ml-1"
+                  className="p-0.5 text-[#8E867A] hover:text-rose-600 transition-colors"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -186,7 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={handleSignIn}
                 disabled={authLoading}
-                className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#D8CFC2] text-xs font-semibold text-[#27231E] shadow-2xs transition-all flex items-center gap-1.5"
+                className="h-9 px-3.5 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#D8CFC2] text-xs font-semibold text-[#27231E] shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
                 title="Sign in securely with Google via Firebase Auth"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -211,11 +218,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
+            {/* Language Switcher Button */}
             <LanguageSwitcher />
 
             <button
               onClick={onOpenWhatsApp}
-              className="px-3.5 py-2 rounded-xl bg-[#456254] hover:bg-[#374E43] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5"
+              className="h-9 px-3.5 rounded-xl bg-[#456254] hover:bg-[#374E43] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
             >
               <MessageCircle className="w-4 h-4" />
               {t('whatsapp.btn')}
@@ -223,29 +231,31 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => handleNavClick('appointments')}
-              className="px-4 py-2 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5"
+              className="h-9 px-4 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
             >
               <Calendar className="w-4 h-4" />
               {t('book.opd')}
             </button>
           </div>
 
-          {/* Mobile menu toggle */}
-          <div className="xl:hidden flex items-center gap-2">
-            <LanguageSwitcher className="scale-90" />
+          {/* Mobile Actions: Language + WhatsApp + Menu Hamburger */}
+          <div className="lg:hidden flex items-center gap-2 shrink-0">
+            <LanguageSwitcher />
 
             <button
               onClick={onOpenWhatsApp}
-              className="sm:hidden p-2 rounded-xl bg-[#EFECE6] text-[#456254] border border-[#DDD6C9]"
+              className="h-9 w-9 rounded-xl bg-[#EFECE6] text-[#456254] border border-[#DDD6C9] flex items-center justify-center shrink-0"
+              title="Open WhatsApp"
             >
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-4 h-4" />
             </button>
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE]"
+              className="h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] flex items-center justify-center shrink-0"
+              title="Toggle Menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>

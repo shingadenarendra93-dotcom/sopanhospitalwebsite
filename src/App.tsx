@@ -15,9 +15,10 @@ import { LatestNeurologyNews } from './components/LatestNeurologyNews';
 import { SymptomChecker } from './components/SymptomChecker';
 import { GeminiChatbot } from './components/GeminiChatbot';
 import { AuthProvider } from './context/AuthContext';
-import { LanguageProvider } from './context/LanguageContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { WhatsAppContactModal } from './components/WhatsAppContactModal';
 import { Footer } from './components/Footer';
+import { playSubtleClickSound } from './utils/audioFeedback';
 import { 
   MessageCircle, 
   Phone, 
@@ -29,7 +30,8 @@ import {
   Activity
 } from 'lucide-react';
 
-export default function App() {
+function MainApp() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<string>('symptom-checker');
   const [appointmentPrefill, setAppointmentPrefill] = useState<{
     symptoms?: string;
@@ -61,11 +63,25 @@ export default function App() {
     window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
+  const subTabs = [
+    { id: 'gemini-assistant', label: t('nav.ai_assistant') },
+    { id: 'symptom-checker', label: t('nav.symptom_checker') },
+    { id: 'stories', label: t('nav.stories') },
+    { id: 'news', label: t('nav.news') },
+    { id: 'appointments', label: t('nav.appointments') },
+    { id: 'reviews', label: t('nav.reviews') },
+    { id: 'patient-feedback', label: t('nav.feedback') },
+    { id: 'vr-brain', label: t('nav.vr_brain') },
+    { id: 'diseases', label: t('nav.diseases') },
+    { id: 'patient-portal', label: t('nav.portal') },
+    { id: 'remote-monitoring', label: t('nav.monitoring') },
+    { id: 'case-studies', label: t('nav.case_studies') },
+    { id: 'staff-payroll', label: t('nav.payroll') },
+  ];
+
   return (
-    <AuthProvider>
-      <LanguageProvider>
-        <div className="min-h-screen bg-[#F6F3EE] text-[#27231E] flex flex-col font-sans antialiased selection:bg-[#8E5B3E] selection:text-white">
-        {/* Top Navigation */}
+    <div className="min-h-screen bg-[#F6F3EE] text-[#27231E] flex flex-col font-sans antialiased selection:bg-[#8E5B3E] selection:text-white">
+      {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -86,27 +102,13 @@ export default function App() {
 
         {/* Dynamic Section Navigation / Sub-tabs */}
         <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-2 shadow-xs flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-          {[
-            { id: 'gemini-assistant', label: 'Gemini AI Assistant' },
-            { id: 'symptom-checker', label: 'Interactive Symptom Checker' },
-            { id: 'stories', label: 'Patient Success Stories' },
-            { id: 'news', label: 'Latest Neurology News' },
-            { id: 'appointments', label: 'Book OPD Appointment' },
-            { id: 'reviews', label: 'Google Reviews (4.9★)' },
-            { id: 'patient-feedback', label: 'Patient Experience Feedback' },
-            { id: 'vr-brain', label: '3D/VR Brain Anatomy' },
-            { id: 'diseases', label: 'Diseases & Caregiver Hub' },
-            { id: 'patient-portal', label: 'Patient Medical Portal' },
-            { id: 'remote-monitoring', label: 'Remote Monitoring (RPM)' },
-            { id: 'case-studies', label: 'Case Study Database' },
-            { id: 'staff-payroll', label: 'Staff Payroll System' },
-          ].map((tab) => (
+          {subTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => {
                 setActiveTab(tab.id);
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                 activeTab === tab.id
                   ? 'bg-[#342E28] text-white shadow-xs'
                   : 'text-[#635E56] hover:text-[#27231E] hover:bg-[#EFE9DF]'
@@ -198,8 +200,11 @@ export default function App() {
       <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
         <button
           id="btn-floating-whatsapp"
-          onClick={() => handleOpenWhatsApp('stroke-emergency')}
-          className="group relative px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-2xl shadow-emerald-700/40 flex items-center gap-2.5 transition-all transform hover:scale-105 animate-subtle-pulse"
+          onClick={() => {
+            playSubtleClickSound();
+            handleOpenWhatsApp('stroke-emergency');
+          }}
+          className="group relative px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-2xl shadow-emerald-700/40 flex items-center gap-2.5 transition-all transform hover:scale-105 active:scale-95 animate-subtle-pulse"
         >
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-white rounded-full animate-ping" />
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-white rounded-full" />
@@ -295,7 +300,15 @@ export default function App() {
         onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
       />
     </div>
-    </LanguageProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <LanguageProvider>
+        <MainApp />
+      </LanguageProvider>
     </AuthProvider>
   );
 }

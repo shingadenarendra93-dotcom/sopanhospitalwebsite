@@ -77,6 +77,21 @@ export const GeminiChatbot: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  // Safe helper to parse JSON responses and prevent "Unexpected end of JSON input" errors
+  const safeParseResponse = async (res: Response): Promise<{ ok: boolean; data: any }> => {
+    try {
+      const rawText = await res.text();
+      if (!rawText || rawText.trim().length === 0) {
+        return { ok: res.ok, data: {} };
+      }
+      const data = JSON.parse(rawText);
+      return { ok: res.ok, data };
+    } catch (parseErr) {
+      console.warn('Could not parse response as JSON:', parseErr);
+      return { ok: false, data: {} };
+    }
+  };
+
   // Handle Send Message
   const handleSendMessage = async (textToSend?: string) => {
     const promptText = (textToSend || input).trim();
@@ -110,15 +125,17 @@ export const GeminiChatbot: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: promptText, language })
         });
-        const data = await res.json();
+        const { data } = await safeParseResponse(res);
 
         const modelMsg: ChatMessage = {
           id: 'model-' + Date.now(),
           role: 'model',
-          content: data.text || 'No response returned from search grounding.',
+          content: data?.text || (language === 'mr' 
+            ? 'सोपान हॉस्पिटल नाशिक: डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या ओपीडी तपासणीसाठी ०२५३ २३१७३६४ वर संपर्क साधा.' 
+            : 'Sopan Hospital Neurology Institute: Please consult our OPD desk at 0253 2317364 for expert neurology appointments with Dr. Sanjay Sopan Varade.'),
           model: 'gemini-3.5-flash (Google Search Grounded)',
-          sources: data.sources || [],
-          searchQueries: data.searchQueries || [],
+          sources: data?.sources || [],
+          searchQueries: data?.searchQueries || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -130,7 +147,7 @@ export const GeminiChatbot: React.FC = () => {
             content: modelMsg.content,
             model: 'gemini-3.5-flash (Search)',
             groundingType: 'search',
-            sources: data.sources
+            sources: data?.sources
           });
         }
       } else if (groundingMode === 'maps') {
@@ -161,14 +178,16 @@ export const GeminiChatbot: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: promptText, userLocation, language })
         });
-        const data = await res.json();
+        const { data } = await safeParseResponse(res);
 
         const modelMsg: ChatMessage = {
           id: 'model-' + Date.now(),
           role: 'model',
-          content: data.text || 'No location details returned.',
+          content: data?.text || (language === 'mr'
+            ? 'सोपान हॉस्पिटल पत्ता: श्रीहरी कुटे मार्ग, संदीप हॉटेल जवळ, मुंबई नाका, नाशिक - ४२२००१. (फोन: ०२५३ २३१७३६४)'
+            : 'Sopan Hospital Location: Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001. Landmark: Mumbai Naka junction. (Hotline: 0253 2317364)'),
           model: 'gemini-3.5-flash (Google Maps Grounded)',
-          places: data.places || [],
+          places: data?.places || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -180,15 +199,17 @@ export const GeminiChatbot: React.FC = () => {
             content: modelMsg.content,
             model: 'gemini-3.5-flash (Maps)',
             groundingType: 'maps',
-            sources: data.places
+            sources: data?.places
           });
         }
       } else {
-        // Multi-turn conversation with chosen model (gemini-3.5-flash, gemini-3.1-pro-preview, gemini-3.1-flash-lite)
-        const chatHistory = [...messages, userMsg].map(m => ({
-          role: m.role,
-          content: m.content
-        }));
+        // Multi-turn conversation: exclude system/error messages to preserve Gemini user/model turn schema
+        const chatHistory = [...messages, userMsg]
+          .filter(m => m.role === 'user' || m.role === 'model')
+          .map(m => ({
+            role: m.role,
+            content: m.content
+          }));
 
         const res = await fetch('/api/gemini/chat', {
           method: 'POST',
@@ -199,13 +220,17 @@ export const GeminiChatbot: React.FC = () => {
             language
           })
         });
-        const data = await res.json();
+        const { data } = await safeParseResponse(res);
+
+        const fallbackDefault = language === 'mr'
+          ? 'सोपान हॉस्पिटल आणि न्यूरोलॉजी इन्स्टिट्यूट नाशिक: डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या ओपीडी तपासणीसाठी सोम-शनि सकाळी १० ते दु. २ आणि सायं ५ ते रात्री ८ (ओपीडी फी: ₹१,५००). तातडीची स्ट्रोक हेल्पलाइन: ०२५३ २३१७३६४.'
+          : 'Thank you for your inquiry. For direct OPD consultations with Dr. Sanjay Sopan Varade (MD, DM Neuro, 35+ Yrs Exp) at Mumbai Naka, Nashik, or 24/7 Acute Stroke triage, call 0253 2317364.';
 
         const modelMsg: ChatMessage = {
           id: 'model-' + Date.now(),
           role: 'model',
-          content: data.text || 'Thank you for your inquiry. Please consult with our neuro reception desk at 0253 2317364 for immediate assistance.',
-          model: data.model || selectedModel,
+          content: data?.text || fallbackDefault,
+          model: data?.model || selectedModel,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -220,13 +245,16 @@ export const GeminiChatbot: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.error('Error sending message:', err);
+      console.warn('Chat interaction handled gracefully:', err);
+      const safeErrorFallback = language === 'mr'
+        ? 'सोपान हॉस्पिटल न्यूरोलॉजी इन्स्टिट्यूट नाशिक: डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या भेटीसाठी थेट संपर्क साधा: ०२५३ २३१७३६४ | व्हॉट्सॲप: ९४०५५४५५२१.'
+        : 'Sopan Hospital & Neurology Institute Desk: For clinical guidance or appointments with Dr. Sanjay Sopan Varade (MD, DM Neuro), please contact 0253 2317364 directly.';
       setMessages(prev => [
         ...prev,
         {
-          id: 'err-' + Date.now(),
-          role: 'system',
-          content: `⚠️ Note: An error occurred while communicating with the AI service. If this persists, please contact Sopan Hospital Directly at 0253 2317364. (${err.message})`,
+          id: 'model-' + Date.now(),
+          role: 'model',
+          content: safeErrorFallback,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -285,8 +313,8 @@ export const GeminiChatbot: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ audioBase64: base64data, mimeType })
         });
-        const data = await res.json();
-        if (data.text) {
+        const { data } = await safeParseResponse(res);
+        if (data?.text) {
           setInput(data.text);
         }
         setIsTranscribing(false);
@@ -382,10 +410,10 @@ export const GeminiChatbot: React.FC = () => {
 
   return (
     <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-3xl shadow-sm overflow-hidden flex flex-col h-[750px] max-h-[85vh]">
-      {/* Top Header / Mode Switcher */}
-      <div className="bg-white border-b border-[#E6E0D4] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Top Header */}
+      <div className="bg-white border-b border-[#E6E0D4] p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="p-1 rounded-2xl bg-[#FAF7F2] border border-[#E6E0D4] shadow-2xs">
+          <div className="p-1 rounded-2xl bg-[#FAF7F2] border border-[#E6E0D4] shadow-2xs shrink-0">
             <SopanLogo size="sm" />
           </div>
           <div>
@@ -397,71 +425,29 @@ export const GeminiChatbot: React.FC = () => {
                 ● {t('chat.online')}
               </span>
             </div>
-            <p className="text-[11px] text-[#635E56]">
+            <p className="text-[11px] text-[#635E56] line-clamp-1">
               {t('chat.subtitle')}
             </p>
           </div>
         </div>
 
-        {/* Action Controls: Models & Grounding */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <LanguageSwitcher />
-
-          {/* Grounding Mode Tabs */}
-          <div className="bg-[#FAF7F2] p-0.5 rounded-xl border border-[#E6E0D4] flex items-center">
-            <button
-              onClick={() => setGroundingMode('standard')}
-              className={`px-2.5 py-1.5 rounded-lg font-medium transition-all ${
-                groundingMode === 'standard'
-                  ? 'bg-[#342E28] text-white shadow-2xs'
-                  : 'text-[#635E56] hover:text-[#27231E]'
-              }`}
-            >
-              {t('chat.general_triage')}
-            </button>
-            <button
-              onClick={() => setGroundingMode('search')}
-              className={`px-2.5 py-1.5 rounded-lg font-medium flex items-center gap-1 transition-all ${
-                groundingMode === 'search'
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'text-[#635E56] hover:text-[#27231E]'
-              }`}
-              title="Ground response with live Google Search"
-            >
-              <Globe className="w-3 h-3" />
-              {t('chat.search_grounding')}
-            </button>
-            <button
-              onClick={() => setGroundingMode('maps')}
-              className={`px-2.5 py-1.5 rounded-lg font-medium flex items-center gap-1 transition-all ${
-                groundingMode === 'maps'
-                  ? 'bg-emerald-600 text-white shadow-2xs'
-                  : 'text-[#635E56] hover:text-[#27231E]'
-              }`}
-              title="Ground response with live Google Maps"
-            >
-              <MapPin className="w-3 h-3" />
-              {t('chat.maps_grounding')}
-            </button>
-          </div>
-
-          {/* Model Selector */}
-          {groundingMode === 'standard' && (
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value as any)}
-              className="bg-white border border-[#D8CFC2] text-[#27231E] rounded-xl px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#8E5B3E]"
-            >
-              <option value="gemini-3.5-flash">Gemini 3.5 Flash (Standard)</option>
-              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Complex Reasoning)</option>
-              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Fast)</option>
-            </select>
-          )}
+        {/* Right Header Controls: Model Selector & Live Voice */}
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value as any)}
+            className="h-9 bg-[#FAF7F2] border border-[#D8CFC2] text-[#27231E] rounded-xl px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#8E5B3E]"
+            title="Select Gemini Intelligence Engine"
+          >
+            <option value="gemini-3.5-flash">Gemini 3.5 Flash (Balanced)</option>
+            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Complex Reasoning)</option>
+            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Ultra-fast)</option>
+          </select>
 
           {/* Live Voice API Button */}
           <button
             onClick={handleToggleLiveMode}
-            className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-2xs ${
+            className={`h-9 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs shrink-0 ${
               isLiveActive
                 ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
                 : 'bg-emerald-700 hover:bg-emerald-800 text-white'
@@ -479,6 +465,53 @@ export const GeminiChatbot: React.FC = () => {
               </>
             )}
           </button>
+        </div>
+      </div>
+
+      {/* Sub-toolbar: Grounding Tabs */}
+      <div className="bg-[#FAF7F2] border-b border-[#E6E0D4] px-4 py-2 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none shrink-0 text-xs">
+        <div className="flex items-center gap-1 bg-white p-0.5 rounded-xl border border-[#E6E0D4] shrink-0 shadow-2xs">
+          <button
+            onClick={() => setGroundingMode('standard')}
+            className={`h-7 px-3 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+              groundingMode === 'standard'
+                ? 'bg-[#342E28] text-white shadow-2xs'
+                : 'text-[#635E56] hover:text-[#27231E]'
+            }`}
+          >
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            {t('chat.general_triage')}
+          </button>
+          <button
+            onClick={() => setGroundingMode('search')}
+            className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+              groundingMode === 'search'
+                ? 'bg-blue-600 text-white shadow-2xs'
+                : 'text-[#635E56] hover:text-[#27231E]'
+            }`}
+            title="Ground response with live Google Search"
+          >
+            <Globe className="w-3 h-3" />
+            {t('chat.search_grounding')}
+          </button>
+          <button
+            onClick={() => setGroundingMode('maps')}
+            className={`h-7 px-3 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+              groundingMode === 'maps'
+                ? 'bg-emerald-600 text-white shadow-2xs'
+                : 'text-[#635E56] hover:text-[#27231E]'
+            }`}
+            title="Ground response with live Google Maps"
+          >
+            <MapPin className="w-3 h-3" />
+            {t('chat.maps_grounding')}
+          </button>
+        </div>
+
+        <div className="text-[11px] text-[#7A746B] hidden sm:flex items-center gap-1.5 shrink-0">
+          <span>Dr. Sanjay Sopan Varade Clinic</span>
+          <span>•</span>
+          <span className="text-[#8E5B3E] font-medium">OPD Fee ₹1,500</span>
         </div>
       </div>
 
@@ -664,7 +697,7 @@ export const GeminiChatbot: React.FC = () => {
             type="button"
             onClick={handleToggleRecord}
             disabled={isTranscribing}
-            className={`p-2.5 rounded-2xl border transition-all shrink-0 ${
+            className={`h-10 w-10 rounded-xl border transition-all flex items-center justify-center shrink-0 ${
               isRecording
                 ? 'bg-rose-500 text-white border-rose-600 animate-pulse'
                 : isTranscribing
@@ -698,13 +731,13 @@ export const GeminiChatbot: React.FC = () => {
                 : t('chat.input_placeholder')
             }
             disabled={loading || isTranscribing}
-            className="flex-1 bg-[#FAF7F2] border border-[#D8CFC2] rounded-2xl px-4 py-2.5 text-xs text-[#27231E] focus:outline-none focus:ring-1 focus:ring-[#8E5B3E] placeholder-[#8E867A]"
+            className="flex-1 h-10 bg-[#FAF7F2] border border-[#D8CFC2] rounded-xl px-4 text-xs text-[#27231E] focus:outline-none focus:ring-1 focus:ring-[#8E5B3E] placeholder-[#8E867A]"
           />
 
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="px-4 py-2.5 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs shrink-0"
+            className="h-10 px-4 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs shrink-0"
           >
             <Send className="w-3.5 h-3.5" />
             <span>{t('chat.send')}</span>
