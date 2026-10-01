@@ -39,13 +39,20 @@ import { PatientExperienceFeedbackModalOrSection } from './PatientExperienceFeed
 import { SopanLogo } from './SopanLogo';
 import { saveAppointmentToFirestore } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 import { 
   TOTAL_OPD_DAILY_SLOTS, 
   calculateOpdSlotStats, 
   loadOpdAppointments, 
   saveOpdAppointments,
   getOpdManualOffset,
-  setOpdManualOffset 
+  setOpdManualOffset,
+  updateAppointmentStatus,
+  isAdminLoggedIn,
+  getAdminSession,
+  resetOpdCounter,
+  getOpdCapacity,
+  setOpdCapacity
 } from '../utils/opdSlotUtils';
 
 interface AppointmentSchedulerProps {
@@ -96,6 +103,9 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [isReminderModalOpen, setIsReminderModalOpen] = useState<boolean>(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [reminderToast, setReminderToast] = useState<string | null>(null);
+  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const [adminActive, setAdminActive] = useState<boolean>(() => isAdminLoggedIn());
+  const [adminSession, setAdminSessionState] = useState(() => getAdminSession());
   const { user } = useAuth();
 
   useEffect(() => {
@@ -107,18 +117,24 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     const handleSync = () => {
       setAppointments(loadOpdAppointments());
       setSlotOffset(getOpdManualOffset());
+      setAdminActive(isAdminLoggedIn());
+      setAdminSessionState(getAdminSession());
     };
     window.addEventListener('sopan_opd_quota_updated', handleSync);
-    return () => window.removeEventListener('sopan_opd_quota_updated', handleSync);
+    window.addEventListener('sopan_admin_session_changed', handleSync);
+    return () => {
+      window.removeEventListener('sopan_opd_quota_updated', handleSync);
+      window.removeEventListener('sopan_admin_session_changed', handleSync);
+    };
   }, []);
 
-  // OPD Quota Statistics (50 slots descending down to 0)
+  // OPD Quota Statistics (descending down to 0)
   const todayOpdStats = useMemo(() => {
-    return calculateOpdSlotStats(appointments, undefined, TOTAL_OPD_DAILY_SLOTS);
+    return calculateOpdSlotStats(appointments, undefined);
   }, [appointments, slotOffset]);
 
   const dateOpdStats = useMemo(() => {
-    return calculateOpdSlotStats(appointments, selectedDate, TOTAL_OPD_DAILY_SLOTS);
+    return calculateOpdSlotStats(appointments, selectedDate);
   }, [appointments, selectedDate, slotOffset]);
 
   const handleSimulateBooking = () => {
@@ -130,7 +146,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   const handleSetRemainingSlots = (targetRemaining: number) => {
     const baseBooked = appointments.filter(a => a.status === 'Confirmed' || a.status === 'Completed').length;
-    const neededOffset = (TOTAL_OPD_DAILY_SLOTS - targetRemaining) - baseBooked;
+    const neededOffset = (todayOpdStats.totalSlots - targetRemaining) - baseBooked;
     setSlotOffset(neededOffset);
     setOpdManualOffset(neededOffset);
   };
@@ -138,6 +154,18 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const handleResetSlots = () => {
     setSlotOffset(0);
     setOpdManualOffset(0);
+  };
+
+  const handleAcceptAppointment = (apt: Appointment) => {
+    const updated = updateAppointmentStatus(apt.id, 'Confirmed');
+    setAppointments(updated);
+    setReminderToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) ACCEPTED & confirmed.`);
+  };
+
+  const handleRejectAppointment = (apt: Appointment) => {
+    const updated = updateAppointmentStatus(apt.id, 'Cancelled', 'Cancelled by OPD Administration');
+    setAppointments(updated);
+    setReminderToast(`Appointment for ${apt.patientName} CANCELLED. Slot released back into available quota.`);
   };
 
   useEffect(() => {
@@ -314,6 +342,17 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
+          <button
+            type="button"
+            id="btn-scheduler-opd-admin"
+            onClick={() => setShowAdminModal(true)}
+            className="px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
+            title="OPD Administration: Reset counter, extend capacity, accept/reject appointments"
+          >
+            <ShieldCheck className="w-4 h-4 text-cyan-400" />
+            <span>OPD Desk Admin</span>
+          </button>
+
           <div className="bg-white border border-[#E6E0D4] p-3.5 rounded-2xl text-xs w-full sm:w-auto flex items-center gap-3 shadow-xs">
             <ShieldCheck className="w-6 h-6 text-[#456254] shrink-0" />
             <div>
@@ -484,6 +523,81 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           </div>
         </div>
 
+        {/* OPD Admin Control Strip */}
+        <div className="bg-[#F2ECE1] border border-[#DDD5C7] rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-cyan-700 shrink-0" />
+            <span className="font-bold text-[#27231E]">
+              {adminActive ? `OPD Admin: ${adminSession?.username || 'Staff Desk'}` : 'OPD Admin Controls'}
+            </span>
+            <span className="text-[#7A746B]">•</span>
+            <span className="text-[#635E56]">
+              Live Quota: <strong className="text-[#27231E]">{todayOpdStats.remainingSlots}</strong> / {todayOpdStats.totalSlots} Slots Free ({todayOpdStats.bookedCount} Booked)
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {adminActive ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetOpdCounter();
+                    setReminderToast('Patient OPD counter reset to 0 booked (full daily quota restored).');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
+                  title="Reset booked patient count to 0"
+                >
+                  <RefreshCw className="w-3 h-3 text-rose-600" />
+                  Reset Counter (0 Booked)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newCap = todayOpdStats.totalSlots + 5;
+                    setOpdCapacity(newCap);
+                    setReminderToast(`OPD daily capacity extended to ${newCap} slots.`);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-cyan-50 text-cyan-800 border border-cyan-300 font-bold text-xs shadow-2xs transition-colors"
+                  title="Extend OPD quota by 5 slots"
+                >
+                  +5 Slots
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newCap = todayOpdStats.totalSlots + 10;
+                    setOpdCapacity(newCap);
+                    setReminderToast(`OPD daily capacity extended to ${newCap} slots.`);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-cyan-50 text-cyan-800 border border-cyan-300 font-bold text-xs shadow-2xs transition-colors"
+                  title="Extend OPD quota by 10 slots"
+                >
+                  +10 Slots
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAdminModal(true)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <Sliders className="w-3 h-3 text-cyan-400" />
+                  Full Admin Desk
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAdminModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                title="Log in as admin to reset counters, extend capacity, or accept/reject appointments"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                Admin Log In (Reset / Extend Quota / Accept-Reject)
+              </button>
+            )}
+          </div>
+        </div>
+
         {reminderToast && (
           <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in duration-200">
             <div className="flex items-center gap-2">
@@ -517,13 +631,15 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     <span className="text-xs text-[#7A746B]">({apt.patientAge}y, {apt.patientGender})</span>
                     {apt.slotNumber && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
-                        OPD Slot #{apt.slotNumber} of 50
+                        OPD Slot #{apt.slotNumber} of {todayOpdStats.totalSlots}
                       </span>
                     )}
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      apt.status === 'Confirmed' ? 'bg-[#E3ECE6] text-[#3D5B4C]' : 'bg-[#FBEBEB] text-[#9E3939]'
+                      apt.status === 'Confirmed' ? 'bg-[#E3ECE6] text-[#3D5B4C]' :
+                      apt.status === 'Cancelled' ? 'bg-[#FBEBEB] text-[#9E3939]' :
+                      'bg-amber-100 text-amber-800'
                     }`}>
-                      {apt.status}
+                      {apt.status === 'Cancelled' ? 'Rejected / Cancelled' : apt.status || 'Pending'}
                     </span>
                   </div>
                   <div className="text-xs text-[#635E56] mt-0.5">
@@ -552,6 +668,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                       )}
                     </span>
                   </div>
+
+                  {/* Rejection notice if cancelled */}
+                  {apt.status === 'Cancelled' && apt.rejectionReason && (
+                    <div className="mt-1.5 text-[11px] text-rose-800 bg-rose-50 px-2.5 py-1 rounded-xl border border-rose-200 inline-flex items-center gap-1 font-medium">
+                      <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span>Rejection Reason: {apt.rejectionReason}</span>
+                    </div>
+                  )}
 
                   {/* Remind Me Status Badge */}
                   <div className="mt-2 flex items-center gap-2">
@@ -584,6 +708,32 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                {/* Accept Button for Pending or Cancelled */}
+                {apt.status !== 'Confirmed' && (
+                  <button
+                    type="button"
+                    onClick={() => handleAcceptAppointment(apt)}
+                    className="text-xs text-white px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                    title="Accept & Confirm this appointment"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Accept
+                  </button>
+                )}
+
+                {/* Reject Button for Confirmed or Pending */}
+                {apt.status !== 'Cancelled' && (
+                  <button
+                    type="button"
+                    onClick={() => handleRejectAppointment(apt)}
+                    className="text-xs text-[#9E3939] hover:text-[#7D2828] px-3 py-1.5 rounded-xl border border-[#E9C8C8] hover:bg-[#FBEBEB] transition-colors font-semibold flex items-center gap-1"
+                    title="Reject and free slot back to available quota"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Reject
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => handleOpenReminderModal(apt)}
@@ -593,14 +743,6 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   <Bell className="w-3.5 h-3.5 text-[#8E5B3E]" />
                   Remind Me
                 </button>
-                {apt.status === 'Confirmed' && (
-                  <button
-                    onClick={() => cancelAppointment(apt.id)}
-                    className="text-xs text-[#9E3939] hover:text-[#7D2828] px-3 py-1.5 rounded-xl border border-[#E9C8C8] hover:bg-[#FBEBEB] transition-colors"
-                  >
-                    Cancel
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     setLastConfirmedAppointment(apt);
@@ -1196,6 +1338,15 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           onClose={() => setShowFeedbackModal(false)}
         />
       )}
+
+      {/* OPD Admin Portal Modal */}
+      <OpdAdminPortalModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        onAppointmentsUpdated={() => {
+          setAppointments(loadOpdAppointments());
+        }}
+      />
     </div>
   );
 };

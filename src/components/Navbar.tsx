@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SopanLogo } from './SopanLogo';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { OpdAdminPortalModal } from './OpdAdminPortalModal';
+import { isAdminLoggedIn } from '../utils/opdSlotUtils';
 import { 
   Activity, 
   Phone, 
@@ -25,7 +27,8 @@ import {
   Bot,
   LogOut,
   LogIn,
-  Globe
+  Globe,
+  Sliders
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -45,6 +48,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { t, language } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
+  const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
+  const [adminActive, setAdminActive] = useState<boolean>(() => isAdminLoggedIn());
+
+  useEffect(() => {
+    const checkAdmin = () => setAdminActive(isAdminLoggedIn());
+    window.addEventListener('sopan_admin_session_changed', checkAdmin);
+    return () => window.removeEventListener('sopan_admin_session_changed', checkAdmin);
+  }, []);
 
   const handleSignIn = async () => {
     setAuthLoading(true);
@@ -221,6 +232,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Language Switcher Button */}
             <LanguageSwitcher />
 
+            {/* OPD Admin Desk Button */}
+            <button
+              id="btn-nav-opd-admin"
+              onClick={() => setAdminModalOpen(true)}
+              className="h-9 px-3 rounded-xl bg-[#27231E] hover:bg-[#3E3832] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
+              title="Hospital OPD Administration: Reset counter, extend capacity, accept/reject appointments"
+            >
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <span className="hidden xl:inline">OPD Admin</span>
+              {adminActive && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+              )}
+            </button>
+
             <button
               onClick={onOpenWhatsApp}
               className="h-9 px-3.5 rounded-xl bg-[#456254] hover:bg-[#374E43] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
@@ -241,6 +266,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Mobile Actions: Language + WhatsApp + Menu Hamburger */}
           <div className="lg:hidden flex items-center gap-2 shrink-0">
             <LanguageSwitcher />
+
+            <button
+              onClick={() => setAdminModalOpen(true)}
+              className="h-9 w-9 rounded-xl bg-[#27231E] text-cyan-400 flex items-center justify-center shrink-0 shadow-2xs"
+              title="Open OPD Desk Administration"
+            >
+              <ShieldCheck className="w-4 h-4" />
+            </button>
 
             <button
               onClick={onOpenWhatsApp}
@@ -286,7 +319,26 @@ export const Navbar: React.FC<NavbarProps> = ({
             ))}
           </div>
 
-          <div className="pt-3 border-t border-[#E6E0D4] flex gap-2">
+          {/* OPD Admin Button in Mobile Drawer */}
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setAdminModalOpen(true);
+              }}
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center justify-between shadow-xs"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                <span>OPD Desk Admin Portal</span>
+              </div>
+              <span className="text-[10px] bg-slate-800 text-cyan-300 px-2 py-0.5 rounded font-mono">
+                Reset / Extend Quota
+              </span>
+            </button>
+          </div>
+
+          <div className="pt-2 border-t border-[#E6E0D4] flex gap-2">
             <button
               onClick={() => {
                 onOpenWhatsApp();
@@ -307,6 +359,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       )}
+
+      {/* OPD Admin Portal Modal */}
+      <OpdAdminPortalModal
+        isOpen={adminModalOpen}
+        onClose={() => setAdminModalOpen(false)}
+      />
     </header>
   );
 };

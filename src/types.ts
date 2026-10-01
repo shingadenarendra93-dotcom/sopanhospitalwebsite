@@ -52,12 +52,15 @@ export interface Appointment {
   timeSlot: string;
   visitType: 'In-Person Hospital OPD' | 'Tele-Neurology Video Consultation';
   symptoms: string;
-  status: 'Confirmed' | 'Completed' | 'Cancelled';
+  status: 'Confirmed' | 'Completed' | 'Cancelled' | 'Pending';
   tokenNumber: string;
   slotNumber?: number;
   remainingSlotsAtBooking?: number;
   createdAt: string;
   reminderSettings?: ReminderSettings;
+  rejectionReason?: string;
+  adminActionAt?: string;
+  adminActionBy?: string;
 }
 
 export interface DiagnosticReport {

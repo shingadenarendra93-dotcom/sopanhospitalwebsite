@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   FileText, 
@@ -16,20 +16,34 @@ import {
   Eye, 
   Phone, 
   Layers, 
-  X
+  X,
+  Bell,
+  ClipboardCheck,
+  Check,
+  MapPin,
+  CalendarCheck,
+  ArrowRight,
+  ExternalLink,
+  Smartphone,
+  Sparkles
 } from 'lucide-react';
 import { 
   PatientProfile, 
   DiagnosticReport, 
   Prescription, 
-  PatientVitalsLog 
+  PatientVitalsLog,
+  Appointment,
+  ReminderSettings
 } from '../types';
 import { 
   INITIAL_PATIENT, 
   INITIAL_REPORTS, 
   INITIAL_PRESCRIPTIONS, 
-  INITIAL_VITALS_LOGS 
+  INITIAL_VITALS_LOGS,
+  INITIAL_APPOINTMENTS
 } from '../data/mockData';
+import { loadOpdAppointments, saveOpdAppointments } from '../utils/opdSlotUtils';
+import { AppointmentReminderModal } from './AppointmentReminderModal';
 
 export const PatientPortal: React.FC = () => {
   const [patient] = useState<PatientProfile>(INITIAL_PATIENT);
@@ -37,9 +51,52 @@ export const PatientPortal: React.FC = () => {
   const [prescriptions] = useState<Prescription[]>(INITIAL_PRESCRIPTIONS);
   const [vitalsLogs, setVitalsLogs] = useState<PatientVitalsLog[]>(INITIAL_VITALS_LOGS);
   
+  // Appointments state loaded from EHR/local storage
+  const [appointments, setAppointments] = useState<Appointment[]>(() => {
+    const all = loadOpdAppointments();
+    const patientApts = all.filter(
+      a => a.patientName.toLowerCase().includes('rajesh') || a.patientPhone === INITIAL_PATIENT.emergencyContact
+    );
+    return patientApts.length > 0 ? patientApts : all.slice(0, 1);
+  });
+
   const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'prescriptions' | 'telemetry'>('overview');
   const [caregiverView, setCaregiverView] = useState<boolean>(false);
   const [selectedReportModal, setSelectedReportModal] = useState<DiagnosticReport | null>(null);
+  const [selectedAppointmentModal, setSelectedAppointmentModal] = useState<Appointment | null>(null);
+  const [showReminderSettingsModal, setShowReminderSettingsModal] = useState<boolean>(false);
+
+  // Sync appointments with system events
+  useEffect(() => {
+    const syncAppointments = () => {
+      const all = loadOpdAppointments();
+      const patientApts = all.filter(
+        a => a.patientName.toLowerCase().includes('rajesh') || a.patientPhone === patient.emergencyContact
+      );
+      setAppointments(patientApts.length > 0 ? patientApts : all.slice(0, 1));
+    };
+
+    window.addEventListener('sopan_opd_quota_updated', syncAppointments);
+    window.addEventListener('storage', syncAppointments);
+    return () => {
+      window.removeEventListener('sopan_opd_quota_updated', syncAppointments);
+      window.removeEventListener('storage', syncAppointments);
+    };
+  }, [patient.emergencyContact]);
+
+  // Derived quick metrics
+  const upcomingAppointments = appointments.filter(a => a.status === 'Confirmed' || a.status === 'Pending');
+  const cancelledAppointments = appointments.filter(a => a.status === 'Cancelled');
+  const nextAppointment = upcomingAppointments[0];
+  const recentReportsCount = reports.length;
+  const totalMedicationReminders = prescriptions.reduce((acc, rx) => acc + rx.medicines.length, 0);
+
+  // Save updated reminder settings
+  const handleSaveReminderSettings = (aptId: string, updatedSettings: ReminderSettings) => {
+    const updated = appointments.map(a => a.id === aptId ? { ...a, reminderSettings: updatedSettings } : a);
+    setAppointments(updated);
+    saveOpdAppointments(updated);
+  };
 
   // Quick log new vitals
   const [showLogModal, setShowLogModal] = useState<boolean>(false);
@@ -147,6 +204,193 @@ export const PatientPortal: React.FC = () => {
             </span>
           </div>
         )}
+      </div>
+
+      {/* Quick Stats Summary Box */}
+      <div id="patient-portal-quick-stats" className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-cyan-50 border border-cyan-200/80 flex items-center justify-center text-cyan-600">
+              <Activity className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Quick Stats</h3>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-100/70 text-cyan-800">
+                  Live Summary
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Key neurological care metrics, verified diagnostic records, and medication reminders
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            EHR Synchronized
+          </div>
+        </div>
+
+        {/* Notice for Cancelled/Rejected Appointment */}
+        {cancelledAppointments.length > 0 && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+              <div>
+                <span className="font-bold text-rose-950">OPD Desk Notice:</span>{' '}
+                Your appointment for {cancelledAppointments[0].date} was cancelled/rejected by clinic administration:
+                <span className="block mt-0.5 font-semibold text-rose-800">
+                  "{cancelledAppointments[0].rejectionReason || 'Doctor in emergency thrombectomy / quota full'}"
+                </span>
+              </div>
+            </div>
+            <a
+              href="tel:02532317364"
+              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              Call Desk (0253 2317364)
+            </a>
+          </div>
+        )}
+
+        {/* 3-Column Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Metric 1: Upcoming Appointments */}
+          <div 
+            onClick={() => setSelectedAppointmentModal(nextAppointment || appointments[0])}
+            className="group relative bg-gradient-to-br from-blue-50/40 via-white to-slate-50/50 hover:to-blue-50/30 border border-blue-100 hover:border-blue-300 rounded-2xl p-4 sm:p-5 transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-blue-100/70 border border-blue-200 flex items-center justify-center text-blue-700 group-hover:scale-105 transition-transform">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-semibold text-blue-700 bg-blue-100/60 border border-blue-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {nextAppointment ? 'Confirmed OPD' : 'None Scheduled'}
+                </span>
+              </div>
+
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Upcoming Appointments
+              </div>
+              <div className="text-2xl font-extrabold text-slate-900 mt-1">
+                {upcomingAppointments.length} <span className="text-sm font-semibold text-slate-500">Scheduled</span>
+              </div>
+
+              {nextAppointment ? (
+                <div className="mt-2.5 space-y-1">
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <CalendarCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>{nextAppointment.date} • {nextAppointment.timeSlot}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 line-clamp-1">
+                    {nextAppointment.doctorName}
+                  </div>
+                  <div className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                    Token: {nextAppointment.tokenNumber}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 text-xs text-slate-400">
+                  No pending follow-ups. Book anytime via Hospital OPD.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-blue-100/60 flex items-center justify-between text-xs font-bold text-blue-700 group-hover:text-blue-800">
+              <span>View Token & Reminders</span>
+              <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Metric 2: Recent Test Results Count */}
+          <div 
+            onClick={() => setActiveTab('reports')}
+            className="group relative bg-gradient-to-br from-purple-50/40 via-white to-slate-50/50 hover:to-purple-50/30 border border-purple-100 hover:border-purple-300 rounded-2xl p-4 sm:p-5 transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-purple-100/70 border border-purple-200 flex items-center justify-center text-purple-700 group-hover:scale-105 transition-transform">
+                  <ClipboardCheck className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-semibold text-purple-700 bg-purple-100/60 border border-purple-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  100% Signed
+                </span>
+              </div>
+
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Recent Test Results
+              </div>
+              <div className="text-2xl font-extrabold text-slate-900 mt-1">
+                {recentReportsCount} <span className="text-sm font-semibold text-slate-500">Verified</span>
+              </div>
+
+              <div className="mt-2.5 space-y-1">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="line-clamp-1">{reports[0]?.testName || '32-Slice CT Scanner'}</span>
+                </div>
+                <div className="text-[11px] text-slate-500 line-clamp-1">
+                  Date: {reports[0]?.date} • {reports[0]?.modality}
+                </div>
+                <div className="text-[11px] text-purple-800 bg-purple-50 px-2 py-0.5 rounded border border-purple-100 inline-block font-medium">
+                  32-Slice CT • 24h EEG • Doppler
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-purple-100/60 flex items-center justify-between text-xs font-bold text-purple-700 group-hover:text-purple-800">
+              <span>Browse All Diagnostic Slips</span>
+              <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Metric 3: Total Medication Reminders */}
+          <div 
+            onClick={() => setActiveTab('prescriptions')}
+            className="group relative bg-gradient-to-br from-emerald-50/40 via-white to-slate-50/50 hover:to-emerald-50/30 border border-emerald-100 hover:border-emerald-300 rounded-2xl p-4 sm:p-5 transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100/70 border border-emerald-200 flex items-center justify-center text-emerald-700 group-hover:scale-105 transition-transform">
+                  <Pill className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/60 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Bell className="w-3 h-3" />
+                  Alarms Active
+                </span>
+              </div>
+
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Total Medication Reminders
+              </div>
+              <div className="text-2xl font-extrabold text-slate-900 mt-1">
+                {totalMedicationReminders} <span className="text-sm font-semibold text-slate-500">Active Drugs</span>
+              </div>
+
+              <div className="mt-2.5 space-y-1">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>5 Scheduled daily dosage times</span>
+                </div>
+                <div className="text-[11px] text-slate-500 line-clamp-1">
+                  Morning, Post-Breakfast, Evening & Bedtime
+                </div>
+                <div className="text-[11px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 inline-block font-medium">
+                  Follow-Up Review: {prescriptions[0]?.followUpDate || '15 Oct 2026'}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-emerald-100/60 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
+              <span>View Dosage Timetable</span>
+              <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
@@ -702,6 +946,115 @@ export const PatientPortal: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Upcoming Appointment Details Modal */}
+      {selectedAppointmentModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl p-6 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-700">
+                  SOPAN HOSPITAL & NEUROLOGY INSTITUTE • OPD PASS
+                </span>
+                <h3 className="text-lg font-bold text-slate-900">Upcoming OPD Appointment Token</h3>
+              </div>
+              <button 
+                onClick={() => setSelectedAppointmentModal(null)} 
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Token Badge */}
+            <div className="bg-gradient-to-r from-blue-900 to-slate-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-md">
+              <div>
+                <span className="text-xs text-blue-200 block">Queue Token Number</span>
+                <span className="text-2xl font-black tracking-wide font-mono text-cyan-300">
+                  {selectedAppointmentModal.tokenNumber}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-xs text-slate-300 block">Visit Format</span>
+                <span className="text-xs font-semibold bg-blue-700/60 px-2.5 py-1 rounded-full text-white inline-block mt-0.5">
+                  {selectedAppointmentModal.visitType}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Patient Name:</span>
+                <span className="font-bold text-slate-900">{selectedAppointmentModal.patientName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Consultant Neurologist:</span>
+                <span className="font-bold text-cyan-800">{selectedAppointmentModal.doctorName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Specialty / Department:</span>
+                <span className="font-medium text-slate-800">{selectedAppointmentModal.department}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Scheduled Date & Time:</span>
+                <span className="font-bold text-slate-900">{selectedAppointmentModal.date} at {selectedAppointmentModal.timeSlot}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Clinic Location:</span>
+                <span className="text-slate-700 font-medium">Shrihari Kute Marg, Mumbai Naka, Nashik</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-200">
+                <span className="text-slate-500">Reminder Dispatches:</span>
+                <span className="font-semibold text-emerald-700 flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" />
+                  WhatsApp & Email Active
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <button
+                onClick={() => {
+                  setShowReminderSettingsModal(true);
+                }}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                Configure Reminders
+              </button>
+
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => window.print()}
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print Pass
+                </button>
+                <button
+                  onClick={() => setSelectedAppointmentModal(null)}
+                  className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Reminder Configuration Modal */}
+      {showReminderSettingsModal && selectedAppointmentModal && (
+        <AppointmentReminderModal
+          appointment={selectedAppointmentModal}
+          isOpen={showReminderSettingsModal}
+          onClose={() => setShowReminderSettingsModal(false)}
+          onSaveReminder={(aptId, updatedSettings) => {
+            handleSaveReminderSettings(aptId, updatedSettings);
+            setShowReminderSettingsModal(false);
+          }}
+        />
       )}
     </div>
   );

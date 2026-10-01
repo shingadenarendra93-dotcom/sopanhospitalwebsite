@@ -14,6 +14,7 @@ import { PatientSuccessStories } from './components/PatientSuccessStories';
 import { LatestNeurologyNews } from './components/LatestNeurologyNews';
 import { SymptomChecker } from './components/SymptomChecker';
 import { GeminiChatbot } from './components/GeminiChatbot';
+import { OpdAdminPortalModal } from './components/OpdAdminPortalModal';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { WhatsAppContactModal } from './components/WhatsAppContactModal';
@@ -77,6 +78,7 @@ function MainApp() {
     { id: 'remote-monitoring', label: t('nav.monitoring') },
     { id: 'case-studies', label: t('nav.case_studies') },
     { id: 'staff-payroll', label: t('nav.payroll') },
+    { id: 'opd-admin', label: 'OPD Admin Desk' },
   ];
 
   return (
@@ -184,6 +186,15 @@ function MainApp() {
           {activeTab === 'remote-monitoring' && <RemoteMonitoring />}
           {activeTab === 'case-studies' && <CaseStudyDatabase />}
           {activeTab === 'staff-payroll' && <StaffPayroll />}
+          {activeTab === 'opd-admin' && (
+            <OpdAdminPortalModal
+              isEmbedded={true}
+              onClose={() => {
+                setActiveTab('appointments');
+                window.scrollTo({ top: 380, behavior: 'smooth' });
+              }}
+            />
+          )}
           {activeTab === 'reviews' && <GoogleReviews />}
           {activeTab === 'patient-feedback' && (
             <PatientExperienceFeedbackModalOrSection

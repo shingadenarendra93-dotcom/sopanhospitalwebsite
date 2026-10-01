@@ -11,9 +11,11 @@ import {
   PhoneCall,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
-import { OpdSlotStats } from '../utils/opdSlotUtils';
+import { OpdSlotStats, isAdminLoggedIn } from '../utils/opdSlotUtils';
+import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 
 interface OpdSlotCounterMeterProps {
   stats: OpdSlotStats;
@@ -33,6 +35,8 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
   compact = false
 }) => {
   const [showSimControls, setShowSimControls] = useState<boolean>(false);
+  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const adminActive = isAdminLoggedIn();
 
   // Status-based styling
   const colorStyles = {
@@ -72,22 +76,39 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
 
   if (compact) {
     return (
-      <div className={`p-3 rounded-2xl border ${colorStyles.border} ${colorStyles.bg} flex items-center justify-between gap-3 text-xs`}>
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-[#8E5B3E] shrink-0" />
-          <div>
-            <div className="font-bold text-[#27231E]">
-              OPD Quota: {stats.remainingSlots} / {stats.totalSlots} Slots Remaining
-            </div>
-            <div className="text-[11px] text-[#6E675D]">
-              {stats.isFull ? 'Daily capacity reached (0 slots)' : `Descends from 50 to 0 (${stats.bookedCount} booked)`}
+      <>
+        <div className={`p-3 rounded-2xl border ${colorStyles.border} ${colorStyles.bg} flex items-center justify-between gap-3 text-xs`}>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#8E5B3E] shrink-0" />
+            <div>
+              <div className="font-bold text-[#27231E]">
+                OPD Quota: {stats.remainingSlots} / {stats.totalSlots} Slots Remaining
+              </div>
+              <div className="text-[11px] text-[#6E675D]">
+                {stats.isFull ? 'Daily capacity reached (0 slots)' : `Intake capacity: ${stats.totalSlots} max (${stats.bookedCount} booked)`}
+              </div>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAdminModal(true)}
+              className="p-1.5 rounded-xl bg-white border border-[#DDD5C7] text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
+              title="OPD Administration: Reset counter, extend capacity, accept/reject"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-700" />
+            </button>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${colorStyles.badgeBg}`}>
+              {stats.statusLabel}
+            </span>
+          </div>
         </div>
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${colorStyles.badgeBg}`}>
-          {stats.statusLabel}
-        </span>
-      </div>
+
+        <OpdAdminPortalModal
+          isOpen={showAdminModal}
+          onClose={() => setShowAdminModal(false)}
+        />
+      </>
     );
   }
 
@@ -101,17 +122,32 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-[#7A5338] text-xs font-bold border border-[#E6E0D4] mb-1.5 shadow-2xs">
             <TrendingDown className="w-3.5 h-3.5 text-[#8E5B3E]" />
-            Live Descending OPD Slot System (50 → 0)
+            Live Descending OPD Slot System ({stats.totalSlots} → 0)
           </div>
           <h3 className="text-lg sm:text-xl font-serif font-bold text-[#27231E]">
             Daily OPD Patient Appointment Quota
           </h3>
           <p className="text-xs text-[#635E56] mt-0.5">
-            Strict cap of 50 outpatients per day to guarantee unhurried, exhaustive neurological consultations with Dr. Sanjay Sopan Varade.
+            Strict cap of {stats.totalSlots} outpatients per day to guarantee unhurried, exhaustive neurological consultations with Dr. Sanjay Sopan Varade.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* OPD Admin Control Button */}
+          <button
+            type="button"
+            id="btn-opd-admin-panel"
+            onClick={() => setShowAdminModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-2xs transition-colors"
+            title="Open OPD Desk Administration to reset counter, extend capacity, or accept/reject appointments"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+            <span>OPD Admin Desk</span>
+            {adminActive && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+            )}
+          </button>
+
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-2xs ${colorStyles.badgeBg}`}>
             {stats.isFull ? (
               <AlertTriangle className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
@@ -130,7 +166,7 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#8E5B3E] to-[#704229] text-white flex flex-col items-center justify-center font-bold shrink-0 shadow-xs">
             <span className="text-[10px] uppercase font-mono tracking-wider text-amber-200">REMAINING</span>
             <span className="text-2xl font-black font-mono leading-none">{stats.remainingSlots}</span>
-            <span className="text-[9px] text-amber-100/80">OF 50</span>
+            <span className="text-[9px] text-amber-100/80">OF {stats.totalSlots}</span>
           </div>
 
           <div>
@@ -155,7 +191,7 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
               OPD Patient Slot Allocation ({selectedDate ? `Date: ${selectedDate}` : 'Today’s Intake'})
             </span>
             <span className="font-mono font-bold text-[#27231E]">
-              {stats.percentageBooked}% Capacity Booked ({stats.bookedCount} / 50)
+              {stats.percentageBooked}% Capacity Booked ({stats.bookedCount} / {stats.totalSlots})
             </span>
           </div>
 
@@ -170,15 +206,15 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
           <div className="flex items-center justify-between text-[11px] text-[#7A746B]">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-slate-300 inline-block" />
-              Slot 1 (Starting quota: 50)
+              Slot 1 (Starting quota: {stats.totalSlots})
             </span>
             <span className="font-medium text-[#27231E]">
               {stats.isFull 
-                ? 'All 50 slots assigned (0 remaining)' 
+                ? `All ${stats.totalSlots} slots assigned (0 remaining)` 
                 : `Next available: Slot #${stats.nextSlotNumber}`}
             </span>
             <span className="flex items-center gap-1">
-              Slot 50 (Descending to 0)
+              Slot {stats.totalSlots} (Descending to 0)
               <span className={`w-2 h-2 rounded-full inline-block ${stats.isFull ? 'bg-rose-500' : 'bg-emerald-500'}`} />
             </span>
           </div>
@@ -192,10 +228,10 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
             <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0" />
             <div>
               <div className="font-bold text-sm">
-                Today's OPD Quota of 50 Patients is Full (0 Slots Left)
+                Today's OPD Quota of {stats.totalSlots} Patients is Full (0 Slots Left)
               </div>
               <div className="text-xs text-rose-800">
-                To maintain comprehensive patient care, OPD consultations are capped at 50. Please select another date, or call our emergency hotline for acute stroke / urgent triage.
+                To maintain comprehensive patient care, OPD consultations are capped at {stats.totalSlots}. Please select another date, or call our emergency hotline for acute stroke / urgent triage.
               </div>
             </div>
           </div>
@@ -297,6 +333,11 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
           </div>
         </div>
       )}
+      {/* Modal instance for full view */}
+      <OpdAdminPortalModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+      />
     </div>
   );
 };

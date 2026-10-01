@@ -240,6 +240,45 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
       scheduledTimeText: '2 Hours Prior (Today at 12:00 PM)',
       confirmedAt: '2026-09-19'
     }
+  },
+  {
+    id: 'apt-903',
+    patientName: 'Anand K. Joshi',
+    patientAge: 62,
+    patientGender: 'Male',
+    patientPhone: '+91 98221 55443',
+    patientEmail: 'anand.joshi@example.com',
+    doctorId: 'doc-sanjay-varade',
+    doctorName: 'Dr. Sanjay Sopan Varade MD, DM Neuro',
+    department: 'Movement Disorders & Parkinson’s',
+    date: '2026-09-25',
+    timeSlot: '10:30 AM',
+    visitType: 'In-Person Hospital OPD',
+    symptoms: 'Rest tremor in right hand, bradykinesia and clinical evaluation for Parkinsonism',
+    status: 'Pending',
+    tokenNumber: 'PRK-07',
+    createdAt: '2026-09-20'
+  },
+  {
+    id: 'apt-904',
+    patientName: 'Sunita M. Sharma',
+    patientAge: 42,
+    patientGender: 'Female',
+    patientPhone: '+91 98500 77889',
+    patientEmail: 'sunita.sharma@example.com',
+    doctorId: 'doc-sanjay-varade',
+    doctorName: 'Dr. Sanjay Sopan Varade MD, DM Neuro',
+    department: 'Spine & Peripheral Nerve',
+    date: '2026-09-25',
+    timeSlot: '04:00 PM',
+    visitType: 'In-Person Hospital OPD',
+    symptoms: 'Intractable refractory hemicranial migraine and cervical radiculopathy pain',
+    status: 'Cancelled',
+    rejectionReason: 'Doctor in Emergency OT / Thrombectomy Procedure',
+    adminActionAt: '2026-09-21T09:30:00Z',
+    adminActionBy: 'Dr. Sanjay Varade Clinic Desk Admin',
+    tokenNumber: 'MIG-03',
+    createdAt: '2026-09-20'
   }
 ];
 

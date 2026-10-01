@@ -4,6 +4,15 @@ import { INITIAL_APPOINTMENTS } from '../data/mockData';
 export const TOTAL_OPD_DAILY_SLOTS = 50;
 const STORAGE_KEY = 'sopan_hospital_opd_appointments';
 const MANUAL_OVERRIDE_KEY = 'sopan_hospital_opd_manual_override';
+const CAPACITY_STORAGE_KEY = 'sopan_hospital_opd_custom_capacity';
+const ADMIN_SESSION_KEY = 'sopan_hospital_admin_session';
+
+export interface AdminUserSession {
+  username: string;
+  role: string;
+  email: string;
+  loginTime: string;
+}
 
 export interface OpdSlotStats {
   totalSlots: number;
@@ -15,6 +24,133 @@ export interface OpdSlotStats {
   statusLabel: string;
   statusColor: 'emerald' | 'amber' | 'orange' | 'rose';
   nextSlotNumber: number;
+}
+
+/**
+ * Get current configured daily OPD capacity (default 50, expandable by admin).
+ */
+export function getOpdCapacity(): number {
+  if (typeof window === 'undefined') return TOTAL_OPD_DAILY_SLOTS;
+  try {
+    const raw = localStorage.getItem(CAPACITY_STORAGE_KEY);
+    if (!raw) return TOTAL_OPD_DAILY_SLOTS;
+    const parsed = parseInt(raw, 10);
+    return !isNaN(parsed) && parsed > 0 ? parsed : TOTAL_OPD_DAILY_SLOTS;
+  } catch {
+    return TOTAL_OPD_DAILY_SLOTS;
+  }
+}
+
+/**
+ * Set custom daily OPD capacity (e.g. 60, 75, 100).
+ */
+export function setOpdCapacity(capacity: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const sanitized = Math.max(10, Math.min(200, capacity));
+    localStorage.setItem(CAPACITY_STORAGE_KEY, String(sanitized));
+    window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', { 
+      detail: { customCapacity: sanitized } 
+    }));
+  } catch (err) {
+    console.error('Failed to set OPD custom capacity:', err);
+  }
+}
+
+/**
+ * Resets the patient OPD counter:
+ * Sets offset so booked counter is strictly 0, restoring 100% full capacity.
+ */
+export function resetOpdCounter(clearAppointments = false): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (clearAppointments) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      localStorage.removeItem(MANUAL_OVERRIDE_KEY);
+    } else {
+      const current = loadOpdAppointments();
+      const bookedCount = current.filter(a => a.status === 'Confirmed' || a.status === 'Completed').length;
+      localStorage.setItem(MANUAL_OVERRIDE_KEY, String(-bookedCount));
+    }
+    window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', { 
+      detail: { resetCounter: true } 
+    }));
+  } catch (err) {
+    console.error('Failed to reset OPD counter:', err);
+  }
+}
+
+/**
+ * Check if hospital admin is currently logged in.
+ */
+export function isAdminLoggedIn(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem(ADMIN_SESSION_KEY);
+    if (!raw) return false;
+    const session = JSON.parse(raw);
+    return Boolean(session && session.username);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get active admin session details.
+ */
+export function getAdminSession(): AdminUserSession | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(ADMIN_SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Set or clear admin session.
+ */
+export function setAdminSession(session: AdminUserSession | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (session) {
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+    }
+    window.dispatchEvent(new CustomEvent('sopan_admin_session_changed', { detail: { session } }));
+  } catch (err) {
+    console.error('Failed to set admin session:', err);
+  }
+}
+
+/**
+ * Updates appointment status (Accept as Confirmed or Reject as Cancelled).
+ */
+export function updateAppointmentStatus(
+  appointmentId: string,
+  newStatus: 'Confirmed' | 'Cancelled' | 'Pending',
+  rejectionReason?: string,
+  adminName = 'Dr. Sanjay Varade Clinic Desk'
+): Appointment[] {
+  const current = loadOpdAppointments();
+  const updated = current.map(apt => {
+    if (apt.id === appointmentId) {
+      return {
+        ...apt,
+        status: newStatus,
+        rejectionReason: newStatus === 'Cancelled' ? (rejectionReason || 'Cancelled by OPD Administration') : undefined,
+        adminActionAt: new Date().toISOString(),
+        adminActionBy: adminName
+      };
+    }
+    return apt;
+  });
+
+  saveOpdAppointments(updated);
+  return updated;
 }
 
 /**
@@ -83,8 +219,11 @@ export function setOpdManualOffset(offset: number): void {
 export function calculateOpdSlotStats(
   appointments: Appointment[],
   targetDate?: string,
-  totalCapacity = TOTAL_OPD_DAILY_SLOTS
+  totalCapacity?: number
 ): OpdSlotStats {
+  const effectiveCapacity = totalCapacity !== undefined && totalCapacity > 0 
+    ? totalCapacity 
+    : getOpdCapacity();
   const manualOffset = getOpdManualOffset();
   
   // Filter confirmed or completed appointments
@@ -95,18 +234,18 @@ export function calculateOpdSlotStats(
   });
 
   const rawBookedCount = relevantAppointments.length + manualOffset;
-  const bookedCount = Math.max(0, Math.min(totalCapacity, rawBookedCount));
-  const remainingSlots = Math.max(0, totalCapacity - bookedCount);
-  const percentageBooked = Math.round((bookedCount / totalCapacity) * 100);
+  const bookedCount = Math.max(0, Math.min(effectiveCapacity, rawBookedCount));
+  const remainingSlots = Math.max(0, effectiveCapacity - bookedCount);
+  const percentageBooked = Math.round((bookedCount / effectiveCapacity) * 100);
   const percentageRemaining = Math.max(0, 100 - percentageBooked);
   const isFull = remainingSlots <= 0;
-  const nextSlotNumber = Math.min(totalCapacity, bookedCount + 1);
+  const nextSlotNumber = Math.min(effectiveCapacity, bookedCount + 1);
 
   let statusLabel = 'High Availability';
   let statusColor: 'emerald' | 'amber' | 'orange' | 'rose' = 'emerald';
 
   if (remainingSlots === 0) {
-    statusLabel = 'OPD Quota Full (0 / 50 Left)';
+    statusLabel = `OPD Quota Full (0 / ${effectiveCapacity} Left)`;
     statusColor = 'rose';
   } else if (remainingSlots <= 5) {
     statusLabel = `Critical Alert: Only ${remainingSlots} Slots Left`;
@@ -118,12 +257,12 @@ export function calculateOpdSlotStats(
     statusLabel = `Moderate Intake (${remainingSlots} Left)`;
     statusColor = 'amber';
   } else {
-    statusLabel = `Intake Open (${remainingSlots} / 50 Left)`;
+    statusLabel = `Intake Open (${remainingSlots} / ${effectiveCapacity} Left)`;
     statusColor = 'emerald';
   }
 
   return {
-    totalSlots: totalCapacity,
+    totalSlots: effectiveCapacity,
     bookedCount,
     remainingSlots,
     percentageBooked,
