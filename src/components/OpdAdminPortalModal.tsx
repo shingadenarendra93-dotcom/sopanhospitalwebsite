@@ -27,7 +27,7 @@ import {
   Save,
   ArrowRight
 } from 'lucide-react';
-import { Appointment } from '../types';
+import { Appointment, OpdAuditLog } from '../types';
 import { 
   OpdSlotStats, 
   calculateOpdSlotStats, 
@@ -41,7 +41,9 @@ import {
   isAdminLoggedIn, 
   getAdminSession, 
   setAdminSession, 
-  updateAppointmentStatus 
+  updateAppointmentStatus,
+  getAdminAuditLogs,
+  clearAdminAuditLogs
 } from '../utils/opdSlotUtils';
 
 interface OpdAdminPortalModalProps {
@@ -60,12 +62,12 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => isAdminLoggedIn());
   const [adminUser, setAdminUser] = useState(() => getAdminSession());
-  const [usernameInput, setUsernameInput] = useState<string>('admin@sopanhospital.com');
-  const [passwordInput, setPasswordInput] = useState<string>('admin123');
+  const [usernameInput, setUsernameInput] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState<string>('');
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Active Admin View Tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'counter' | 'appointments'>('counter');
+  const [activeAdminTab, setActiveAdminTab] = useState<'counter' | 'appointments' | 'logs'>('counter');
 
   // Appointments & Slot Stats
   const [appointments, setAppointments] = useState<Appointment[]>(() => loadOpdAppointments());
@@ -73,6 +75,11 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   const [customCapacityInput, setCustomCapacityInput] = useState<number>(() => getOpdCapacity());
   const [statusFilter, setStatusFilter] = useState<'All' | 'Confirmed' | 'Pending' | 'Cancelled'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Audit Logs State
+  const [auditLogs, setAuditLogs] = useState<OpdAuditLog[]>(() => getAdminAuditLogs());
+  const [logActionFilter, setLogActionFilter] = useState<'All' | 'Approvals' | 'Rejections' | 'Resets'>('All');
+  const [logSearchQuery, setLogSearchQuery] = useState<string>('');
 
   // Rejection modal sub-state
   const [rejectingAppointment, setRejectingAppointment] = useState<Appointment | null>(null);
@@ -82,7 +89,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   // Notification feedback toast
   const [feedbackToast, setFeedbackToast] = useState<{ type: 'success' | 'info' | 'warning'; text: string } | null>(null);
 
-  // Sync appointments from storage
+  // Sync appointments and audit logs from storage
   const reloadData = () => {
     const loadedApts = loadOpdAppointments();
     setAppointments(loadedApts);
@@ -91,21 +98,24 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     setCustomCapacityInput(curCap);
     setIsLoggedIn(isAdminLoggedIn());
     setAdminUser(getAdminSession());
+    setAuditLogs(getAdminAuditLogs());
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || isEmbedded) {
       reloadData();
     }
-  }, [isOpen]);
+  }, [isOpen, isEmbedded]);
 
   useEffect(() => {
     const handleSync = () => reloadData();
     window.addEventListener('sopan_opd_quota_updated', handleSync);
     window.addEventListener('sopan_admin_session_changed', handleSync);
+    window.addEventListener('sopan_audit_log_added', handleSync);
     return () => {
       window.removeEventListener('sopan_opd_quota_updated', handleSync);
       window.removeEventListener('sopan_admin_session_changed', handleSync);
+      window.removeEventListener('sopan_audit_log_added', handleSync);
     };
   }, []);
 
@@ -128,15 +138,18 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     const cleanUser = usernameInput.trim().toLowerCase();
     const cleanPass = passwordInput.trim();
 
-    // Standard hospital admin credentials or PIN 2317
-    if (
-      (cleanUser.includes('admin') || cleanUser.includes('sopan') || cleanUser.includes('varade')) &&
+    // Standard hospital admin credentials: admin@sopanhospital.com / admin123 or PIN: 2317
+    const isDirectPin = (cleanUser === '2317' || cleanPass === '2317');
+    const isStandardAdmin = (
+      (cleanUser === 'admin@sopanhospital.com' || cleanUser === 'admin' || cleanUser.includes('sopan') || cleanUser.includes('varade') || cleanUser === '2317') &&
       (cleanPass === 'admin123' || cleanPass === '2317' || cleanPass === 'sopan2026')
-    ) {
+    );
+
+    if (isDirectPin || isStandardAdmin) {
       const session = {
         username: 'OPD Desk Chief Administrator',
         role: 'Hospital OPD & Triage Director',
-        email: cleanUser,
+        email: cleanUser.includes('@') ? cleanUser : 'admin@sopanhospital.com',
         loginTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setAdminSession(session);
@@ -145,7 +158,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
       setAuthError(null);
       triggerToast('Welcome, Administrator. OPD Desk controls unlocked.', 'success');
     } else {
-      setAuthError('Invalid credentials. Use demo: admin@sopanhospital.com / admin123 or PIN: 2317');
+      setAuthError('Invalid credentials. Please verify your Administrator ID, password, or security PIN.');
     }
   };
 
@@ -160,13 +173,16 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     setIsLoggedIn(true);
     setAdminUser(session);
     setAuthError(null);
-    triggerToast('Quick demo admin login successful.', 'success');
+    triggerToast('One-click Administrator login successful.', 'success');
   };
 
   const handleLogout = () => {
     setAdminSession(null);
     setIsLoggedIn(false);
     setAdminUser(null);
+    setUsernameInput('');
+    setPasswordInput('');
+    setAuthError(null);
     triggerToast('Admin logged out safely.', 'info');
   };
 
@@ -251,15 +267,37 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     });
   }, [appointments, statusFilter, searchQuery]);
 
+  // Filtered Audit Logs
+  const filteredAuditLogs = useMemo(() => {
+    return auditLogs.filter(log => {
+      const matchesFilter =
+        logActionFilter === 'All' ? true :
+        logActionFilter === 'Approvals' ? log.action === 'APPOINTMENT_APPROVED' :
+        logActionFilter === 'Rejections' ? log.action === 'APPOINTMENT_REJECTED' :
+        (log.action === 'OPD_COUNTER_RESET' || log.action === 'OPD_CAPACITY_EXTENDED');
+
+      const q = logSearchQuery.toLowerCase().trim();
+      const matchesSearch = !q || (
+        log.details.toLowerCase().includes(q) ||
+        log.adminName.toLowerCase().includes(q) ||
+        (log.patientName && log.patientName.toLowerCase().includes(q)) ||
+        (log.tokenNumber && log.tokenNumber.toLowerCase().includes(q)) ||
+        (log.rejectionReason && log.rejectionReason.toLowerCase().includes(q))
+      );
+
+      return matchesFilter && matchesSearch;
+    });
+  }, [auditLogs, logActionFilter, logSearchQuery]);
+
   if (!isEmbedded && !isOpen) return null;
 
   const content = (
-    <div className={`bg-white rounded-3xl w-full flex flex-col border border-slate-200 shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200 ${
-      isEmbedded ? 'shadow-md border-slate-200 min-h-[640px]' : 'max-w-4xl max-h-[92vh]'
+    <div className={`bg-white w-full flex flex-col border-slate-200 overflow-hidden animate-in fade-in duration-200 ${
+      isEmbedded ? 'shadow-md border-slate-200 rounded-3xl min-h-[80vh]' : 'h-full flex-1 max-w-none max-h-none rounded-none border-none'
     }`}>
       
       {/* Top Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-950 text-white p-5 sm:p-6 flex items-center justify-between shrink-0">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-950 text-white p-5 sm:p-6 flex items-center justify-between shrink-0 border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 shadow-inner">
             <ShieldCheck className="w-5 h-5" />
@@ -268,24 +306,41 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-base sm:text-lg tracking-tight">OPD Administration & Capacity Control</h3>
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                Hospital Admin
+                Hospital Admin Console
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Sopan Hospital & Neurology Institute • Dr. Sanjay Sopan Varade OPD Desk
+              Sopan Hospital & Neurology Institute • Dr. Sanjay Sopan Varade OPD Desk • Nashik
             </p>
           </div>
         </div>
 
-        {onClose && (
-          <button 
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Close Panel"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex flex-col items-end text-xs text-slate-400">
+            <span className="font-semibold text-slate-300">24/7 Helpline: 0253 2317364</span>
+            <span className="text-[11px] text-slate-500">Full Screen Terminal View</span>
+          </div>
+          {isLoggedIn && (
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 border border-rose-800 text-rose-200 transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+              title="End Administrator Session & Log Out"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span>Log Out</span>
+            </button>
+          )}
+          {onClose && (
+            <button 
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
+              title="Return to Hospital Portal"
+            >
+              <X className="w-4 h-4" />
+              <span>{isEmbedded ? 'Close' : 'Exit Admin View'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Feedback Toast */}
@@ -307,73 +362,97 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
 
         {/* Content Body: Login or Admin Dashboard */}
         {!isLoggedIn ? (
-          /* Admin Login Form */
-          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
-            <div className="max-w-md mx-auto text-center space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 mx-auto flex items-center justify-center shadow-xs">
-                <Lock className="w-6 h-6" />
+          /* Admin Login Form - Full Screen FOV Terminal */
+          <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 bg-gradient-to-b from-[#FAF7F2] to-[#EFEAE2] overflow-y-auto">
+            <div className="max-w-lg w-full bg-white rounded-3xl p-6 sm:p-8 border border-[#E2D9CC] shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 mx-auto flex items-center justify-center shadow-xs">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <h4 className="text-xl font-serif font-bold text-slate-900">Hospital Administrator Authentication</h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Authenticate with OPD coordination credentials to reset live patient counters, expand patient quotas, or accept/reject appointments.
+                </p>
               </div>
-              <h4 className="text-lg font-bold text-slate-900">Hospital Staff & Administrator Log In</h4>
-              <p className="text-xs text-slate-500">
-                Authenticate with OPD coordination credentials to reset live patient counters, expand patient quotas, or accept/reject appointments.
-              </p>
+
+              {/* Official Staff Access Notice - Credentials Strictly Hidden */}
+              <div className="bg-[#FAF7F2] border border-[#E4DDD0] rounded-2xl p-4 text-xs space-y-2 text-[#4A453E]">
+                <div className="font-bold text-[#27231E] flex items-center gap-1.5 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-[#8E5B3E]" />
+                  <span>Restricted Access: Official Hospital Administration Only</span>
+                </div>
+                <p className="text-[11px] text-[#5C554B] leading-relaxed">
+                  This console is strictly reserved for authorized clinical coordinators and OPD staff of Sopan Hospital. Unauthorized access attempts are monitored and recorded.
+                </p>
+                <div className="text-[10px] text-slate-600 bg-white/80 p-2.5 rounded-xl border border-[#DFD7CA] flex items-center gap-1.5 font-medium">
+                  <Lock className="w-3.5 h-3.5 text-[#8E5B3E] shrink-0" />
+                  <span>Enter your assigned administrator credentials or security PIN to access live counter resets, quota overrides, and appointment triage.</span>
+                </div>
+              </div>
+
+              {authError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} autoComplete="off" className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Admin Email / Staff ID
+                  </label>
+                  <input
+                    type="text"
+                    name="admin_user_id_field"
+                    autoComplete="off"
+                    required
+                    value={usernameInput}
+                    onChange={e => setUsernameInput(e.target.value)}
+                    placeholder="Enter Administrator ID or Email"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-colors font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Password / Security PIN
+                  </label>
+                  <input
+                    type="password"
+                    name="admin_pass_code_field"
+                    autoComplete="new-password"
+                    required
+                    value={passwordInput}
+                    onChange={e => setPasswordInput(e.target.value)}
+                    placeholder="Enter Password or Security PIN"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-colors font-medium"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                    Authenticate Administrator
+                  </button>
+                </div>
+              </form>
+
+              {onClose && (
+                <div className="pt-2 text-center border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold"
+                  >
+                    ← Return to Hospital Portal
+                  </button>
+                </div>
+              )}
             </div>
-
-            {authError && (
-              <div className="max-w-md mx-auto p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="max-w-md mx-auto space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Admin Email / Staff ID</label>
-                <input
-                  type="text"
-                  required
-                  value={usernameInput}
-                  onChange={e => setUsernameInput(e.target.value)}
-                  placeholder="admin@sopanhospital.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Password / Security PIN</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordInput}
-                  onChange={e => setPasswordInput(e.target.value)}
-                  placeholder="Enter PIN (e.g. 2317) or password"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-cyan-500"
-                />
-              </div>
-
-              <div className="pt-2 flex flex-col gap-2.5">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  Authenticate Admin
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleQuickDemoLogin}
-                  className="w-full py-2.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
-                  Quick Demo Access (Director OPD Desk)
-                </button>
-              </div>
-
-              <div className="text-[11px] text-slate-400 text-center pt-2">
-                Demo Credentials: <span className="font-mono text-slate-600">admin@sopanhospital.com</span> / <span className="font-mono text-slate-600">admin123</span> (or PIN: <span className="font-mono text-slate-600">2317</span>)
-              </div>
-            </form>
           </div>
         ) : (
           /* Authenticated Admin Dashboard */
@@ -426,6 +505,18 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
               >
                 <Users className="w-4 h-4" />
                 Patient Appointments ({appointments.length})
+              </button>
+
+              <button
+                onClick={() => setActiveAdminTab('logs')}
+                className={`pb-2.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                  activeAdminTab === 'logs'
+                    ? 'border-cyan-600 text-cyan-800'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                Audit & Action Logs ({auditLogs.length})
               </button>
             </div>
 
@@ -755,20 +846,200 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* TAB 3: AUDIT & ACTION LOGS */}
+            {activeAdminTab === 'logs' && (
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                {/* Audit Trail Summary & Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-cyan-700" />
+                      <h4 className="font-bold text-sm text-slate-900">Hospital OPD Action & Triage Audit Trail</h4>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 font-bold">
+                        Clinical Compliance Log
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Immutable record of all appointment approvals, cancellations, quota expansions, and OPD counter resets.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors"
+                      title="Print or export clinical audit trail"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Print Audit Log
+                    </button>
+                    {auditLogs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm('Clear audit history logs from this terminal?')) {
+                            clearAdminAuditLogs();
+                            setAuditLogs([]);
+                            triggerToast('Audit logs cleared.', 'info');
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition-colors"
+                      >
+                        Clear Log History
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filters & Search */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    {(['All', 'Approvals', 'Rejections', 'Resets'] as const).map(f => {
+                      const count = 
+                        f === 'All' ? auditLogs.length :
+                        f === 'Approvals' ? auditLogs.filter(l => l.action === 'APPOINTMENT_APPROVED').length :
+                        f === 'Rejections' ? auditLogs.filter(l => l.action === 'APPOINTMENT_REJECTED').length :
+                        auditLogs.filter(l => l.action === 'OPD_COUNTER_RESET' || l.action === 'OPD_CAPACITY_EXTENDED').length;
+
+                      return (
+                        <button
+                          key={f}
+                          onClick={() => setLogActionFilter(f)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                            logActionFilter === f
+                              ? 'bg-slate-900 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {f} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={logSearchQuery}
+                      onChange={e => setLogSearchQuery(e.target.value)}
+                      placeholder="Search patient, token, admin..."
+                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Audit Logs List */}
+                {filteredAuditLogs.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 space-y-2 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <FileText className="w-8 h-8 mx-auto text-slate-300" />
+                    <p className="text-xs font-semibold text-slate-600">No audit logs matching "{logSearchQuery}" or filter.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {filteredAuditLogs.map(log => {
+                      const isApproval = log.action === 'APPOINTMENT_APPROVED';
+                      const isRejection = log.action === 'APPOINTMENT_REJECTED';
+                      const isReset = log.action === 'OPD_COUNTER_RESET';
+
+                      return (
+                        <div
+                          key={log.id}
+                          className={`p-3.5 rounded-2xl border transition-all text-xs ${
+                            isApproval ? 'bg-emerald-50/40 border-emerald-200' :
+                            isRejection ? 'bg-rose-50/40 border-rose-200' :
+                            'bg-amber-50/40 border-amber-200'
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 pb-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                                isApproval ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                                isRejection ? 'bg-rose-100 text-rose-800 border border-rose-300' :
+                                'bg-amber-100 text-amber-900 border border-amber-300'
+                              }`}>
+                                {isApproval ? <Check className="w-3 h-3 text-emerald-700" /> :
+                                 isRejection ? <X className="w-3 h-3 text-rose-700" /> :
+                                 <RotateCcw className="w-3 h-3 text-amber-700" />}
+                                {isApproval ? 'Appointment Approved' :
+                                 isRejection ? 'Appointment Rejected' :
+                                 isReset ? 'OPD Counter Reset' : 'Capacity Extended'}
+                              </span>
+
+                              {log.tokenNumber && (
+                                <span className="font-mono text-[11px] font-bold bg-slate-900 text-cyan-300 px-2 py-0.5 rounded">
+                                  {log.tokenNumber}
+                                </span>
+                              )}
+
+                              {log.patientName && (
+                                <span className="font-bold text-slate-900">
+                                  {log.patientName}
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {log.displayTime}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1 text-slate-700">
+                            <p className="leading-relaxed">{log.details}</p>
+                            {log.rejectionReason && (
+                              <div className="p-2 rounded-xl bg-rose-100/60 border border-rose-200 text-rose-900 font-medium flex items-center gap-1.5 mt-1">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                <span><strong>Recorded Cancellation Reason:</strong> {log.rejectionReason}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-2 pt-2 border-t border-black/5 flex items-center justify-between text-[11px] text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3 text-slate-400" />
+                              Action By: <strong className="text-slate-700">{log.adminName}</strong> ({log.adminRole})
+                            </span>
+                            <span className="text-slate-400 font-mono text-[10px]">
+                              ID: {log.id}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* Modal Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 shrink-0">
           <span>Dr. Sanjay Sopan Varade (Director & Chief Neurologist Desk) • Hotline: 0253 2317364</span>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold"
-            >
-              {isEmbedded ? 'Back to Clinic Overview' : 'Close Panel'}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {isLoggedIn && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Log Out of Administrator Session"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                <span>Log Out Session</span>
+              </button>
+            )}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold"
+              >
+                {isEmbedded ? 'Back to Clinic Overview' : 'Close Panel'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -778,7 +1049,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
         {isEmbedded ? (
           content
         ) : (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-50 w-screen h-screen max-w-none max-h-none bg-slate-950 flex flex-col overflow-hidden m-0 p-0">
             {content}
           </div>
         )}

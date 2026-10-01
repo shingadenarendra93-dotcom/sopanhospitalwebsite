@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
-import { isAdminLoggedIn } from '../utils/opdSlotUtils';
+import { isAdminLoggedIn, setAdminSession } from '../utils/opdSlotUtils';
 import { 
   Activity, 
   Phone, 
@@ -240,11 +240,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Hospital OPD Administration: Reset counter, extend capacity, accept/reject appointments"
             >
               <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              <span className="hidden xl:inline">OPD Admin</span>
+              <span className="hidden xl:inline">{adminActive ? 'Admin Desk' : 'OPD Admin'}</span>
               {adminActive && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
               )}
             </button>
+
+            {adminActive && (
+              <button
+                onClick={() => setAdminSession(null)}
+                className="h-9 px-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold shadow-2xs transition-all flex items-center gap-1 shrink-0"
+                title="Log Out of Administrator Session"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                <span className="hidden xl:inline">Log Out</span>
+              </button>
+            )}
 
             <button
               onClick={onOpenWhatsApp}
@@ -336,6 +347,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Reset / Extend Quota
               </span>
             </button>
+            {adminActive && (
+              <button
+                onClick={() => {
+                  setAdminSession(null);
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full mt-2 py-2 px-3 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                <span>Log Out of Administrator Session</span>
+              </button>
+            )}
           </div>
 
           <div className="pt-2 border-t border-[#E6E0D4] flex gap-2">

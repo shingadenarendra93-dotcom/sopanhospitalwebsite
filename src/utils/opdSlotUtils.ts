@@ -1,11 +1,13 @@
-import { Appointment } from '../types';
+import { Appointment, OpdAuditLog, OpdAuditActionType } from '../types';
 import { INITIAL_APPOINTMENTS } from '../data/mockData';
+import { saveAuditLogToFirestore } from '../lib/firebase';
 
 export const TOTAL_OPD_DAILY_SLOTS = 50;
 const STORAGE_KEY = 'sopan_hospital_opd_appointments';
 const MANUAL_OVERRIDE_KEY = 'sopan_hospital_opd_manual_override';
 const CAPACITY_STORAGE_KEY = 'sopan_hospital_opd_custom_capacity';
 const ADMIN_SESSION_KEY = 'sopan_hospital_admin_session';
+const AUDIT_LOG_STORAGE_KEY = 'sopan_hospital_opd_audit_logs';
 
 export interface AdminUserSession {
   username: string;
@@ -24,6 +26,111 @@ export interface OpdSlotStats {
   statusLabel: string;
   statusColor: 'emerald' | 'amber' | 'orange' | 'rose';
   nextSlotNumber: number;
+}
+
+/**
+ * Get stored admin audit logs
+ */
+export function getAdminAuditLogs(): OpdAuditLog[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(AUDIT_LOG_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Clear stored admin audit logs
+ */
+export function clearAdminAuditLogs(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(AUDIT_LOG_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent('sopan_audit_log_added', { detail: { cleared: true } }));
+  } catch (err) {
+    console.error('Failed to clear audit logs:', err);
+  }
+}
+
+/**
+ * Adds an audit log entry for admin actions (approvals, rejections, counter resets)
+ */
+export function addAdminAuditLog(entry: {
+  action: OpdAuditActionType;
+  adminName?: string;
+  adminEmail?: string;
+  adminRole?: string;
+  appointmentId?: string;
+  patientName?: string;
+  patientPhone?: string;
+  tokenNumber?: string;
+  date?: string;
+  timeSlot?: string;
+  rejectionReason?: string;
+  details: string;
+}): OpdAuditLog {
+  const session = getAdminSession();
+  const now = new Date();
+  const displayTime = now.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }) + ' • ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const newLog: OpdAuditLog = {
+    id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    action: entry.action,
+    timestamp: now.toISOString(),
+    displayTime,
+    adminName: entry.adminName || session?.username || 'OPD Desk Administrator',
+    adminEmail: entry.adminEmail || session?.email || 'admin@sopanhospital.com',
+    adminRole: entry.adminRole || session?.role || 'Hospital Administrator',
+    appointmentId: entry.appointmentId,
+    patientName: entry.patientName,
+    patientPhone: entry.patientPhone,
+    tokenNumber: entry.tokenNumber,
+    date: entry.date,
+    timeSlot: entry.timeSlot,
+    rejectionReason: entry.rejectionReason,
+    details: entry.details
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = getAdminAuditLogs();
+      const updated = [newLog, ...existing].slice(0, 100);
+      localStorage.setItem(AUDIT_LOG_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('sopan_audit_log_added', { detail: { log: newLog } }));
+    } catch (err) {
+      console.warn('Failed to save audit log to localStorage:', err);
+    }
+  }
+
+  // Also persist to Firestore
+  try {
+    saveAuditLogToFirestore({
+      action: newLog.action,
+      adminName: newLog.adminName,
+      adminEmail: newLog.adminEmail,
+      adminRole: newLog.adminRole,
+      details: newLog.details,
+      appointmentId: newLog.appointmentId,
+      patientName: newLog.patientName,
+      patientPhone: newLog.patientPhone,
+      tokenNumber: newLog.tokenNumber,
+      rejectionReason: newLog.rejectionReason,
+      timestamp: newLog.timestamp,
+      displayTime: newLog.displayTime
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+
+  return newLog;
 }
 
 /**
@@ -49,6 +156,10 @@ export function setOpdCapacity(capacity: number): void {
   try {
     const sanitized = Math.max(10, Math.min(200, capacity));
     localStorage.setItem(CAPACITY_STORAGE_KEY, String(sanitized));
+    addAdminAuditLog({
+      action: 'OPD_CAPACITY_EXTENDED',
+      details: `Daily OPD patient intake quota updated to ${sanitized} slots/day.`
+    });
     window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', { 
       detail: { customCapacity: sanitized } 
     }));
@@ -72,6 +183,10 @@ export function resetOpdCounter(clearAppointments = false): void {
       const bookedCount = current.filter(a => a.status === 'Confirmed' || a.status === 'Completed').length;
       localStorage.setItem(MANUAL_OVERRIDE_KEY, String(-bookedCount));
     }
+    addAdminAuditLog({
+      action: 'OPD_COUNTER_RESET',
+      details: 'Patient OPD daily counter reset to 0 booked. Full available slot capacity restored (50/50 slots free).'
+    });
     window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', { 
       detail: { resetCounter: true } 
     }));
@@ -117,7 +232,24 @@ export function setAdminSession(session: AdminUserSession | null): void {
   try {
     if (session) {
       localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+      addAdminAuditLog({
+        action: 'ADMIN_LOGIN',
+        adminName: session.username,
+        adminEmail: session.email,
+        adminRole: session.role,
+        details: `Administrator logged into OPD triage management console (${session.username} - ${session.email}).`
+      });
     } else {
+      const prevSession = getAdminSession();
+      if (prevSession) {
+        addAdminAuditLog({
+          action: 'ADMIN_LOGOUT',
+          adminName: prevSession.username,
+          adminEmail: prevSession.email,
+          adminRole: prevSession.role,
+          details: `Administrator logged out safely (${prevSession.username}).`
+        });
+      }
       localStorage.removeItem(ADMIN_SESSION_KEY);
     }
     window.dispatchEvent(new CustomEvent('sopan_admin_session_changed', { detail: { session } }));
@@ -128,6 +260,7 @@ export function setAdminSession(session: AdminUserSession | null): void {
 
 /**
  * Updates appointment status (Accept as Confirmed or Reject as Cancelled).
+ * Automatically produces formal audit log entries.
  */
 export function updateAppointmentStatus(
   appointmentId: string,
@@ -136,20 +269,55 @@ export function updateAppointmentStatus(
   adminName = 'Dr. Sanjay Varade Clinic Desk'
 ): Appointment[] {
   const current = loadOpdAppointments();
+  let targetApt: Appointment | undefined;
+
   const updated = current.map(apt => {
     if (apt.id === appointmentId) {
-      return {
+      targetApt = {
         ...apt,
         status: newStatus,
         rejectionReason: newStatus === 'Cancelled' ? (rejectionReason || 'Cancelled by OPD Administration') : undefined,
         adminActionAt: new Date().toISOString(),
         adminActionBy: adminName
       };
+      return targetApt;
     }
     return apt;
   });
 
   saveOpdAppointments(updated);
+
+  // Proper Audit Logging for Approving or Rejecting
+  if (targetApt) {
+    if (newStatus === 'Confirmed') {
+      addAdminAuditLog({
+        action: 'APPOINTMENT_APPROVED',
+        adminName,
+        appointmentId: targetApt.id,
+        patientName: targetApt.patientName,
+        patientPhone: targetApt.patientPhone,
+        tokenNumber: targetApt.tokenNumber,
+        date: targetApt.date,
+        timeSlot: targetApt.timeSlot,
+        details: `Approved & confirmed OPD consultation for patient "${targetApt.patientName}" (Token: ${targetApt.tokenNumber}, Slot Date: ${targetApt.date} at ${targetApt.timeSlot}).`
+      });
+    } else if (newStatus === 'Cancelled') {
+      const reason = rejectionReason || 'Cancelled by OPD Administration';
+      addAdminAuditLog({
+        action: 'APPOINTMENT_REJECTED',
+        adminName,
+        appointmentId: targetApt.id,
+        patientName: targetApt.patientName,
+        patientPhone: targetApt.patientPhone,
+        tokenNumber: targetApt.tokenNumber,
+        date: targetApt.date,
+        timeSlot: targetApt.timeSlot,
+        rejectionReason: reason,
+        details: `Rejected OPD booking for patient "${targetApt.patientName}" (Token: ${targetApt.tokenNumber}). Reason: "${reason}". 1 OPD slot freed back to live quota.`
+      });
+    }
+  }
+
   return updated;
 }
 

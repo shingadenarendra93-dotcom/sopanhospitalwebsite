@@ -174,5 +174,45 @@ export async function saveChatMessageToFirestore(userId: string, message: {
   }
 }
 
+// Save OPD Admin Audit Log to Firestore
+export async function saveAuditLogToFirestore(log: {
+  action: string;
+  adminName: string;
+  adminEmail: string;
+  adminRole: string;
+  details: string;
+  appointmentId?: string;
+  patientName?: string;
+  patientPhone?: string;
+  tokenNumber?: string;
+  rejectionReason?: string;
+  timestamp: string;
+  displayTime: string;
+}) {
+  try {
+    const logsCol = collection(db, 'opd_admin_audit_logs');
+    const docRef = await addDoc(logsCol, {
+      ...log,
+      createdAt: new Date().toISOString()
+    });
+    return docRef.id;
+  } catch (err) {
+    console.warn('Firestore notice: Audit log fallback to localStorage:', err);
+    return null;
+  }
+}
+
+// Fetch OPD Admin Audit Logs from Firestore
+export async function fetchAuditLogsFromFirestore() {
+  try {
+    const q = query(collection(db, 'opd_admin_audit_logs'), orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.warn('Falling back to local audit logs:', err);
+    return [];
+  }
+}
+
 export { onAuthStateChanged };
 export type { FirebaseUser };

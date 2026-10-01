@@ -326,3 +326,45 @@ export interface SymptomAssessmentResult {
   hasRedFlags: boolean;
 }
 
+export type OpdAuditActionType = 
+  | 'APPOINTMENT_APPROVED' 
+  | 'APPOINTMENT_REJECTED' 
+  | 'OPD_COUNTER_RESET' 
+  | 'OPD_CAPACITY_EXTENDED'
+  | 'ADMIN_LOGIN'
+  | 'ADMIN_LOGOUT';
+
+export interface OpdAuditLog {
+  id: string;
+  action: OpdAuditActionType;
+  timestamp: string;
+  displayTime: string;
+  adminName: string;
+  adminEmail: string;
+  adminRole: string;
+  appointmentId?: string;
+  patientName?: string;
+  patientPhone?: string;
+  tokenNumber?: string;
+  date?: string;
+  timeSlot?: string;
+  rejectionReason?: string;
+  details: string;
+  meta?: Record<string, any>;
+}
+
+export interface HospitalEvent {
+  id: string;
+  title: string;
+  category: 'Stroke Awareness' | 'Clinical CME' | 'Free Medical Camp' | 'Facility Inauguration' | 'Survivor Meet';
+  date: string;
+  location: string;
+  leadClinician: string;
+  summary: string;
+  attendeesCount: string;
+  imageUrl: string;
+  tags: string[];
+  keyHighlights: string[];
+}
+
+

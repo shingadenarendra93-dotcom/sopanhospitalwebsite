@@ -11,7 +11,8 @@ import {
   CaseStudy,
   StaffPayrollRecord,
   GoogleReview,
-  PatientSuccessStory
+  PatientSuccessStory,
+  HospitalEvent
 } from '../types';
 
 export const DOCTORS: Doctor[] = [
@@ -1009,4 +1010,110 @@ export const INITIAL_SUCCESS_STORIES: PatientSuccessStory[] = [
     helpfulUpvotes: 61
   }
 ];
+
+export const HOSPITAL_EVENTS: HospitalEvent[] = [
+  {
+    id: 'evt-01',
+    title: 'World Stroke Day & Golden Hour Rapid Triage Seminar 2026',
+    category: 'Stroke Awareness',
+    date: '29 October 2025',
+    location: 'Sopan Hospital Academic Auditorium, Mumbai Naka, Nashik',
+    leadClinician: 'Dr. Sanjay Sopan Varade (MD, DM Neuro - CMC Vellore)',
+    summary: 'Comprehensive continuing medical education and public awareness seminar on hyper-acute ischemic stroke intervention, IV thrombolysis, and mechanical thrombectomy within the golden window.',
+    attendeesCount: '160+ Physicians & Paramedics',
+    imageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80',
+    tags: ['World Stroke Day', 'Golden Hour', 'BE-FAST Protocol', 'Nashik Healthcare'],
+    keyHighlights: [
+      'Interactive protocol training on door-to-needle time targets under 25 minutes for acute stroke code.',
+      'Case study reviews of mechanical thrombectomy recanalization in elderly patients.',
+      'Distribution of Marathi & English stroke symptom recognition emergency cards across Nashik district.'
+    ]
+  },
+  {
+    id: 'evt-02',
+    title: 'Biplane Neuro-Intervention Catheterization Suite Dedication Ceremony',
+    category: 'Facility Inauguration',
+    date: '15 August 2025',
+    location: 'Sopan Advanced Neurovascular Wing, Shrihari Kute Marg, Nashik',
+    leadClinician: 'Dr. Sanjay Sopan Varade & Chief Hospital Administrators',
+    summary: 'Formal dedication and commencement of North Maharashtra’s cutting-edge dedicated neuro-endovascular catheterization laboratory for emergency cerebral angiography and acute clot retrieval.',
+    attendeesCount: '220+ Medical Dignitaries & Civic Leaders',
+    imageUrl: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Biplane Angiography', 'Neurovascular Cath Lab', 'Emergency Thrombolysis', 'Mumbai Naka'],
+    keyHighlights: [
+      'State-of-the-art flat-panel 3D neuro-angiography setup enabling sub-millimeter cerebral vessel navigation.',
+      '24/7 acute stroke rapid intervention readiness with dedicated emergency neuro-anesthesia standby.',
+      'Inaugural speech highlighting 35+ years of neurology care for Nashik and rural North Maharashtra.'
+    ]
+  },
+  {
+    id: 'evt-03',
+    title: 'Free Senior Citizen Tremor & Parkinson’s Community Screening Camp',
+    category: 'Free Medical Camp',
+    date: '12 January 2026',
+    location: 'Outpatient Pavilion, Sopan Hospital, Near Sandip Hotel, Nashik',
+    leadClinician: 'Dr. Sanjay Sopan Varade & Clinical Neuro-Physiotherapy Team',
+    summary: 'Full-day subsidized community health outreach offering exhaustive neurological assessment, UPDRS tremor rating, gait evaluations, and memory screening for senior citizens.',
+    attendeesCount: '285 Senior Citizens Screened',
+    imageUrl: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Parkinsons Camp', 'Tremor Analysis', 'Geriatric Neurology', 'Free Screening'],
+    keyHighlights: [
+      'Free clinical consultations and tremor motor scoring conducted by Dr. Sanjay Sopan Varade.',
+      'On-site subsidized nerve conduction velocity (NCV) and electromyography (EMG) testing.',
+      'Free medication kits and posture stability guidance provided to economically underprivileged patients.'
+    ]
+  },
+  {
+    id: 'evt-04',
+    title: 'Nashik Pediatric Brain Health & Intractable Epilepsy Care Workshop',
+    category: 'Clinical CME',
+    date: '26 March 2026 (Purple Day for Epilepsy)',
+    location: 'Sopan Institute Video-EEG Complex & Training Hall',
+    leadClinician: 'Dr. Sanjay Sopan Varade (Senior Consultant Neurologist)',
+    summary: 'Clinical workshop and caregiver counseling session focusing on childhood absence seizures, juvenile myoclonic epilepsy, and 24-hour ambulatory video EEG diagnostic standards.',
+    attendeesCount: '130+ Educators, Pediatricians & Families',
+    imageUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Purple Day', 'Epilepsy Awareness', '24h Video EEG', 'Pediatric Neuro'],
+    keyHighlights: [
+      'Live demonstration of 32-channel digital video EEG recording and seizure onset localization.',
+      'Practical training on school first-aid seizure management and anti-epileptic drug compliance.',
+      'Dispelling social myths and stigmas associated with epilepsy in young students.'
+    ]
+  },
+  {
+    id: 'evt-05',
+    title: 'Acute Stroke Survivors & Caregiver Felicitation Conclave',
+    category: 'Survivor Meet',
+    date: '05 June 2026',
+    location: 'Sopan Neuro-Rehabilitation Courtyard, Nashik',
+    leadClinician: 'Dr. Sanjay Sopan Varade & Neuro-Rehabilitation Department',
+    summary: 'Inspiring annual felicitation gathering celebrating 50+ acute stroke survivors who regained functional independence and motor capability through prompt acute care and dedicated neuro-rehab.',
+    attendeesCount: '190+ Patients & Caregiver Families',
+    imageUrl: 'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Stroke Survivors', 'Neuro Recovery', 'Inspiring Journeys', 'Rehabilitation'],
+    keyHighlights: [
+      'Testimonials from patients who received thrombectomy within the golden window and returned to active work.',
+      'Caregiver awards honoring spouses and children providing heroic home care support.',
+      'Demonstrations of balance training, cognitive puzzles, and secondary stroke prevention nutrition.'
+    ]
+  },
+  {
+    id: 'evt-06',
+    title: 'Refractory Migraine, Vertigo & Brain Health Community Drive',
+    category: 'Stroke Awareness',
+    date: '22 July 2026 (World Brain Day)',
+    location: 'Mumbai Naka Community Center & Sopan Hospital Health Desk',
+    leadClinician: 'Dr. Sanjay Sopan Varade',
+    summary: 'Public education symposium and open forum addressing chronic migraine management, vestibular vertigo rehabilitation, sleep hygiene, and blood pressure control for stroke prevention.',
+    attendeesCount: '210+ Nashik Residents',
+    imageUrl: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=1200&q=80',
+    tags: ['World Brain Day', 'Migraine Care', 'Vertigo Clinic', 'Healthy Brain'],
+    keyHighlights: [
+      'Guidance on distinguishing benign tension headaches from red-flag neurological headaches.',
+      'Epley maneuver demonstrations for Benign Paroxysmal Positional Vertigo (BPPV).',
+      'Free distribution of headache trigger diary trackers and dietary wellness charts.'
+    ]
+  }
+];
+
 

@@ -28,7 +28,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Sliders,
-  HeartHandshake
+  HeartHandshake,
+  LogOut
 } from 'lucide-react';
 import { Doctor, Appointment, DepartmentType, ReminderSettings } from '../types';
 import { DOCTORS, INITIAL_APPOINTMENTS } from '../data/mockData';
@@ -50,6 +51,7 @@ import {
   updateAppointmentStatus,
   isAdminLoggedIn,
   getAdminSession,
+  setAdminSession,
   resetOpdCounter,
   getOpdCapacity,
   setOpdCapacity
@@ -582,6 +584,18 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                 >
                   <Sliders className="w-3 h-3 text-cyan-400" />
                   Full Admin Desk
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminSession(null);
+                    setReminderToast('Logged out of Administrator Session successfully.');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                  title="Log out of Administrator Session"
+                >
+                  <LogOut className="w-3 h-3 text-rose-600" />
+                  Log Out
                 </button>
               </>
             ) : (

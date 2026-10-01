@@ -18,11 +18,13 @@ import {
   Filter, 
   Stethoscope, 
   Globe, 
-  Clock,
-  AlertCircle,
-  MessageCircle,
-  Copy
+  Clock, 
+  AlertCircle, 
+  MessageCircle, 
+  Copy,
+  Camera
 } from 'lucide-react';
+import { HospitalEventsGallery } from './HospitalEventsGallery';
 
 export interface NeurologyNewsItem {
   id: string;
@@ -55,6 +57,7 @@ export const LatestNeurologyNews: React.FC<LatestNeurologyNewsProps> = ({
   onOpenWhatsApp
 }) => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'news' | 'events'>('news');
   const [customSearchInput, setCustomSearchInput] = useState<string>('');
   const [newsList, setNewsList] = useState<NeurologyNewsItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -182,7 +185,45 @@ export const LatestNeurologyNews: React.FC<LatestNeurologyNewsProps> = ({
         </div>
       </div>
 
-      {/* Search Bar & Category Navigation */}
+      {/* View Switcher: News vs Events */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-1.5 p-1 bg-[#EFE9DF] rounded-2xl border border-[#DACFBE]">
+          <button
+            type="button"
+            onClick={() => setViewMode('news')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewMode === 'news'
+                ? 'bg-[#342E28] text-white shadow-2xs'
+                : 'text-[#635E56] hover:text-[#27231E]'
+            }`}
+          >
+            <Newspaper className="w-3.5 h-3.5" />
+            Neurology News & Research
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('events')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewMode === 'events'
+                ? 'bg-[#8E5B3E] text-white shadow-2xs'
+                : 'text-[#635E56] hover:text-[#27231E]'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            Hospital Events & Photographs
+          </button>
+        </div>
+      </div>
+
+      {/* Render Hospital Events Gallery if in events view */}
+      {viewMode === 'events' ? (
+        <HospitalEventsGallery
+          onBookConsultation={onBookConsultation}
+          onOpenWhatsApp={onOpenWhatsApp}
+        />
+      ) : (
+        <>
+          {/* Search Bar & Category Navigation */}
       <div className="bg-white border border-[#E5DAC8] rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Category Tabs */}
@@ -509,6 +550,8 @@ export const LatestNeurologyNews: React.FC<LatestNeurologyNewsProps> = ({
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Full Analysis Detail Modal */}
       {selectedArticle && (

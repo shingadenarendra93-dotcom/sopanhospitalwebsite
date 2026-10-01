@@ -16,7 +16,7 @@ import {
   Users,
   TrendingDown
 } from 'lucide-react';
-import { calculateOpdSlotStats, loadOpdAppointments, TOTAL_OPD_DAILY_SLOTS } from '../utils/opdSlotUtils';
+import { calculateOpdSlotStats, loadOpdAppointments, getOpdCapacity } from '../utils/opdSlotUtils';
 
 interface HeroBannerProps {
   onNavigate: (tabId: string) => void;
@@ -27,7 +27,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onNavigate,
   onOpenWhatsApp
 }) => {
-  const [opdStats, setOpdStats] = useState(() => calculateOpdSlotStats(loadOpdAppointments(), undefined, TOTAL_OPD_DAILY_SLOTS));
+  const [opdStats, setOpdStats] = useState(() => calculateOpdSlotStats(loadOpdAppointments(), undefined, getOpdCapacity()));
 
   // Guarantee that the doctor photo stays default (/DSC_0050.png) & sync OPD stats
   useEffect(() => {
@@ -38,7 +38,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     }
 
     const updateStats = () => {
-      setOpdStats(calculateOpdSlotStats(loadOpdAppointments(), undefined, TOTAL_OPD_DAILY_SLOTS));
+      setOpdStats(calculateOpdSlotStats(loadOpdAppointments(), undefined, getOpdCapacity()));
     };
     window.addEventListener('sopan_opd_quota_updated', updateStats);
     return () => window.removeEventListener('sopan_opd_quota_updated', updateStats);
@@ -227,7 +227,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                       ? 'bg-amber-100 text-amber-900 border border-amber-300'
                       : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                 }`}>
-                  {opdStats.remainingSlots} / 50 Left Today
+                  {opdStats.remainingSlots} / {opdStats.totalSlots} Left Today
                 </span>
               </div>
             </div>
