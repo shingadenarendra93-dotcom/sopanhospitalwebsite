@@ -19,6 +19,8 @@ export interface AdminUserSession {
 export interface OpdSlotStats {
   totalSlots: number;
   bookedCount: number;
+  rejectedCount: number;
+  grossBookingsCount: number;
   remainingSlots: number;
   percentageBooked: number;
   percentageRemaining: number;
@@ -26,6 +28,44 @@ export interface OpdSlotStats {
   statusLabel: string;
   statusColor: 'emerald' | 'amber' | 'orange' | 'rose';
   nextSlotNumber: number;
+  nextDayDate: string;
+}
+
+/**
+ * Returns tomorrow or the next day formatted as YYYY-MM-DD.
+ */
+export function getNextDateString(dateStr?: string): string {
+  try {
+    const base = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
+    base.setDate(base.getDate() + 1);
+    const yyyy = base.getFullYear();
+    const mm = String(base.getMonth() + 1).padStart(2, '0');
+    const dd = String(base.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  } catch {
+    const base = new Date();
+    base.setDate(base.getDate() + 1);
+    return base.toISOString().split('T')[0];
+  }
+}
+
+/**
+ * Formats a YYYY-MM-DD date into friendly readable format (e.g., "Fri, 2 Oct 2026").
+ */
+export function formatFriendlyDate(dateStr: string): string {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-IN', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  } catch {
+    return dateStr;
+  }
 }
 
 /**
@@ -394,20 +434,29 @@ export function calculateOpdSlotStats(
     : getOpdCapacity();
   const manualOffset = getOpdManualOffset();
   
-  // Filter confirmed or completed appointments
+  // Filter confirmed, completed, or pending appointments (which occupy active slots)
   const relevantAppointments = appointments.filter(a => {
     const matchesDate = targetDate ? a.date === targetDate : true;
-    const isBooked = a.status === 'Confirmed' || a.status === 'Completed';
+    const isBooked = a.status === 'Confirmed' || a.status === 'Completed' || a.status === 'Pending' || !a.status;
     return matchesDate && isBooked;
   });
 
+  // Filter rejected / cancelled appointments (slots freed back to patients)
+  const rejectedAppointments = appointments.filter(a => {
+    const matchesDate = targetDate ? a.date === targetDate : true;
+    return matchesDate && a.status === 'Cancelled';
+  });
+
+  const rejectedCount = rejectedAppointments.length;
   const rawBookedCount = relevantAppointments.length + manualOffset;
   const bookedCount = Math.max(0, Math.min(effectiveCapacity, rawBookedCount));
+  const grossBookingsCount = bookedCount + rejectedCount;
   const remainingSlots = Math.max(0, effectiveCapacity - bookedCount);
   const percentageBooked = Math.round((bookedCount / effectiveCapacity) * 100);
   const percentageRemaining = Math.max(0, 100 - percentageBooked);
   const isFull = remainingSlots <= 0;
   const nextSlotNumber = Math.min(effectiveCapacity, bookedCount + 1);
+  const nextDayDate = getNextDateString(targetDate);
 
   let statusLabel = 'High Availability';
   let statusColor: 'emerald' | 'amber' | 'orange' | 'rose' = 'emerald';
@@ -432,12 +481,15 @@ export function calculateOpdSlotStats(
   return {
     totalSlots: effectiveCapacity,
     bookedCount,
+    rejectedCount,
+    grossBookingsCount,
     remainingSlots,
     percentageBooked,
     percentageRemaining,
     isFull,
     statusLabel,
     statusColor,
-    nextSlotNumber
+    nextSlotNumber,
+    nextDayDate
   };
 }

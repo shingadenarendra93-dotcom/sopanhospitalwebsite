@@ -77,6 +77,27 @@
         "timestamp": { "type": "string" }
       },
       "required": ["role", "content", "timestamp"]
+    },
+    "HospitalEvent": {
+      "title": "HospitalEvent",
+      "description": "Hospital photograph archive and special occasion documentation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string" },
+        "location": { "type": "string" },
+        "leadClinician": { "type": "string" },
+        "summary": { "type": "string" },
+        "attendeesCount": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "keyHighlights": { "type": "array", "items": { "type": "string" } },
+        "addedBy": { "type": "string" },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "date", "imageUrl"]
     }
   },
   "firestore": {
@@ -91,6 +112,10 @@
     "/feedbacks/{feedbackId}": {
       "schema": { "$ref": "#/entities/PatientFeedback" },
       "description": "Public and anonymous patient experience reviews"
+    },
+    "/hospital_events/{eventId}": {
+      "schema": { "$ref": "#/entities/HospitalEvent" },
+      "description": "Hospital photographs of special occasions and clinical events"
     },
     "/users/{userId}/chats/{messageId}": {
       "schema": { "$ref": "#/entities/ChatMessage" },

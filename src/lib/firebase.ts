@@ -214,5 +214,59 @@ export async function fetchAuditLogsFromFirestore() {
   }
 }
 
+// Save Hospital Event Photograph to Firestore
+export async function saveHospitalEventToFirestore(event: {
+  id: string;
+  title: string;
+  category: string;
+  date: string;
+  location: string;
+  leadClinician: string;
+  summary: string;
+  attendeesCount: string;
+  imageUrl: string;
+  tags: string[];
+  keyHighlights: string[];
+  addedBy?: string;
+  addedAt?: string;
+}) {
+  try {
+    const eventRef = doc(db, 'hospital_events', event.id);
+    await setDoc(eventRef, {
+      ...event,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    return event.id;
+  } catch (err) {
+    console.warn('Firestore fallback: Event saved locally:', err);
+    return null;
+  }
+}
+
+// Delete Hospital Event Photograph from Firestore
+export async function deleteHospitalEventFromFirestore(eventId: string) {
+  try {
+    const { deleteDoc } = await import('firebase/firestore');
+    const eventRef = doc(db, 'hospital_events', eventId);
+    await deleteDoc(eventRef);
+    return true;
+  } catch (err) {
+    console.warn('Firestore delete fallback:', err);
+    return false;
+  }
+}
+
+// Fetch Hospital Event Photographs from Firestore
+export async function fetchHospitalEventsFromFirestore() {
+  try {
+    const q = query(collection(db, 'hospital_events'), orderBy('updatedAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.warn('Falling back or error fetching hospital events from Firestore:', err);
+    return [];
+  }
+}
+
 export { onAuthStateChanged };
 export type { FirebaseUser };

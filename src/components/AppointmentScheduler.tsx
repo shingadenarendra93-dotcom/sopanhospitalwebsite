@@ -29,7 +29,9 @@ import {
   RefreshCw,
   Sliders,
   HeartHandshake,
-  LogOut
+  LogOut,
+  RotateCcw,
+  ArrowRight
 } from 'lucide-react';
 import { Doctor, Appointment, DepartmentType, ReminderSettings } from '../types';
 import { DOCTORS, INITIAL_APPOINTMENTS } from '../data/mockData';
@@ -54,7 +56,9 @@ import {
   setAdminSession,
   resetOpdCounter,
   getOpdCapacity,
-  setOpdCapacity
+  setOpdCapacity,
+  formatFriendlyDate,
+  getNextDateString
 } from '../utils/opdSlotUtils';
 
 interface AppointmentSchedulerProps {
@@ -139,6 +143,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     return calculateOpdSlotStats(appointments, selectedDate);
   }, [appointments, selectedDate, slotOffset]);
 
+  const nextDayDate = useMemo(() => {
+    return getNextDateString(selectedDate);
+  }, [selectedDate]);
+
+  const nextDayOpdStats = useMemo(() => {
+    return calculateOpdSlotStats(appointments, nextDayDate);
+  }, [appointments, nextDayDate, slotOffset]);
+
   const handleSimulateBooking = () => {
     if (todayOpdStats.isFull) return;
     const nextOffset = slotOffset + 1;
@@ -167,7 +179,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const handleRejectAppointment = (apt: Appointment) => {
     const updated = updateAppointmentStatus(apt.id, 'Cancelled', 'Cancelled by OPD Administration');
     setAppointments(updated);
-    setReminderToast(`Appointment for ${apt.patientName} CANCELLED. Slot released back into available quota.`);
+    setReminderToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) REJECTED. 1 slot restored (+1 added back to total available quota).`);
   };
 
   useEffect(() => {
@@ -201,9 +213,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     return matchesDept && matchesSearch;
   });
 
-  const startBooking = (doctor: Doctor) => {
+  const startBooking = (doctor: Doctor, targetDate?: string) => {
     setSelectedDoctor(doctor);
     setSelectedTimeSlot(doctor.timeSlots[0] || '10:00 AM');
+    if (targetDate) {
+      setSelectedDate(targetDate);
+    } else if (todayOpdStats.isFull) {
+      setSelectedDate(todayOpdStats.nextDayDate);
+    }
     setBookingStep(1);
     setIsBookingModalOpen(true);
   };
@@ -212,13 +229,19 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     e.preventDefault();
     if (!selectedDoctor) return;
 
+    let finalBookingDate = selectedDate;
+    let effectiveStats = dateOpdStats;
+
+    // If quota on the selected date is full, automatically advance to next available day
     if (dateOpdStats.remainingSlots <= 0) {
-      alert(`Today's OPD patient quota of ${TOTAL_OPD_DAILY_SLOTS} slots is full for ${selectedDate}. Please select another date or contact 24/7 Emergency Line (0253 2317364).`);
-      return;
+      finalBookingDate = dateOpdStats.nextDayDate;
+      setSelectedDate(finalBookingDate);
+      effectiveStats = calculateOpdSlotStats(appointments, finalBookingDate);
+      setReminderToast(`Selected date quota was full. Automatically reserved for Next Day OPD (${formatFriendlyDate(finalBookingDate)})!`);
     }
 
-    const assignedSlotNumber = dateOpdStats.nextSlotNumber;
-    const remainingSlotsAfter = Math.max(0, dateOpdStats.remainingSlots - 1);
+    const assignedSlotNumber = effectiveStats.nextSlotNumber;
+    const remainingSlotsAfter = Math.max(0, effectiveStats.remainingSlots - 1);
 
     const deptPrefixMap: Record<string, string> = {
       'Comprehensive Stroke Center': 'STRK',
@@ -261,7 +284,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       doctorId: selectedDoctor.id,
       doctorName: selectedDoctor.name,
       department: selectedDoctor.department,
-      date: selectedDate,
+      date: finalBookingDate,
       timeSlot: selectedTimeSlot,
       visitType,
       symptoms: symptoms || 'Routine neurological follow-up',
@@ -368,9 +391,15 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       {/* OPD Patient Live Descending Slots Counter (50 -> 0) */}
       <OpdSlotCounterMeter
         stats={todayOpdStats}
+        selectedDate={selectedDate}
         onSimulateBooking={handleSimulateBooking}
         onSetRemainingSlots={handleSetRemainingSlots}
         onResetSlots={handleResetSlots}
+        onBookNextDay={(nextDate) => {
+          setSelectedDate(nextDate);
+          const doc = selectedDoctor || doctorsList[0];
+          startBooking(doc, nextDate);
+        }}
       />
 
       {/* Filters and Search */}
@@ -468,20 +497,28 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-[#EAE3D6]/80">
-                  <span className="flex items-center gap-1.5 text-[#635E56]">
-                    <Users className="w-3.5 h-3.5 text-[#8E5B3E]" />
-                    Daily OPD Intake:
-                  </span>
-                  <span className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-md ${
-                    todayOpdStats.isFull 
-                      ? 'bg-rose-100 text-rose-800 border border-rose-300' 
-                      : todayOpdStats.remainingSlots <= 10
-                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                  }`}>
-                    {todayOpdStats.remainingSlots} / 50 Slots Left
-                  </span>
+                <div className="flex flex-col gap-1 pt-1 border-t border-[#EAE3D6]/80">
+                  <div className="flex items-center justify-between text-[#635E56]">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                      Daily OPD Intake:
+                    </span>
+                    <span className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-md ${
+                      todayOpdStats.isFull 
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300' 
+                        : todayOpdStats.remainingSlots <= 10
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}>
+                      {todayOpdStats.isFull 
+                        ? `0 / ${todayOpdStats.totalSlots} Slots (Full)` 
+                        : `${todayOpdStats.remainingSlots} / ${todayOpdStats.totalSlots} Available`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-[#7A746B]">
+                    <span>Deducted: -{todayOpdStats.bookedCount} booked</span>
+                    <span className="text-emerald-700 font-medium">Restored: +{todayOpdStats.rejectedCount} freed</span>
+                  </div>
                 </div>
               </div>
 
@@ -498,15 +535,31 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
               <button
                 id={`btn-book-${doctor.id}`}
-                onClick={() => startBooking(doctor)}
+                onClick={() => {
+                  if (todayOpdStats.isFull) {
+                    startBooking(doctor, todayOpdStats.nextDayDate);
+                  } else {
+                    startBooking(doctor);
+                  }
+                }}
                 className={`px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 ${
                   todayOpdStats.isFull 
                     ? 'bg-[#B05B48] hover:bg-[#974534]' 
                     : 'bg-[#8E5B3E] hover:bg-[#784A31]'
                 }`}
+                title={todayOpdStats.isFull ? `Today is full. Book for next day (${formatFriendlyDate(todayOpdStats.nextDayDate)})` : 'Book OPD consultation'}
               >
-                {todayOpdStats.isFull ? 'OPD Full (Pick Date)' : 'Book Appointment'}
-                <ChevronRight className="w-3.5 h-3.5" />
+                {todayOpdStats.isFull ? (
+                  <>
+                    <Calendar className="w-3.5 h-3.5 text-amber-200" />
+                    <span>OPD Full • Book Next Day ({formatFriendlyDate(todayOpdStats.nextDayDate)})</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Book Appointment ({todayOpdStats.remainingSlots} Left)</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -683,11 +736,19 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     </span>
                   </div>
 
-                  {/* Rejection notice if cancelled */}
-                  {apt.status === 'Cancelled' && apt.rejectionReason && (
-                    <div className="mt-1.5 text-[11px] text-rose-800 bg-rose-50 px-2.5 py-1 rounded-xl border border-rose-200 inline-flex items-center gap-1 font-medium">
-                      <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                      <span>Rejection Reason: {apt.rejectionReason}</span>
+                  {/* Rejection notice and restored slot indicator if cancelled */}
+                  {apt.status === 'Cancelled' && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <div className="text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200 inline-flex items-center gap-1 font-semibold">
+                        <RotateCcw className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>Slot Restored (+1 Slot Added Back to Available Pool)</span>
+                      </div>
+                      {apt.rejectionReason && (
+                        <div className="text-[11px] text-rose-800 bg-rose-50 px-2.5 py-1 rounded-xl border border-rose-200 inline-flex items-center gap-1 font-medium">
+                          <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                          <span>Rejection Reason: {apt.rejectionReason}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -843,9 +904,20 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Select Date
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Select Appointment Date
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(dateOpdStats.nextDayDate)}
+                        className="text-[11px] font-bold text-[#8E5B3E] hover:underline flex items-center gap-1"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                        <span>Quick Switch to Next Day ({formatFriendlyDate(dateOpdStats.nextDayDate)})</span>
+                      </button>
+                    </div>
+
                     <input
                       type="date"
                       value={selectedDate}
@@ -853,14 +925,41 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                       onChange={e => setSelectedDate(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-cyan-500"
                     />
+
+                    {/* Quick Date Pills */}
+                    <div className="flex items-center gap-2 mt-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate('2026-09-25')}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                          selectedDate === '2026-09-25' 
+                            ? 'bg-slate-900 text-white border-slate-900' 
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        Today's OPD (25 Sep)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(dateOpdStats.nextDayDate)}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+                          selectedDate === dateOpdStats.nextDayDate 
+                            ? 'bg-[#8E5B3E] text-white border-[#8E5B3E]' 
+                            : 'bg-white text-[#8E5B3E] border-[#E4CEBC] hover:bg-[#FAF2EB]'
+                        }`}
+                      >
+                        <Calendar className="w-3 h-3" />
+                        Next Day OPD ({formatFriendlyDate(dateOpdStats.nextDayDate)}) • {nextDayOpdStats.remainingSlots} Open
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Descending OPD Slot Meter for Date */}
-                  <div className="bg-[#FAF7F2] p-3.5 rounded-2xl border border-[#E6E0D4] space-y-2">
+                  {/* Descending OPD Slot Meter & Differential Breakdown for Date */}
+                  <div className="bg-[#FAF7F2] p-4 rounded-2xl border border-[#E6E0D4] space-y-3">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-[#27231E] flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-[#8E5B3E]" />
-                        OPD Patient Quota for {selectedDate}:
+                        OPD Patient Quota for {formatFriendlyDate(selectedDate)}:
                       </span>
                       <span className={`font-mono font-bold px-2 py-0.5 rounded-md text-[11px] ${
                         dateOpdStats.isFull 
@@ -869,11 +968,11 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                             ? 'bg-amber-100 text-amber-900 border border-amber-300'
                             : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       }`}>
-                        {dateOpdStats.remainingSlots} / 50 Slots Available
+                        {dateOpdStats.remainingSlots} / {dateOpdStats.totalSlots} Slots Available
                       </span>
                     </div>
 
-                    <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden">
                       <div 
                         className={`h-full transition-all duration-300 ${
                           dateOpdStats.isFull ? 'bg-rose-500' : dateOpdStats.remainingSlots <= 10 ? 'bg-amber-500' : 'bg-emerald-500'
@@ -882,8 +981,30 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                       />
                     </div>
 
+                    {/* Slot Difference Formula */}
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-[#E0D7C8] grid grid-cols-4 gap-2 text-center text-xs">
+                      <div>
+                        <span className="text-[10px] text-[#7A746B] block">Total Quota</span>
+                        <strong className="text-[#27231E] font-mono">{dateOpdStats.totalSlots}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#B05B48] block">Booked (-)</span>
+                        <strong className="text-[#B05B48] font-mono">-{dateOpdStats.bookedCount}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-emerald-700 block">Restored (+)</span>
+                        <strong className="text-emerald-700 font-mono">+{dateOpdStats.rejectedCount}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#8E5B3E] block">Available</span>
+                        <strong className={`font-mono ${dateOpdStats.isFull ? 'text-rose-700' : 'text-[#8E5B3E]'}`}>
+                          {dateOpdStats.remainingSlots}
+                        </strong>
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between text-[11px] text-[#7A746B]">
-                      <span>Starting quota: 50 slots</span>
+                      <span>Starting capacity: {dateOpdStats.totalSlots} slots</span>
                       <span className="font-semibold text-[#27231E]">
                         {dateOpdStats.isFull 
                           ? 'Capacity reached (0 slots remaining)' 
@@ -892,50 +1013,114 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                       <span>Descends to: 0</span>
                     </div>
 
-                    {dateOpdStats.isFull && (
-                      <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                        <span>All 50 OPD slots are booked for {selectedDate}. Please pick another date or call 0253 2317364 for emergency neurological triage.</span>
+                    {/* Quota Full Notice Banner with Direct Next Day Booking Option */}
+                    {dateOpdStats.isFull ? (
+                      <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 text-xs space-y-2.5 animate-in fade-in duration-200">
+                        <div className="flex items-start gap-2.5">
+                          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                          <div>
+                            <div className="font-bold text-sm text-rose-900">
+                              OPD Slots Full for {formatFriendlyDate(selectedDate)} (0 Slots Left)
+                            </div>
+                            <div className="text-[11px] text-rose-800 mt-0.5 leading-relaxed">
+                              All {dateOpdStats.totalSlots} outpatient slots are booked for this date. You can directly book your consultation for Next Day OPD ({formatFriendlyDate(dateOpdStats.nextDayDate)}).
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-1 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDate(dateOpdStats.nextDayDate);
+                              setReminderToast(`Date switched to Next Day OPD (${formatFriendlyDate(dateOpdStats.nextDayDate)}) with ${nextDayOpdStats.remainingSlots} slots open.`);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-colors"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-amber-200" />
+                            <span>Book Slot Next Day OPD ({formatFriendlyDate(dateOpdStats.nextDayDate)})</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                          <a
+                            href="tel:02532317364"
+                            className="px-3 py-2 rounded-xl bg-white hover:bg-rose-100/60 text-rose-800 border border-rose-300 text-xs font-semibold"
+                          >
+                            Emergency (0253 2317364)
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-[#635E56] flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>Slots minus by 1 after booking. Any rejected appointment is automatically re-added into the available count.</span>
                       </div>
                     )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                      Available Time Slots
+                      Available Time Slots {dateOpdStats.isFull && '(Closed for Full Date)'}
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {selectedDoctor.timeSlots.map(slot => (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => setSelectedTimeSlot(slot)}
-                          className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
-                            selectedTimeSlot === slot
-                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          {slot}
-                        </button>
-                      ))}
-                    </div>
+                    {dateOpdStats.isFull ? (
+                      <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 text-xs text-center">
+                        Consultation slots on {formatFriendlyDate(selectedDate)} are full. Click "Book Next Day OPD" to view tomorrow's time slots.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {selectedDoctor.timeSlots.map(slot => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setSelectedTimeSlot(slot)}
+                            className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all ${
+                              selectedTimeSlot === slot
+                                ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {slot}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="pt-4 flex justify-end">
-                    <button
-                      type="button"
-                      disabled={dateOpdStats.isFull}
-                      onClick={() => setBookingStep(2)}
-                      className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm flex items-center gap-1.5 ${
-                        dateOpdStats.isFull 
-                          ? 'bg-slate-400 cursor-not-allowed opacity-60' 
-                          : 'bg-cyan-600 hover:bg-cyan-700'
-                      }`}
-                    >
-                      {dateOpdStats.isFull ? 'OPD Full for This Date (0 Left)' : 'Next: Patient Details'}
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                  <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
+                    {dateOpdStats.isFull ? (
+                      <>
+                        <div className="text-xs text-rose-800 font-semibold flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>OPD Full: 0 of {dateOpdStats.totalSlots} slots remaining for this date</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDate(dateOpdStats.nextDayDate);
+                            setReminderToast(`Date switched to Next Day OPD (${formatFriendlyDate(dateOpdStats.nextDayDate)}) with ${nextDayOpdStats.remainingSlots} open slots.`);
+                          }}
+                          className="px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm flex items-center gap-2 bg-[#8E5B3E] hover:bg-[#784A31] transition-all w-full sm:w-auto justify-center"
+                        >
+                          <Calendar className="w-4 h-4 text-amber-200" />
+                          <span>OPD Full • Book Next Day ({formatFriendlyDate(dateOpdStats.nextDayDate)})</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs text-emerald-800 font-semibold flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{dateOpdStats.remainingSlots} Slots Available for {formatFriendlyDate(selectedDate)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setBookingStep(2)}
+                          className="px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-700 transition-colors w-full sm:w-auto justify-center"
+                        >
+                          <span>Next: Patient Details ({dateOpdStats.remainingSlots} Left)</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -943,14 +1128,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               {/* Step 2: Patient Demographics Form */}
               {bookingStep === 2 && (
                 <form onSubmit={handleConfirmBooking} className="space-y-4">
-                  {/* Quota Allocation Notification */}
-                  <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs text-amber-950">
+                  {/* Quota Allocation Notification with Live Minus Notice */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
                     <span className="flex items-center gap-1.5 font-bold">
                       <TrendingDown className="w-4 h-4 text-[#8E5B3E]" />
-                      Allocating OPD Patient Slot: #{dateOpdStats.nextSlotNumber} of 50
+                      Allocating OPD Patient Slot: #{dateOpdStats.nextSlotNumber} of {dateOpdStats.totalSlots} ({formatFriendlyDate(selectedDate)})
                     </span>
                     <span className="text-[11px] text-amber-800">
-                      Remaining quota will descend from <strong>{dateOpdStats.remainingSlots}</strong> to <strong>{Math.max(0, dateOpdStats.remainingSlots - 1)} slots</strong>
+                      Confirming will minus 1 slot: <strong>{dateOpdStats.remainingSlots}</strong> → <strong>{Math.max(0, dateOpdStats.remainingSlots - 1)} slots</strong> (Restored if cancelled or rejected)
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

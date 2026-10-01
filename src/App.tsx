@@ -12,6 +12,7 @@ import { GoogleReviews } from './components/GoogleReviews';
 import { PatientExperienceFeedbackModalOrSection } from './components/PatientExperienceFeedback';
 import { PatientSuccessStories } from './components/PatientSuccessStories';
 import { LatestNeurologyNews } from './components/LatestNeurologyNews';
+import { HospitalEventsGallery } from './components/HospitalEventsGallery';
 import { SymptomChecker } from './components/SymptomChecker';
 import { GeminiChatbot } from './components/GeminiChatbot';
 import { OpdAdminPortalModal } from './components/OpdAdminPortalModal';
@@ -68,6 +69,7 @@ function MainApp() {
     { id: 'gemini-assistant', label: t('nav.ai_assistant') },
     { id: 'symptom-checker', label: t('nav.symptom_checker') },
     { id: 'stories', label: t('nav.stories') },
+    { id: 'gallery', label: 'Hospital Occasion Photos' },
     { id: 'news', label: t('nav.news') },
     { id: 'appointments', label: t('nav.appointments') },
     { id: 'reviews', label: t('nav.reviews') },
@@ -150,6 +152,15 @@ function MainApp() {
               onOpenReviews={() => {
                 setActiveTab('reviews');
                 window.scrollTo({ top: 400, behavior: 'smooth' });
+              }}
+              onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
+            />
+          )}
+          {activeTab === 'gallery' && (
+            <HospitalEventsGallery
+              onBookConsultation={() => {
+                setActiveTab('appointments');
+                window.scrollTo({ top: 350, behavior: 'smooth' });
               }}
               onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
             />

@@ -25,9 +25,23 @@ import {
   XCircle,
   HelpCircle,
   Save,
-  ArrowRight
+  ArrowRight,
+  Camera,
+  Trash2,
+  Upload,
+  Image as ImageIcon,
+  Eye,
+  MapPin
 } from 'lucide-react';
-import { Appointment, OpdAuditLog } from '../types';
+import { Appointment, OpdAuditLog, HospitalEvent } from '../types';
+import { 
+  loadHospitalEvents,
+  addHospitalEventPhoto,
+  removeHospitalEventPhoto,
+  resetHospitalEventsToDefault,
+  PRESET_OCCASION_PHOTOS,
+  OCCASION_CATEGORIES
+} from '../utils/hospitalEventsUtils';
 import { 
   OpdSlotStats, 
   calculateOpdSlotStats, 
@@ -51,13 +65,15 @@ interface OpdAdminPortalModalProps {
   onClose?: () => void;
   onAppointmentsUpdated?: () => void;
   isEmbedded?: boolean;
+  initialTab?: 'counter' | 'appointments' | 'logs' | 'gallery';
 }
 
 export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   isOpen = false,
   onClose,
   onAppointmentsUpdated,
-  isEmbedded = false
+  isEmbedded = false,
+  initialTab = 'counter'
 }) => {
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => isAdminLoggedIn());
@@ -67,7 +83,35 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Active Admin View Tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'counter' | 'appointments' | 'logs'>('counter');
+  const [activeAdminTab, setActiveAdminTab] = useState<'counter' | 'appointments' | 'logs' | 'gallery'>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveAdminTab(initialTab);
+    }
+  }, [initialTab]);
+
+  // Hospital Events Gallery State
+  const [hospitalEvents, setHospitalEvents] = useState<HospitalEvent[]>(() => loadHospitalEvents());
+  const [galleryCategoryFilter, setGalleryCategoryFilter] = useState<string>('All');
+  const [gallerySearch, setGallerySearch] = useState<string>('');
+  const [photoToDelete, setPhotoToDelete] = useState<HospitalEvent | null>(null);
+  const [isAddPhotoModalOpen, setIsAddPhotoModalOpen] = useState<boolean>(false);
+  const [newPhotoTitle, setNewPhotoTitle] = useState<string>('');
+  const [newPhotoCategory, setNewPhotoCategory] = useState<string>('Special Occasion');
+  const [newPhotoDate, setNewPhotoDate] = useState<string>(() => {
+    const d = new Date();
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  });
+  const [newPhotoLocation, setNewPhotoLocation] = useState<string>('Sopan Hospital, Shrihari Kute Marg, Mumbai Naka, Nashik');
+  const [newPhotoLead, setNewPhotoLead] = useState<string>('Dr. Sanjay Sopan Varade (MD, DM Neuro)');
+  const [newPhotoAttendees, setNewPhotoAttendees] = useState<string>('150+ Attendees & Dignitaries');
+  const [newPhotoImageUrl, setNewPhotoImageUrl] = useState<string>(PRESET_OCCASION_PHOTOS[0].url);
+  const [newPhotoCustomUrl, setNewPhotoCustomUrl] = useState<string>('');
+  const [newPhotoSummary, setNewPhotoSummary] = useState<string>('');
+  const [newPhotoHighlights, setNewPhotoHighlights] = useState<string>('');
+  const [newPhotoTags, setNewPhotoTags] = useState<string>('HospitalOccasion, SopanNeuro, Nashik');
+  const [selectedPresetIdx, setSelectedPresetIdx] = useState<number>(0);
 
   // Appointments & Slot Stats
   const [appointments, setAppointments] = useState<Appointment[]>(() => loadOpdAppointments());
@@ -99,6 +143,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     setIsLoggedIn(isAdminLoggedIn());
     setAdminUser(getAdminSession());
     setAuditLogs(getAdminAuditLogs());
+    setHospitalEvents(loadHospitalEvents());
   };
 
   useEffect(() => {
@@ -112,10 +157,12 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     window.addEventListener('sopan_opd_quota_updated', handleSync);
     window.addEventListener('sopan_admin_session_changed', handleSync);
     window.addEventListener('sopan_audit_log_added', handleSync);
+    window.addEventListener('sopan_hospital_events_updated', handleSync);
     return () => {
       window.removeEventListener('sopan_opd_quota_updated', handleSync);
       window.removeEventListener('sopan_admin_session_changed', handleSync);
       window.removeEventListener('sopan_audit_log_added', handleSync);
+      window.removeEventListener('sopan_hospital_events_updated', handleSync);
     };
   }, []);
 
@@ -244,6 +291,74 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     triggerToast(`Appointment for ${rejectingAppointment.patientName} rejected. Slot released back to available pool.`, 'warning');
     setRejectingAppointment(null);
     onAppointmentsUpdated?.();
+  };
+
+  // --- ACTIONS: GALLERY SPECIAL OCCASION PHOTOS ---
+  const filteredGalleryPhotos = useMemo(() => {
+    return hospitalEvents.filter(evt => {
+      const matchesCat = galleryCategoryFilter === 'All' || evt.category === galleryCategoryFilter;
+      const q = gallerySearch.toLowerCase().trim();
+      const matchesSearch = !q || (
+        evt.title.toLowerCase().includes(q) ||
+        evt.location.toLowerCase().includes(q) ||
+        evt.summary.toLowerCase().includes(q)
+      );
+      return matchesCat && matchesSearch;
+    });
+  }, [hospitalEvents, galleryCategoryFilter, gallerySearch]);
+
+  const handleAddGalleryPhoto = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPhotoTitle.trim()) {
+      triggerToast('Please provide an occasion title.', 'warning');
+      return;
+    }
+    const finalImage = newPhotoCustomUrl.trim() || newPhotoImageUrl;
+    if (!finalImage) {
+      triggerToast('Please provide an image URL or choose a preset.', 'warning');
+      return;
+    }
+    const highlights = newPhotoHighlights
+      .split('\n')
+      .map(h => h.trim().replace(/^[-•*]\s*/, ''))
+      .filter(Boolean);
+    const tags = newPhotoTags
+      .split(',')
+      .map(t => t.trim().replace(/^#/, ''))
+      .filter(Boolean);
+
+    addHospitalEventPhoto({
+      title: newPhotoTitle.trim(),
+      category: newPhotoCategory as any,
+      date: newPhotoDate.trim(),
+      location: newPhotoLocation.trim(),
+      leadClinician: newPhotoLead.trim(),
+      summary: newPhotoSummary.trim() || `Special occasion photograph captured at Sopan Hospital: ${newPhotoTitle.trim()}`,
+      attendeesCount: newPhotoAttendees.trim() || 'Dignitaries & Hospital Staff',
+      imageUrl: finalImage,
+      tags: tags.length > 0 ? tags : ['HospitalOccasion', 'SopanNeuro'],
+      keyHighlights: highlights.length > 0 ? highlights : [
+        'Organized under the clinical leadership of Dr. Sanjay Sopan Varade (MD, DM Neuro).',
+        'Special occasion commemorated at Sopan Hospital Nashik.'
+      ]
+    }, { username: adminUser?.username, email: adminUser?.email });
+
+    setHospitalEvents(loadHospitalEvents());
+    setIsAddPhotoModalOpen(false);
+    setNewPhotoTitle('');
+    setNewPhotoSummary('');
+    setNewPhotoHighlights('');
+    setNewPhotoCustomUrl('');
+    triggerToast('Hospital occasion photograph added to gallery successfully!', 'success');
+  };
+
+  const handleConfirmDeletePhoto = () => {
+    if (!photoToDelete) return;
+    const deletedTitle = photoToDelete.title;
+    removeHospitalEventPhoto(photoToDelete.id, { username: adminUser?.username, email: adminUser?.email });
+    setHospitalEvents(loadHospitalEvents());
+    setPhotoToDelete(null);
+    triggerToast(`Photograph "${deletedTitle}" removed from gallery.`, 'warning');
   };
 
   // Filtered Appointments
@@ -518,6 +633,18 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                 <FileText className="w-4 h-4" />
                 Audit & Action Logs ({auditLogs.length})
               </button>
+
+              <button
+                onClick={() => setActiveAdminTab('gallery')}
+                className={`pb-2.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                  activeAdminTab === 'gallery'
+                    ? 'border-cyan-600 text-cyan-800'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+                Occasion Photos Gallery ({hospitalEvents.length})
+              </button>
             </div>
 
             {/* TAB 1: OPD COUNTER & CAPACITY CONTROLS */}
@@ -533,10 +660,12 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                     <div className="text-2xl sm:text-3xl font-black mt-1">
                       {stats.remainingSlots} <span className="text-sm font-normal text-slate-400">Slots Remaining</span>
                     </div>
-                    <div className="text-xs text-slate-300 mt-1 flex items-center gap-2">
+                    <div className="text-xs text-slate-300 mt-1 flex flex-wrap items-center gap-2">
                       <span>Total Daily Capacity: <strong className="text-white">{stats.totalSlots} Patients</strong></span>
                       <span>•</span>
                       <span>Current Booked: <strong className="text-cyan-300">{stats.bookedCount} Patients</strong></span>
+                      <span>•</span>
+                      <span>Rejected / Restored: <strong className="text-emerald-400">+{stats.rejectedCount} Slots</strong></span>
                     </div>
                   </div>
 
@@ -792,10 +921,18 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                                 <span className="font-semibold text-slate-900">Reported Symptoms:</span> {apt.symptoms || 'Routine follow-up neurological review'}
                               </div>
 
-                              {isCancelled && apt.rejectionReason && (
-                                <div className="text-xs text-rose-800 bg-rose-50 p-2 rounded-xl border border-rose-200 flex items-start gap-1.5">
-                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />
-                                  <span><strong>Rejection Reason:</strong> {apt.rejectionReason}</span>
+                              {isCancelled && (
+                                <div className="space-y-1.5 pt-1">
+                                  <div className="text-xs text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200 inline-flex items-center gap-1 font-semibold">
+                                    <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Slot Restored: +1 Slot Added Back into Available Quota Pool</span>
+                                  </div>
+                                  {apt.rejectionReason && (
+                                    <div className="text-xs text-rose-800 bg-rose-50 p-2 rounded-xl border border-rose-200 flex items-start gap-1.5">
+                                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />
+                                      <span><strong>Rejection Reason:</strong> {apt.rejectionReason}</span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1013,6 +1150,367 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* TAB 4: HOSPITAL OCCASION PHOTOGRAPHS GALLERY MANAGEMENT */}
+            {activeAdminTab === 'gallery' && (
+              <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
+                {/* Header Action Strip */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-[#2c221a] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-amber-300 font-bold text-xs uppercase tracking-wider">
+                      <Camera className="w-3.5 h-3.5" />
+                      Hospital Occasion Gallery Archives
+                    </div>
+                    <h3 className="text-base sm:text-lg font-bold text-white">
+                      Special Occasion Photos Management ({hospitalEvents.length} Photos)
+                    </h3>
+                    <p className="text-xs text-slate-300">
+                      Upload new photographs for hospital celebrations, medical CMEs, camps, and dignitary visits, or remove outdated entries.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddPhotoModalOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md flex items-center gap-1.5 transition-all transform hover:scale-[1.02]"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      + Add Occasion Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('Reset gallery photographs back to default 35+ years clinical archive?')) {
+                          resetHospitalEventsToDefault();
+                          setHospitalEvents(loadHospitalEvents());
+                          triggerToast('Reset photos to default hospital archives.', 'info');
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                      title="Reset gallery photos to default"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset Defaults
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filters & Search */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    {OCCASION_CATEGORIES.map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setGalleryCategoryFilter(cat)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                          galleryCategoryFilter === cat
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={gallerySearch}
+                      onChange={e => setGallerySearch(e.target.value)}
+                      placeholder="Search photo by title, venue..."
+                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Photos Grid */}
+                {filteredGalleryPhotos.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 space-y-2 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <Camera className="w-8 h-8 mx-auto text-slate-300" />
+                    <p className="text-xs font-semibold text-slate-600">No occasion photographs found matching "{gallerySearch}".</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddPhotoModalOpen(true)}
+                      className="mt-2 px-3.5 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-bold inline-flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Photo Now
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredGalleryPhotos.map(photo => (
+                      <div
+                        key={photo.id}
+                        className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="relative h-44 overflow-hidden bg-slate-100">
+                            <img
+                              src={photo.imageUrl}
+                              alt={photo.title}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/95 text-[#7A5338] shadow-xs">
+                              {photo.category}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setPhotoToDelete(photo)}
+                              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-md transition-colors"
+                              title="Remove photo from gallery"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="p-4 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] text-slate-500">
+                              <span className="flex items-center gap-1 font-semibold text-amber-800">
+                                <Calendar className="w-3 h-3" />
+                                {photo.date}
+                              </span>
+                              <span className="truncate max-w-[130px] flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-slate-400" />
+                                {photo.location.split(',')[0]}
+                              </span>
+                            </div>
+
+                            <h4 className="font-bold text-slate-900 text-sm line-clamp-2 leading-snug">
+                              {photo.title}
+                            </h4>
+
+                            <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                              {photo.summary}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+                          <span className="text-[11px] text-slate-500">
+                            {photo.attendeesCount}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setPhotoToDelete(photo)}
+                            className="text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SUB-MODAL: ADD SPECIAL OCCASION PHOTO */}
+        {isAddPhotoModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto border border-slate-200 shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 my-auto">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white rounded-t-3xl">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-bold text-sm">Add Special Occasion Photograph</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddPhotoModalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddGalleryPhoto} className="p-5 space-y-3.5 text-xs text-slate-700">
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">Occasion / Event Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPhotoTitle}
+                    onChange={e => setNewPhotoTitle(e.target.value)}
+                    placeholder="e.g. World Stroke Day Conclave or Diwali Neurological Ward Felicitation"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">Occasion Category *</label>
+                    <select
+                      value={newPhotoCategory}
+                      onChange={e => setNewPhotoCategory(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                    >
+                      <option value="Special Occasion">Special Occasion</option>
+                      <option value="Stroke Awareness">Stroke Awareness</option>
+                      <option value="Clinical CME">Clinical CME</option>
+                      <option value="Free Medical Camp">Free Medical Camp</option>
+                      <option value="Facility Inauguration">Facility Inauguration</option>
+                      <option value="Survivor Meet">Survivor Meet</option>
+                      <option value="Hospital Celebration">Hospital Celebration</option>
+                      <option value="Doctor Felicitation">Doctor Felicitation</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">Event Date *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newPhotoDate}
+                      onChange={e => setNewPhotoDate(e.target.value)}
+                      placeholder="e.g. 29 October 2026"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">Venue / Location *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newPhotoLocation}
+                      onChange={e => setNewPhotoLocation(e.target.value)}
+                      placeholder="Sopan Hospital Auditorium, Nashik"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">Attendees Count</label>
+                    <input
+                      type="text"
+                      value={newPhotoAttendees}
+                      onChange={e => setNewPhotoAttendees(e.target.value)}
+                      placeholder="e.g. 200+ Dignitaries & Staff"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Preset Photo Picker */}
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                  <label className="font-bold text-slate-800 block">Select Preset Clinical Photo or Custom URL</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {PRESET_OCCASION_PHOTOS.slice(0, 4).map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPresetIdx(idx);
+                          setNewPhotoImageUrl(p.url);
+                          setNewPhotoCustomUrl('');
+                        }}
+                        className={`p-1 rounded-xl border text-left transition-all ${
+                          selectedPresetIdx === idx && !newPhotoCustomUrl
+                            ? 'border-cyan-600 ring-2 ring-cyan-500/30 bg-white'
+                            : 'border-slate-200 bg-white/70'
+                        }`}
+                      >
+                        <img src={p.url} alt={p.label} className="w-full h-12 object-cover rounded-lg" />
+                        <span className="text-[9px] font-semibold text-slate-700 truncate block mt-0.5">{p.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 block mt-1 mb-0.5">Or Web Image URL:</label>
+                    <input
+                      type="url"
+                      value={newPhotoCustomUrl}
+                      onChange={e => {
+                        setNewPhotoCustomUrl(e.target.value);
+                        setSelectedPresetIdx(-1);
+                      }}
+                      placeholder="https://images.unsplash.com/..."
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1">Occasion Description / Synopsis</label>
+                  <textarea
+                    rows={2}
+                    value={newPhotoSummary}
+                    onChange={e => setNewPhotoSummary(e.target.value)}
+                    placeholder="Brief description of the event, attendees, and clinical significance..."
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                  />
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPhotoModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-md flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Photo
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* SUB-MODAL: CONFIRM DELETE PHOTO */}
+        {photoToDelete && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-5 border border-slate-200 shadow-2xl space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3 text-rose-600">
+                <Trash2 className="w-5 h-5" />
+                <h4 className="font-bold text-sm text-slate-900">Remove Hospital Photograph?</h4>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5">
+                <img src={photoToDelete.imageUrl} alt={photoToDelete.title} className="w-14 h-12 object-cover rounded-lg" />
+                <div className="overflow-hidden">
+                  <div className="text-xs font-bold text-slate-900 truncate">{photoToDelete.title}</div>
+                  <div className="text-[10px] text-slate-500">{photoToDelete.category} • {photoToDelete.date}</div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600">
+                Are you sure you want to remove this photograph from the hospital gallery? This action is logged in the admin audit trail.
+              </p>
+
+              <div className="pt-1 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPhotoToDelete(null)}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeletePhoto}
+                  className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Remove Photo
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

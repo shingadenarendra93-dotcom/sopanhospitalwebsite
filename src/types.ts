@@ -332,7 +332,9 @@ export type OpdAuditActionType =
   | 'OPD_COUNTER_RESET' 
   | 'OPD_CAPACITY_EXTENDED'
   | 'ADMIN_LOGIN'
-  | 'ADMIN_LOGOUT';
+  | 'ADMIN_LOGOUT'
+  | 'EVENT_PHOTO_ADDED'
+  | 'EVENT_PHOTO_REMOVED';
 
 export interface OpdAuditLog {
   id: string;
@@ -356,7 +358,16 @@ export interface OpdAuditLog {
 export interface HospitalEvent {
   id: string;
   title: string;
-  category: 'Stroke Awareness' | 'Clinical CME' | 'Free Medical Camp' | 'Facility Inauguration' | 'Survivor Meet';
+  category: 
+    | 'Stroke Awareness' 
+    | 'Clinical CME' 
+    | 'Free Medical Camp' 
+    | 'Facility Inauguration' 
+    | 'Survivor Meet'
+    | 'Special Occasion'
+    | 'Hospital Celebration'
+    | 'Doctor Felicitation'
+    | string;
   date: string;
   location: string;
   leadClinician: string;
@@ -365,6 +376,8 @@ export interface HospitalEvent {
   imageUrl: string;
   tags: string[];
   keyHighlights: string[];
+  addedBy?: string;
+  addedAt?: string;
 }
 
 

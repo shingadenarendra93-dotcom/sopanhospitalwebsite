@@ -28,7 +28,8 @@ import {
   LogOut,
   LogIn,
   Globe,
-  Sliders
+  Sliders,
+  Camera
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -72,6 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'gemini-assistant', label: t('nav.ai_assistant'), icon: <Bot className="w-4 h-4 text-emerald-600" /> },
     { id: 'symptom-checker', label: t('nav.symptom_checker'), icon: <Stethoscope className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'stories', label: t('nav.stories'), icon: <Sparkles className="w-4 h-4 text-[#8E5B3E]" /> },
+    { id: 'gallery', label: t('nav.gallery'), icon: <Camera className="w-4 h-4 text-amber-600" /> },
     { id: 'news', label: t('nav.news'), icon: <Newspaper className="w-4 h-4 text-[#456254]" /> },
     { id: 'appointments', label: t('nav.appointments'), icon: <Calendar className="w-4 h-4" /> },
     { id: 'reviews', label: t('nav.reviews'), icon: <Star className="w-4 h-4 fill-amber-500 text-amber-500" /> },
@@ -153,7 +155,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Desktop Navigation Links */}
           <nav className="hidden 2xl:flex items-center gap-1">
-            {navItems.slice(0, 6).map(item => {
+            {navItems.slice(0, 7).map(item => {
               const isActive = activeTab === item.id;
               return (
                 <button
@@ -237,7 +239,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="btn-nav-opd-admin"
               onClick={() => setAdminModalOpen(true)}
               className="h-9 px-3 rounded-xl bg-[#27231E] hover:bg-[#3E3832] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
-              title="Hospital OPD Administration: Reset counter, extend capacity, accept/reject appointments"
+              title="Hospital OPD Administration: Reset counter, extend capacity, accept/reject appointments, manage photos"
             >
               <ShieldCheck className="w-4 h-4 text-cyan-400" />
               <span className="hidden xl:inline">{adminActive ? 'Admin Desk' : 'OPD Admin'}</span>
@@ -245,6 +247,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
               )}
             </button>
+
+            {adminActive && (
+              <button
+                onClick={() => {
+                  setActiveTab('gallery');
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
+                }}
+                className="h-9 px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
+                title="Hospital Administrator: Add or remove special occasion photos"
+              >
+                <Camera className="w-3.5 h-3.5 text-amber-700" />
+                <span className="hidden xl:inline">Photos Admin</span>
+              </button>
+            )}
 
             {adminActive && (
               <button
