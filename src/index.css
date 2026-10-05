@@ -10,12 +10,28 @@
     --text-warm-muted: #615C54;
     --accent-warm-bronze: #8E5B3E;
     --accent-silent-sage: #456254;
+
+    /* Responsive spacing variables */
+    --gallery-card-padding: 1.25rem;
+    --admin-card-padding: 1.25rem;
+    --touch-target-min: 44px;
+  }
+
+  html, body, #root {
+    max-width: 100vw;
+    overflow-x: hidden;
+    position: relative;
+    box-sizing: border-box;
   }
 
   body {
     background-color: #FAF7F2;
     color: #24221F;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+
+  *, *::before, *::after {
+    box-sizing: inherit;
   }
 }
 
@@ -42,4 +58,130 @@
 .animate-subtle-pulse {
   animation: subtle-pulse 2.5s ease-in-out infinite;
 }
+
+/* ======================================================== */
+/* RESPONSIVE DESIGN ADJUSTMENTS & TOUCH-FRIENDLY CSS RULES */
+/* ======================================================== */
+
+/* Touch-friendly interactive button minimum bounds (WCAG AA & mobile ergonomics) */
+.touch-friendly-btn {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* -------------------------------------------------------- */
+/* 1. MOBILE VIEWPORT MEDIA QUERIES (max-width: 639.98px)   */
+/* -------------------------------------------------------- */
+@media (max-width: 639.98px) {
+  :root {
+    --gallery-card-padding: 0.875rem;
+    --admin-card-padding: 0.875rem;
+  }
+
+  /* Gallery mobile layout adjustments */
+  .gallery-responsive-hero {
+    padding: 1rem !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .gallery-responsive-card {
+    padding: 0.875rem !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .gallery-filter-pill {
+    min-height: 44px !important;
+    padding-left: 0.875rem !important;
+    padding-right: 0.875rem !important;
+    font-size: 0.8125rem !important;
+  }
+
+  /* OPD Admin Desk mobile adjustments */
+  .admin-mobile-tab-btn {
+    min-height: 44px !important;
+    padding: 0.625rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .admin-action-btn {
+    min-height: 44px !important;
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.625rem !important;
+    font-size: 0.8125rem !important;
+  }
+
+  .admin-stat-card {
+    padding: 1rem !important;
+    border-radius: 1.25rem !important;
+  }
+
+  /* Header action buttons touch-friendliness on mobile */
+  .header-action-pill {
+    min-height: 40px !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+/* -------------------------------------------------------- */
+/* 2. TABLET VIEWPORT MEDIA QUERIES (640px to 1023.98px)    */
+/* -------------------------------------------------------- */
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  :root {
+    --gallery-card-padding: 1.125rem;
+    --admin-card-padding: 1.125rem;
+  }
+
+  /* Gallery tablet layout adjustments */
+  .gallery-responsive-hero {
+    padding: 1.5rem !important;
+    border-radius: 1.5rem !important;
+  }
+
+  .gallery-responsive-card {
+    padding: 1.125rem !important;
+    border-radius: 1.5rem !important;
+  }
+
+  .gallery-filter-pill {
+    min-height: 42px !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* OPD Admin Desk tablet adjustments */
+  .admin-mobile-tab-btn {
+    min-height: 44px !important;
+    padding: 0.5rem 1rem !important;
+  }
+
+  .admin-action-btn {
+    min-height: 42px !important;
+  }
+
+  .admin-stat-card {
+    padding: 1.25rem !important;
+  }
+}
+
+/* -------------------------------------------------------- */
+/* 3. DESKTOP / LAPTOP VIEWPORT MEDIA QUERIES (min-width: 1024px) */
+/* -------------------------------------------------------- */
+@media (min-width: 1024px) {
+  .gallery-responsive-hero {
+    padding: 2rem !important;
+    border-radius: 2rem !important;
+  }
+
+  .gallery-responsive-card {
+    padding: 1.5rem !important;
+    border-radius: 1.75rem !important;
+  }
+}
+
 

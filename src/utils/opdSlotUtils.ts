@@ -1,6 +1,6 @@
 import { Appointment, OpdAuditLog, OpdAuditActionType } from '../types';
 import { INITIAL_APPOINTMENTS } from '../data/mockData';
-import { saveAuditLogToFirestore } from '../lib/firebase';
+import { saveAuditLogToFirestore, clearAuditLogsFromFirestore } from '../lib/firebase';
 
 export const TOTAL_OPD_DAILY_SLOTS = 50;
 const STORAGE_KEY = 'sopan_hospital_opd_appointments';
@@ -90,6 +90,8 @@ export function clearAdminAuditLogs(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(AUDIT_LOG_STORAGE_KEY);
+    // Also clear from Firestore asynchronously
+    clearAuditLogsFromFirestore().catch(() => {});
     window.dispatchEvent(new CustomEvent('sopan_audit_log_added', { detail: { cleared: true } }));
   } catch (err) {
     console.error('Failed to clear audit logs:', err);

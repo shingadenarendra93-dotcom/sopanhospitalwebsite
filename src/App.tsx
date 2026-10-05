@@ -94,7 +94,7 @@ function MainApp() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8">
         {/* Hero Banner (Always visible or contextual) */}
         <HeroBanner
           onNavigate={(tab) => {
@@ -104,17 +104,17 @@ function MainApp() {
           onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
         />
 
-        {/* Dynamic Section Navigation / Sub-tabs */}
-        <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-2 shadow-xs flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+        {/* Dynamic Section Navigation / Sub-tabs (Touch-friendly & responsive across viewports) */}
+        <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-1.5 sm:p-2 shadow-xs flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none">
           {subTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => {
                 setActiveTab(tab.id);
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+              className={`touch-friendly-btn px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
                 activeTab === tab.id
-                  ? 'bg-[#342E28] text-white shadow-xs'
+                  ? 'bg-[#342E28] text-white shadow-xs font-bold'
                   : 'text-[#635E56] hover:text-[#27231E] hover:bg-[#EFE9DF]'
               }`}
             >

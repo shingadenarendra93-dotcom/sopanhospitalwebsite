@@ -214,6 +214,21 @@ export async function fetchAuditLogsFromFirestore() {
   }
 }
 
+// Clear OPD Admin Audit Logs from Firestore
+export async function clearAuditLogsFromFirestore(): Promise<boolean> {
+  try {
+    const { deleteDoc } = await import('firebase/firestore');
+    const q = query(collection(db, 'opd_admin_audit_logs'));
+    const snap = await getDocs(q);
+    const deletePromises = snap.docs.map(docSnap => deleteDoc(docSnap.ref));
+    await Promise.all(deletePromises);
+    return true;
+  } catch (err) {
+    console.warn('Firestore clear audit logs notice:', err);
+    return false;
+  }
+}
+
 // Save Hospital Event Photograph to Firestore
 export async function saveHospitalEventToFirestore(event: {
   id: string;

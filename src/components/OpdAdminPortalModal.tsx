@@ -31,7 +31,9 @@ import {
   Upload,
   Image as ImageIcon,
   Eye,
-  MapPin
+  MapPin,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { Appointment, OpdAuditLog, HospitalEvent } from '../types';
 import { 
@@ -129,6 +131,15 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   const [rejectingAppointment, setRejectingAppointment] = useState<Appointment | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('Doctor in Emergency OT / Thrombectomy Procedure');
   const [customRejectionText, setCustomRejectionText] = useState<string>('');
+
+  // Clear logs modal state
+  const [isClearLogsModalOpen, setIsClearLogsModalOpen] = useState<boolean>(false);
+
+  // Photo Studio & Upload Window View States
+  const [isPhotoStudioMaximized, setIsPhotoStudioMaximized] = useState<boolean>(false);
+  const [photoStudioTab, setPhotoStudioTab] = useState<'device' | 'presets' | 'url'>('device');
+  const [photoPreviewFit, setPhotoPreviewFit] = useState<'contain' | 'cover'>('contain');
+  const [uploadedFileName, setUploadedFileName] = useState<string>('');
 
   // Notification feedback toast
   const [feedbackToast, setFeedbackToast] = useState<{ type: 'success' | 'info' | 'warning'; text: string } | null>(null);
@@ -306,6 +317,27 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
       return matchesCat && matchesSearch;
     });
   }, [hospitalEvents, galleryCategoryFilter, gallerySearch]);
+
+  const handlePhotoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      triggerToast('Please select an image smaller than 15MB.', 'warning');
+      return;
+    }
+
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      setNewPhotoImageUrl(result);
+      setNewPhotoCustomUrl('');
+      setSelectedPresetIdx(-1);
+      triggerToast(`Photograph "${file.name}" uploaded successfully.`, 'info');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleAddGalleryPhoto = (e: React.FormEvent) => {
     e.preventDefault();
@@ -596,54 +628,54 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
               </div>
             </div>
 
-            {/* Admin Navigation Tabs */}
-            <div className="flex items-center border-b border-slate-200 bg-white px-5 pt-2 gap-2">
+            {/* Admin Navigation Tabs (Responsive & Touch-Friendly across mobile and tablet) */}
+            <div className="flex items-center border-b border-slate-200 bg-white px-3 sm:px-5 pt-2 gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
               <button
                 onClick={() => setActiveAdminTab('counter')}
-                className={`pb-2.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
                   activeAdminTab === 'counter'
                     ? 'border-cyan-600 text-cyan-800'
                     : 'border-transparent text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <Sliders className="w-4 h-4" />
-                OPD Counter & Capacity Controls
+                <Sliders className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">OPD Counter & Capacity</span>
               </button>
 
               <button
                 onClick={() => setActiveAdminTab('appointments')}
-                className={`pb-2.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
                   activeAdminTab === 'appointments'
                     ? 'border-cyan-600 text-cyan-800'
                     : 'border-transparent text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <Users className="w-4 h-4" />
-                Patient Appointments ({appointments.length})
+                <Users className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Appointments ({appointments.length})</span>
               </button>
 
               <button
                 onClick={() => setActiveAdminTab('logs')}
-                className={`pb-2.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
                   activeAdminTab === 'logs'
                     ? 'border-cyan-600 text-cyan-800'
                     : 'border-transparent text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <FileText className="w-4 h-4" />
-                Audit & Action Logs ({auditLogs.length})
+                <FileText className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Audit & Action Logs ({auditLogs.length})</span>
               </button>
 
               <button
                 onClick={() => setActiveAdminTab('gallery')}
-                className={`pb-2.5 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
                   activeAdminTab === 'gallery'
                     ? 'border-cyan-600 text-cyan-800'
                     : 'border-transparent text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <Camera className="w-4 h-4" />
-                Occasion Photos Gallery ({hospitalEvents.length})
+                <Camera className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Occasion Photos ({hospitalEvents.length})</span>
               </button>
             </div>
 
@@ -937,16 +969,16 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                               )}
                             </div>
 
-                            {/* Action Buttons: Accept / Reject / Notify */}
+                            {/* Action Buttons: Accept / Reject / Notify (Touch-Friendly across viewports) */}
                             <div className="flex flex-wrap items-center gap-2 shrink-0">
                               {/* If Cancelled or Pending: Show Accept button */}
                               {(!isConfirmed) && (
                                 <button
                                   onClick={() => handleAcceptAppointment(apt)}
-                                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                                  className="touch-friendly-btn px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                                 >
-                                  <Check className="w-3.5 h-3.5" />
-                                  Accept & Confirm
+                                  <Check className="w-4 h-4" />
+                                  <span>Accept & Confirm</span>
                                 </button>
                               )}
 
@@ -954,10 +986,10 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                               {(!isCancelled) && (
                                 <button
                                   onClick={() => handleOpenRejectModal(apt)}
-                                  className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1.5 transition-all"
+                                  className="touch-friendly-btn px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
                                 >
-                                  <X className="w-3.5 h-3.5" />
-                                  Reject / Cancel
+                                  <X className="w-4 h-4" />
+                                  <span>Reject / Cancel</span>
                                 </button>
                               )}
 
@@ -969,7 +1001,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                                     : `Hello ${apt.patientName}, regarding your OPD request for ${apt.date}: Please contact our hospital desk directly at 0253 2317364 for reschedule assistance.`;
                                   window.open(`https://wa.me/${apt.patientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
                                 }}
-                                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"
+                                className="touch-friendly-btn p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
                                 title="Open WhatsApp Chat with Patient"
                               >
                                 <MessageCircle className="w-4 h-4 text-emerald-600" />
@@ -1015,16 +1047,12 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                     {auditLogs.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => {
-                          if (confirm('Clear audit history logs from this terminal?')) {
-                            clearAdminAuditLogs();
-                            setAuditLogs([]);
-                            triggerToast('Audit logs cleared.', 'info');
-                          }
-                        }}
-                        className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition-colors"
+                        onClick={() => setIsClearLogsModalOpen(true)}
+                        className="px-3.5 py-1.5 rounded-xl border border-rose-300 bg-rose-50/80 hover:bg-rose-100 text-rose-800 text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                        title="Permanently clear clinical audit and action logs"
                       >
-                        Clear Log History
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Clear Log History</span>
                       </button>
                     )}
                   </div>
@@ -1313,161 +1341,440 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
           </div>
         )}
 
-        {/* SUB-MODAL: ADD SPECIAL OCCASION PHOTO */}
+        {/* SUB-MODAL: ADD SPECIAL OCCASION PHOTO (BALANCED SIDE-BY-SIDE SAME VIEWABLE WINDOW - NO SCROLL REQUIRED) */}
         {isAddPhotoModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-            <div className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto border border-slate-200 shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 my-auto">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white rounded-t-3xl">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-amber-400" />
-                  <h3 className="font-bold text-sm">Add Special Occasion Photograph</h3>
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl flex flex-col max-w-5xl w-full max-h-[92vh] sm:max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Ultra-Compact Top Header */}
+              <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900 text-white shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                    <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm sm:text-base text-white flex items-center gap-2">
+                      <span>Add Special Occasion Photograph</span>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono uppercase">
+                        Same-View Studio
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Sopan Hospital Archives • Side-by-side layout (all fields & upload visible without scrolling)
+                    </p>
+                  </div>
                 </div>
+
                 <button
                   type="button"
                   onClick={() => setIsAddPhotoModalOpen(false)}
-                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                  className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Close modal"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleAddGalleryPhoto} className="p-5 space-y-3.5 text-xs text-slate-700">
-                <div>
-                  <label className="block font-bold text-slate-800 mb-1">Occasion / Event Title *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newPhotoTitle}
-                    onChange={e => setNewPhotoTitle(e.target.value)}
-                    placeholder="e.g. World Stroke Day Conclave or Diwali Neurological Ward Felicitation"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-800 mb-1">Occasion Category *</label>
-                    <select
-                      value={newPhotoCategory}
-                      onChange={e => setNewPhotoCategory(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
-                    >
-                      <option value="Special Occasion">Special Occasion</option>
-                      <option value="Stroke Awareness">Stroke Awareness</option>
-                      <option value="Clinical CME">Clinical CME</option>
-                      <option value="Free Medical Camp">Free Medical Camp</option>
-                      <option value="Facility Inauguration">Facility Inauguration</option>
-                      <option value="Survivor Meet">Survivor Meet</option>
-                      <option value="Hospital Celebration">Hospital Celebration</option>
-                      <option value="Doctor Felicitation">Doctor Felicitation</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-800 mb-1">Event Date *</label>
-                    <input
-                      type="text"
-                      required
-                      value={newPhotoDate}
-                      onChange={e => setNewPhotoDate(e.target.value)}
-                      placeholder="e.g. 29 October 2026"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-800 mb-1">Venue / Location *</label>
-                    <input
-                      type="text"
-                      required
-                      value={newPhotoLocation}
-                      onChange={e => setNewPhotoLocation(e.target.value)}
-                      placeholder="Sopan Hospital Auditorium, Nashik"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-800 mb-1">Attendees Count</label>
-                    <input
-                      type="text"
-                      value={newPhotoAttendees}
-                      onChange={e => setNewPhotoAttendees(e.target.value)}
-                      placeholder="e.g. 200+ Dignitaries & Staff"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
-                    />
-                  </div>
-                </div>
-
-                {/* Preset Photo Picker */}
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
-                  <label className="font-bold text-slate-800 block">Select Preset Clinical Photo or Custom URL</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {PRESET_OCCASION_PHOTOS.slice(0, 4).map((p, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setSelectedPresetIdx(idx);
-                          setNewPhotoImageUrl(p.url);
-                          setNewPhotoCustomUrl('');
+              {/* Form Body - Balanced 2-Column Side-by-Side Layout */}
+              <form onSubmit={handleAddGalleryPhoto} className="flex-1 overflow-y-auto p-3.5 sm:p-4 md:p-5 flex flex-col justify-between text-xs text-slate-700">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                  
+                  {/* LEFT COLUMN: PHOTO PREVIEW & UPLOAD (5 cols on md+) */}
+                  <div className="md:col-span-5 space-y-2.5">
+                    
+                    {/* Live Preview Canvas */}
+                    <div className="relative w-full h-36 sm:h-44 md:h-48 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-md flex items-center justify-center group">
+                      <img
+                        src={newPhotoCustomUrl || newPhotoImageUrl}
+                        alt="Preview"
+                        className={`w-full h-full ${
+                          photoPreviewFit === 'contain' ? 'object-contain p-1.5' : 'object-cover'
+                        } transition-all duration-200`}
+                        onError={(e) => {
+                          e.currentTarget.src = PRESET_OCCASION_PHOTOS[0].url;
                         }}
-                        className={`p-1 rounded-xl border text-left transition-all ${
-                          selectedPresetIdx === idx && !newPhotoCustomUrl
-                            ? 'border-cyan-600 ring-2 ring-cyan-500/30 bg-white'
-                            : 'border-slate-200 bg-white/70'
+                      />
+                      
+                      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+
+                      {/* Top Overlay Badge & Fit Toggle */}
+                      <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-amber-900 shadow-xs">
+                          {newPhotoCategory || 'Special Occasion'}
+                        </span>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setPhotoPreviewFit(prev => prev === 'contain' ? 'cover' : 'contain')}
+                          className="px-2 py-0.5 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] font-semibold flex items-center gap-1 backdrop-blur-xs border border-white/20 transition-colors cursor-pointer"
+                          title="Toggle fit vs cover"
+                        >
+                          <Eye className="w-3 h-3 text-cyan-300" />
+                          <span>{photoPreviewFit === 'contain' ? 'Fit' : 'Cover'}</span>
+                        </button>
+                      </div>
+
+                      {/* Bottom Info Overlay */}
+                      <div className="absolute bottom-2 left-2 right-2 pointer-events-none text-white">
+                        <div className="text-xs font-bold truncate drop-shadow-md">
+                          {newPhotoTitle || 'Photograph Preview'}
+                        </div>
+                        {uploadedFileName ? (
+                          <div className="text-[10px] text-emerald-300 font-mono truncate">
+                            ✓ {uploadedFileName}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-300 font-sans truncate">
+                            {newPhotoDate || 'Hospital Event Archive'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Source Selection Mode Pills */}
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setPhotoStudioTab('device')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                          photoStudioTab === 'device'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        <img src={p.url} alt={p.label} className="w-full h-12 object-cover rounded-lg" />
-                        <span className="text-[9px] font-semibold text-slate-700 truncate block mt-0.5">{p.label}</span>
+                        <Upload className="w-3 h-3" />
+                        <span>Device</span>
                       </button>
-                    ))}
+
+                      <button
+                        type="button"
+                        onClick={() => setPhotoStudioTab('presets')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                          photoStudioTab === 'presets'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <ImageIcon className="w-3 h-3" />
+                        <span>Presets ({PRESET_OCCASION_PHOTOS.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPhotoStudioTab('url')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                          photoStudioTab === 'url'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Web URL</span>
+                      </button>
+                    </div>
+
+                    {/* TAB CONTENT: DEVICE FILE UPLOAD */}
+                    {photoStudioTab === 'device' && (
+                      <label className="border-2 border-dashed border-amber-400 hover:border-amber-500 bg-amber-50/70 hover:bg-amber-100/80 rounded-xl p-2.5 flex items-center justify-center gap-2.5 cursor-pointer transition-colors text-amber-950">
+                        <Upload className="w-5 h-5 text-amber-600 shrink-0" />
+                        <div className="text-left">
+                          <div className="font-bold text-xs">
+                            {uploadedFileName ? 'Change Photo File' : 'Click to Browse Device Photo'}
+                          </div>
+                          <div className="text-[10px] text-amber-800">
+                            {uploadedFileName ? uploadedFileName : 'PNG, JPG, JPEG, WebP from Computer / Mobile'}
+                          </div>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+
+                    {/* TAB CONTENT: PRESETS (COMPACT 4-COL GRID) */}
+                    {photoStudioTab === 'presets' && (
+                      <div className="grid grid-cols-4 gap-1.5 max-h-28 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50">
+                        {PRESET_OCCASION_PHOTOS.map((p, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPresetIdx(idx);
+                              setNewPhotoImageUrl(p.url);
+                              setNewPhotoCustomUrl('');
+                              if (!newPhotoTitle) setNewPhotoTitle(p.label);
+                              if (newPhotoCategory === 'Special Occasion') setNewPhotoCategory(p.category);
+                            }}
+                            className={`p-1 rounded-lg border text-left transition-all relative overflow-hidden cursor-pointer ${
+                              selectedPresetIdx === idx && !newPhotoCustomUrl
+                                ? 'border-amber-600 ring-2 ring-amber-500/40 bg-white'
+                                : 'border-slate-200 bg-white/70 hover:bg-white'
+                            }`}
+                          >
+                            <img src={p.url} alt={p.label} className="w-full h-9 object-cover rounded mb-0.5" />
+                            <span className="text-[9px] font-semibold text-slate-800 line-clamp-1 block leading-tight">
+                              {p.label}
+                            </span>
+                            {selectedPresetIdx === idx && !newPhotoCustomUrl && (
+                              <div className="absolute top-1 right-1 w-3 h-3 bg-amber-600 text-white rounded-full flex items-center justify-center">
+                                <Check className="w-2 h-2" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TAB CONTENT: WEB URL */}
+                    {photoStudioTab === 'url' && (
+                      <div className="flex gap-1.5">
+                        <input
+                          type="url"
+                          value={newPhotoCustomUrl}
+                          onChange={e => {
+                            setNewPhotoCustomUrl(e.target.value);
+                            setSelectedPresetIdx(-1);
+                          }}
+                          placeholder="https://example.com/photo.jpg"
+                          className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newPhotoCustomUrl.trim()) {
+                              triggerToast('Web URL photo loaded to preview.', 'info');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer"
+                        >
+                          Load
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mt-1 mb-0.5">Or Web Image URL:</label>
-                    <input
-                      type="url"
-                      value={newPhotoCustomUrl}
-                      onChange={e => {
-                        setNewPhotoCustomUrl(e.target.value);
-                        setSelectedPresetIdx(-1);
-                      }}
-                      placeholder="https://images.unsplash.com/..."
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900"
-                    />
+                  {/* RIGHT COLUMN: OCCASION DETAILS (7 cols on md+) */}
+                  <div className="md:col-span-7 space-y-2">
+                    {/* Title */}
+                    <div>
+                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        Occasion Title / Event Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newPhotoTitle}
+                        onChange={e => setNewPhotoTitle(e.target.value)}
+                        placeholder="e.g. World Stroke Day Medical Summit 2026 or Neuro-ICU Inauguration"
+                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                      />
+                    </div>
+
+                    {/* Category & Date */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Category *
+                        </label>
+                        <select
+                          value={newPhotoCategory}
+                          onChange={e => setNewPhotoCategory(e.target.value)}
+                          className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                        >
+                          <option value="Special Occasion">Special Occasion</option>
+                          <option value="Stroke Awareness">Stroke Awareness</option>
+                          <option value="Clinical CME">Clinical CME</option>
+                          <option value="Free Medical Camp">Free Medical Camp</option>
+                          <option value="Facility Inauguration">Facility Inauguration</option>
+                          <option value="Survivor Meet">Survivor Meet</option>
+                          <option value="Hospital Celebration">Hospital Celebration</option>
+                          <option value="Doctor Felicitation">Doctor Felicitation</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Event Date *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newPhotoDate}
+                          onChange={e => setNewPhotoDate(e.target.value)}
+                          placeholder="e.g. 29 Oct 2026"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Venue & Attendees */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Venue / Location *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newPhotoLocation}
+                          onChange={e => setNewPhotoLocation(e.target.value)}
+                          placeholder="Sopan Hospital Auditorium, Nashik"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Attendees Count
+                        </label>
+                        <input
+                          type="text"
+                          value={newPhotoAttendees}
+                          onChange={e => setNewPhotoAttendees(e.target.value)}
+                          placeholder="e.g. 150+ Attendees"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Principal Lead & Tags */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Principal Lead / Dignitary
+                        </label>
+                        <input
+                          type="text"
+                          value={newPhotoLead}
+                          onChange={e => setNewPhotoLead(e.target.value)}
+                          placeholder="Dr. Sanjay Sopan Varade"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Topical Tags
+                        </label>
+                        <input
+                          type="text"
+                          value={newPhotoTags}
+                          onChange={e => setNewPhotoTags(e.target.value)}
+                          placeholder="SopanHospital, StrokeSummit"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Description & Milestones in clean 2-col */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Occasion Description / Synopsis *
+                        </label>
+                        <textarea
+                          rows={2}
+                          required
+                          value={newPhotoSummary}
+                          onChange={e => setNewPhotoSummary(e.target.value)}
+                          placeholder="Brief clinical synopsis, equipment inaugurated, or felicitation..."
+                          className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                          Key Milestones (1 per line)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={newPhotoHighlights}
+                          onChange={e => setNewPhotoHighlights(e.target.value)}
+                          placeholder="• Stroke unit expanded&#10;• 50+ Survivors felicitated"
+                          className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-800 mb-1">Occasion Description / Synopsis</label>
-                  <textarea
-                    rows={2}
-                    value={newPhotoSummary}
-                    onChange={e => setNewPhotoSummary(e.target.value)}
-                    placeholder="Brief description of the event, attendees, and clinical significance..."
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
-                  />
-                </div>
+                {/* Compact Sticky Footer - Always in View */}
+                <div className="pt-2.5 mt-2.5 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+                  <span className="text-[11px] text-slate-500 hidden sm:inline">
+                    ✓ Side-by-side view: photo and details immediately publish together.
+                  </span>
 
-                <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddPhotoModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-md flex items-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Photo
-                  </button>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddPhotoModalOpen(false)}
+                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Photograph to Gallery</span>
+                    </button>
+                  </div>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* SUB-MODAL: CLEAR AUDIT LOGS CONFIRMATION MODAL */}
+        {isClearLogsModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-slate-900">Clear Audit Trail History</h4>
+                  <p className="text-xs text-slate-500">Hospital Administration Security Console</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to permanently clear all <strong>{auditLogs.length} audit and action logs</strong>?
+                This will remove recorded appointment approvals, rejections, counter resets, and quota changes.
+              </p>
+
+              <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <span>This action will clear history from local storage and cloud records. Once cleared, previous logs cannot be recovered.</span>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsClearLogsModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearAdminAuditLogs();
+                    setAuditLogs([]);
+                    setIsClearLogsModalOpen(false);
+                    triggerToast('All administrator audit logs have been cleared successfully.', 'info');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md cursor-pointer transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Yes, Permanently Clear Logs
+                </button>
+              </div>
             </div>
           </div>
         )}

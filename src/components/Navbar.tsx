@@ -128,41 +128,41 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Main Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 py-2 gap-4">
-          {/* Hospital Brand & Logo */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-18 py-2 gap-2 sm:gap-4">
+          {/* Hospital Brand & Logo (flexible width to avoid pushing right actions) */}
           <div 
             onClick={() => handleNavClick('stories')}
-            className="flex items-center gap-3 cursor-pointer select-none group shrink-0"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group min-w-0 shrink"
           >
             <div className="p-1 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
               <SopanLogo size="md" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-lg sm:text-xl font-serif font-bold tracking-tight text-[#27231E]">
+                <span className="text-base sm:text-lg xl:text-xl font-serif font-bold tracking-tight text-[#27231E] truncate">
                   {t('hospital.name')}
                 </span>
-                <span className="hidden sm:inline text-[10px] bg-[#EFE9DF] text-[#7A5338] font-semibold px-2 py-0.5 rounded-full border border-[#DFD6C8]">
+                <span className="hidden md:inline text-[9px] sm:text-[10px] bg-[#EFE9DF] text-[#7A5338] font-semibold px-2 py-0.5 rounded-full border border-[#DFD6C8] whitespace-nowrap">
                   {t('hospital.tagline')}
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-[#7A5338] tracking-wide line-clamp-1">
+              <p className="text-[10px] sm:text-[11px] font-medium text-[#7A5338] tracking-wide truncate max-w-[150px] sm:max-w-[240px] lg:max-w-xs xl:max-w-md hidden xs:block">
                 {t('doctor.title')}
               </p>
             </div>
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden 2xl:flex items-center gap-1">
-            {navItems.slice(0, 7).map(item => {
+          {/* Desktop Links (only visible on ultra-wide 2xl screens to preserve right button placement) */}
+          <nav className="hidden 2xl:flex items-center gap-1 shrink-0">
+            {navItems.slice(0, 5).map(item => {
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
                   id={`nav-link-${item.id}`}
                   onClick={() => handleNavClick(item.id)}
-                  className={`h-9 px-3 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                  className={`h-9 px-2.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1 shrink-0 ${
                     isActive
                       ? 'bg-[#342E28] text-white shadow-xs'
                       : 'text-[#635E56] hover:text-[#27231E] hover:bg-[#EFE9DF]'
@@ -175,11 +175,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
 
-          {/* Action Buttons: Unified Alignment and Consistent Heights */}
-          <div className="hidden lg:flex items-center gap-2 shrink-0">
+          {/* ======================================================== */}
+          {/* RIGHT SIDE ACTIONS: DESKTOP & TABLET VIEW (NO SIDE SCROLL) */}
+          {/* ======================================================== */}
+          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
             {/* Google Firebase Auth Sign In / Profile */}
             {user ? (
-              <div className="h-9 flex items-center gap-2 bg-[#FAF7F2] border border-[#D8CFC2] px-3 rounded-xl shadow-2xs">
+              <div className="h-9 flex items-center gap-1.5 bg-[#FAF7F2] border border-[#D8CFC2] px-2.5 rounded-xl shadow-2xs">
                 {user.photoURL ? (
                   <img
                     src={user.photoURL}
@@ -191,13 +193,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {(user.displayName || user.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
-                <span className="text-xs font-semibold text-[#27231E] max-w-[90px] truncate">
+                <span className="text-xs font-semibold text-[#27231E] max-w-[80px] truncate hidden md:inline">
                   {user.displayName?.split(' ')[0] || 'Patient'}
                 </span>
                 <button
                   onClick={() => logOut()}
                   title="Sign Out of Firebase"
-                  className="p-0.5 text-[#8E867A] hover:text-rose-600 transition-colors"
+                  className="p-0.5 text-[#8E867A] hover:text-rose-600 transition-colors cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -206,118 +208,115 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={handleSignIn}
                 disabled={authLoading}
-                className="h-9 px-3.5 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#D8CFC2] text-xs font-semibold text-[#27231E] shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
+                className="hidden xl:flex h-9 px-2.5 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#D8CFC2] text-xs font-semibold text-[#27231E] shadow-2xs transition-all items-center gap-1.5 shrink-0 cursor-pointer"
                 title="Sign in securely with Google via Firebase Auth"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.93 6.72-4.93z"
-                  />
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z" />
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z" />
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z" />
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.93 6.72-4.93z" />
                 </svg>
-                <span>{authLoading ? '...' : t('google.signin')}</span>
+                <span>{authLoading ? '...' : 'Sign In'}</span>
               </button>
             )}
 
-            {/* Language Switcher Button */}
+            {/* Language Switcher */}
             <LanguageSwitcher />
 
-            {/* OPD Admin Desk Button */}
+            {/* OPTION 1: OPD ADMIN BUTTON */}
             <button
               id="btn-nav-opd-admin"
               onClick={() => setAdminModalOpen(true)}
-              className="h-9 px-3 rounded-xl bg-[#27231E] hover:bg-[#3E3832] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
+              className="h-9 px-2.5 sm:px-3 rounded-xl bg-[#27231E] hover:bg-[#3E3832] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               title="Hospital OPD Administration: Reset counter, extend capacity, accept/reject appointments, manage photos"
             >
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              <span className="hidden xl:inline">{adminActive ? 'Admin Desk' : 'OPD Admin'}</span>
+              <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span className="whitespace-nowrap">{adminActive ? 'Admin Desk' : 'OPD Admin'}</span>
               {adminActive && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
               )}
             </button>
 
-            {adminActive && (
-              <button
-                onClick={() => {
-                  setActiveTab('gallery');
-                  window.scrollTo({ top: 380, behavior: 'smooth' });
-                }}
-                className="h-9 px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
-                title="Hospital Administrator: Add or remove special occasion photos"
-              >
-                <Camera className="w-3.5 h-3.5 text-amber-700" />
-                <span className="hidden xl:inline">Photos Admin</span>
-              </button>
-            )}
-
-            {adminActive && (
-              <button
-                onClick={() => setAdminSession(null)}
-                className="h-9 px-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold shadow-2xs transition-all flex items-center gap-1 shrink-0"
-                title="Log Out of Administrator Session"
-              >
-                <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                <span className="hidden xl:inline">Log Out</span>
-              </button>
-            )}
-
+            {/* OPTION 2: WHATSAPP BUTTON */}
             <button
               onClick={onOpenWhatsApp}
-              className="h-9 px-3.5 rounded-xl bg-[#456254] hover:bg-[#374E43] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
+              className="h-9 px-2.5 sm:px-3 rounded-xl bg-[#456254] hover:bg-[#374E43] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+              title="Chat directly on WhatsApp (9405545521)"
             >
-              <MessageCircle className="w-4 h-4" />
-              {t('whatsapp.btn')}
+              <MessageCircle className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">{t('whatsapp.btn')}</span>
             </button>
 
+            {/* OPTION 3: BOOK OPD (₹1,500) BUTTON */}
             <button
               onClick={() => handleNavClick('appointments')}
-              className="h-9 px-4 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0"
+              className="h-9 px-3 sm:px-3.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+              title="Book OPD Consultation with Dr. Sanjay Sopan Varade (₹1,500)"
             >
-              <Calendar className="w-4 h-4" />
-              {t('book.opd')}
+              <Calendar className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">{t('book.opd')}</span>
+            </button>
+
+            {/* Tablet Menu Toggle */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="2xl:hidden h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] flex items-center justify-center shrink-0 cursor-pointer ml-1"
+              title="All Sections Menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
 
-          {/* Mobile Actions: Language + WhatsApp + Menu Hamburger */}
-          <div className="lg:hidden flex items-center gap-2 shrink-0">
-            <LanguageSwitcher />
-
-            <button
-              onClick={() => setAdminModalOpen(true)}
-              className="h-9 w-9 rounded-xl bg-[#27231E] text-cyan-400 flex items-center justify-center shrink-0 shadow-2xs"
-              title="Open OPD Desk Administration"
-            >
-              <ShieldCheck className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={onOpenWhatsApp}
-              className="h-9 w-9 rounded-xl bg-[#EFECE6] text-[#456254] border border-[#DDD6C9] flex items-center justify-center shrink-0"
-              title="Open WhatsApp"
-            >
-              <MessageCircle className="w-4 h-4" />
-            </button>
+          {/* ======================================================== */}
+          {/* MOBILE HEADER BAR CONTROLS (< 640px) */}
+          {/* ======================================================== */}
+          <div className="sm:hidden flex items-center gap-1.5 shrink-0 ml-auto">
+            <LanguageSwitcher variant="compact" />
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] flex items-center justify-center shrink-0"
+              className="h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] flex items-center justify-center shrink-0 cursor-pointer"
               title="Toggle Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* MOBILE QUICK ACTION STRIP (PROPER LOCATION ON RIGHT/FULL WIDTH, NO SIDE SCROLL) */}
+      {/* ======================================================== */}
+      <div className="sm:hidden px-2.5 py-1.5 bg-[#FAF7F2] border-t border-[#E6E0D4] shadow-2xs">
+        <div className="grid grid-cols-3 gap-1.5">
+          {/* Mobile Option 1: OPD Admin */}
+          <button
+            onClick={() => setAdminModalOpen(true)}
+            className="touch-friendly-btn h-10 px-2 rounded-xl bg-[#27231E] text-white text-[11px] font-bold shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="truncate">OPD Admin</span>
+            {adminActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+          </button>
+
+          {/* Mobile Option 2: WhatsApp */}
+          <button
+            onClick={onOpenWhatsApp}
+            className="touch-friendly-btn h-10 px-2 rounded-xl bg-[#456254] text-white text-[11px] font-bold shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">WhatsApp</span>
+          </button>
+
+          {/* Mobile Option 3: Book OPD */}
+          <button
+            onClick={() => handleNavClick('appointments')}
+            className="touch-friendly-btn h-10 px-2 rounded-xl bg-[#8E5B3E] text-white text-[11px] font-bold shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+          >
+            <Calendar className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Book OPD</span>
+          </button>
         </div>
       </div>
 

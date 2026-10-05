@@ -240,20 +240,34 @@ async function startServer() {
     res.json({ status: 'ok', serverTime: new Date().toISOString() });
   });
 
+  // In-memory cache for search-grounded neurology news to conserve API quota
+  const newsCache = new Map<string, { data: any; expiry: number }>();
+
   // Latest Neurology News & Clinical Research with Google Search Grounding
   app.post('/api/neurology-news', async (req, res) => {
     const { category = 'all', customQuery = '' } = req.body || {};
+    const cacheKey = `${category}_${(customQuery || '').trim().toLowerCase()}`;
+
+    // Return cached response if valid (10-minute cache window)
+    const cached = newsCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return res.json(cached.data);
+    }
+
+    // Helper to get category-filtered fallback news
+    const getFilteredFallback = () => {
+      if (category !== 'all' && category !== 'custom') {
+        const filtered = FALLBACK_NEWS.filter(item => item.category === category);
+        return filtered.length > 0 ? filtered : FALLBACK_NEWS;
+      }
+      return FALLBACK_NEWS;
+    };
 
     const ai = getGeminiClient();
 
     if (!ai) {
       // Return fallback data with transparent metadata if API key not yet provided
-      let filteredFallback = FALLBACK_NEWS;
-      if (category !== 'all' && category !== 'custom') {
-        filteredFallback = FALLBACK_NEWS.filter(item => item.category === category);
-        if (filteredFallback.length === 0) filteredFallback = FALLBACK_NEWS;
-      }
-      return res.json({
+      const fallbackResponse = {
         isLiveGrounding: false,
         source: 'Curated Clinical Database (Configure GEMINI_API_KEY for Real-Time Google Search Grounding)',
         searchQueries: ['Recent clinical neurology developments 2025-2026'],
@@ -263,9 +277,11 @@ async function startServer() {
           { web: { title: 'Stroke Journal (AHA/ASA)', uri: 'https://www.ahajournals.org/journal/str' } },
           { web: { title: 'American Academy of Neurology (AAN)', uri: 'https://www.aan.com' } }
         ],
-        news: filteredFallback,
+        news: getFilteredFallback(),
         timestamp: new Date().toISOString()
-      });
+      };
+      newsCache.set(cacheKey, { data: fallbackResponse, expiry: Date.now() + 10 * 60 * 1000 });
+      return res.json(fallbackResponse);
     }
 
     try {
@@ -305,7 +321,7 @@ Each object in the array must strictly have these fields:
 Respond ONLY with the raw JSON array. Do not include markdown code fences or backticks.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }]
@@ -327,8 +343,7 @@ Respond ONLY with the raw JSON array. Do not include markdown code fences or bac
           .replace(/```/gi, '')
           .trim();
         newsItems = JSON.parse(cleaned);
-      } catch (parseErr) {
-        console.warn('Could not parse Gemini search-grounded JSON directly, using fallback structure with model synthesis text:', parseErr);
+      } catch {
         newsItems = [
           {
             id: 'grounded-report-1',
@@ -349,29 +364,43 @@ Respond ONLY with the raw JSON array. Do not include markdown code fences or bac
         ];
       }
 
-      res.json({
+      const successResponse = {
         isLiveGrounding: true,
-        source: 'Live Google Search Grounding via Gemini 3.8 Flash',
+        source: 'Live Google Search Grounding via Gemini AI',
         searchQueries: webSearchQueries,
         groundingChunks: groundingChunks,
         news: newsItems,
         timestamp: new Date().toISOString()
-      });
+      };
+
+      newsCache.set(cacheKey, { data: successResponse, expiry: Date.now() + 15 * 60 * 1000 });
+      res.json(successResponse);
     } catch (err: any) {
-      console.error('Error generating search-grounded neurology news:', err);
-      // Fallback seamlessly on rate-limit or network timeout
-      res.json({
+      // Graceful fallback on rate-limits (429), quota limits, or network timeouts without throwing errors
+      const isQuotaLimit = err?.status === 429 || err?.message?.includes('429') || err?.message?.includes('RESOURCE_EXHAUSTED') || err?.message?.includes('quota');
+      if (isQuotaLimit) {
+        console.warn('Notice: Gemini search grounding quota limit reached (429), serving verified clinical neurology news archive.');
+      } else {
+        console.warn('Notice: Gemini search service busy, serving verified clinical news fallback:', err?.message || 'timeout');
+      }
+
+      const fallbackResponse = {
         isLiveGrounding: false,
         source: 'Curated Clinical Database (Search service temporarily busy)',
         searchQueries: ['Recent clinical neurology developments 2025-2026'],
         groundingChunks: [
           { web: { title: 'The Lancet Neurology', uri: 'https://www.thelancet.com/journals/laneur' } },
           { web: { title: 'New England Journal of Medicine (NEJM)', uri: 'https://www.nejm.org' } },
-          { web: { title: 'Stroke Journal (AHA/ASA)', uri: 'https://www.ahajournals.org/journal/str' } }
+          { web: { title: 'Stroke Journal (AHA/ASA)', uri: 'https://www.ahajournals.org/journal/str' } },
+          { web: { title: 'American Academy of Neurology (AAN)', uri: 'https://www.aan.com' } }
         ],
-        news: FALLBACK_NEWS,
+        news: getFilteredFallback(),
         timestamp: new Date().toISOString()
-      });
+      };
+
+      // Cache fallback for 5 minutes so rapid clicks don't repeatedly hit quota
+      newsCache.set(cacheKey, { data: fallbackResponse, expiry: Date.now() + 5 * 60 * 1000 });
+      res.json(fallbackResponse);
     }
   });
 
