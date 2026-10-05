@@ -271,9 +271,13 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     onAppointmentsUpdated?.();
   };
 
-  // --- ACTIONS: ACCEPT & REJECT APPOINTMENTS ---
+  // --- ACTIONS: ACCEPT & REJECT APPOINTMENTS (ADMIN ACCESS ONLY) ---
 
   const handleAcceptAppointment = (apt: Appointment) => {
+    if (!isAdminLoggedIn()) {
+      triggerToast('Security alert: Admin authentication required to accept appointments.', 'warning');
+      return;
+    }
     const updated = updateAppointmentStatus(apt.id, 'Confirmed', undefined, adminUser?.username || 'OPD Desk Admin');
     setAppointments(updated);
     triggerToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) accepted & confirmed.`, 'success');
@@ -281,12 +285,20 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   };
 
   const handleOpenRejectModal = (apt: Appointment) => {
+    if (!isAdminLoggedIn()) {
+      triggerToast('Security alert: Admin authentication required to reject appointments.', 'warning');
+      return;
+    }
     setRejectingAppointment(apt);
     setRejectionReason('Doctor in Emergency OT / Thrombectomy Procedure');
     setCustomRejectionText('');
   };
 
   const handleConfirmReject = () => {
+    if (!isAdminLoggedIn()) {
+      triggerToast('Security alert: Admin authentication required to reject appointments.', 'warning');
+      return;
+    }
     if (!rejectingAppointment) return;
     const finalReason = rejectionReason === 'Other (Specify Below)' 
       ? (customRejectionText.trim() || 'Rescheduled by OPD Administration')
@@ -1341,226 +1353,285 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
           </div>
         )}
 
-        {/* SUB-MODAL: ADD SPECIAL OCCASION PHOTO (BALANCED SIDE-BY-SIDE SAME VIEWABLE WINDOW - NO SCROLL REQUIRED) */}
+        {/* SUB-MODAL: ADD SPECIAL OCCASION PHOTO (EXPANSIVE 1150px WIDE STUDIO, 680px MIN-HEIGHT, 92vh MAX-HEIGHT) */}
         {isAddPhotoModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl flex flex-col max-w-5xl w-full max-h-[92vh] sm:max-h-[88vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+            <div 
+              style={{
+                boxSizing: 'border-box',
+                flexShrink: 0,
+                height: 'auto',
+                minHeight: '680px',
+                maxHeight: '92vh',
+              }}
+              className={`bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden my-auto shrink-0 transition-all duration-200 animate-in fade-in zoom-in-95 ${
+                isPhotoStudioMaximized
+                  ? 'w-[99vw] h-[98vh] max-w-none'
+                  : 'w-[calc(100vw-24px)] sm:w-[calc(100vw-40px)] max-w-[1150px] min-h-[680px] max-h-[92vh]'
+              }`}
+            >
               
-              {/* Ultra-Compact Top Header */}
-              <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900 text-white shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
-                    <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
+              {/* Expansive Top Header */}
+              <div className="px-4 py-3 sm:px-6 sm:py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900 text-white shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                    <Camera className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm sm:text-base text-white flex items-center gap-2">
+                    <h3 className="font-bold text-sm sm:text-base lg:text-lg text-white flex items-center gap-2">
                       <span>Add Special Occasion Photograph</span>
-                      <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono uppercase">
-                        Same-View Studio
+                      <span className="text-[10px] bg-amber-500/25 text-amber-300 border border-amber-500/35 px-2.5 py-0.5 rounded-full font-mono uppercase font-bold tracking-wider">
+                        HD Photo Studio
                       </span>
                     </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Sopan Hospital Archives • Side-by-side layout (all fields & upload visible without scrolling)
+                    <p className="text-[11px] sm:text-xs text-slate-400">
+                      Sopan Hospital Photographic Archives • Large high-resolution photo upload & preview window
                     </p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsAddPhotoModalOpen(false)}
-                  className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  title="Close modal"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Maximize / Standard Toggle for Laptop / Desktop / Tablet */}
+                  <button
+                    type="button"
+                    onClick={() => setIsPhotoStudioMaximized(prev => !prev)}
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+                    title={isPhotoStudioMaximized ? 'Restore standard size' : 'Expand window to full viewport'}
+                  >
+                    {isPhotoStudioMaximized ? (
+                      <>
+                        <Minimize2 className="w-4 h-4 text-amber-400" />
+                        <span className="hidden md:inline">Standard Size</span>
+                      </>
+                    ) : (
+                      <>
+                        <Maximize2 className="w-4 h-4 text-amber-400" />
+                        <span className="hidden md:inline">Maximize Window</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPhotoModalOpen(false)}
+                    className="p-1.5 sm:p-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="Close upload studio"
+                  >
+                    <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </button>
+                </div>
               </div>
 
-              {/* Form Body - Balanced 2-Column Side-by-Side Layout */}
-              <form onSubmit={handleAddGalleryPhoto} className="flex-1 overflow-y-auto p-3.5 sm:p-4 md:p-5 flex flex-col justify-between text-xs text-slate-700">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+              {/* Form Body - Balanced 2-Column Side-by-Side (md:col-span-5 and md:col-span-7) with p-5 sm:p-6 md:p-7 */}
+              <form onSubmit={handleAddGalleryPhoto} className="flex-1 overflow-y-auto p-5 sm:p-6 md:p-7 flex flex-col text-xs text-slate-700">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
                   
-                  {/* LEFT COLUMN: PHOTO PREVIEW & UPLOAD (5 cols on md+) */}
-                  <div className="md:col-span-5 space-y-2.5">
+                  {/* LEFT COLUMN: LIVE PHOTO CANVAS & UPLOAD STUDIO (md:col-span-5) */}
+                  <div className="md:col-span-5 space-y-4">
                     
-                    {/* Live Preview Canvas */}
-                    <div className="relative w-full h-36 sm:h-44 md:h-48 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-md flex items-center justify-center group">
+                    {/* Live Preview Canvas - h-56 sm:h-64 md:h-72 */}
+                    <div className="relative w-full h-56 sm:h-64 md:h-72 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-md flex items-center justify-center group">
                       <img
                         src={newPhotoCustomUrl || newPhotoImageUrl}
                         alt="Preview"
                         className={`w-full h-full ${
-                          photoPreviewFit === 'contain' ? 'object-contain p-1.5' : 'object-cover'
+                          photoPreviewFit === 'contain' ? 'object-contain p-2' : 'object-cover'
                         } transition-all duration-200`}
                         onError={(e) => {
                           e.currentTarget.src = PRESET_OCCASION_PHOTOS[0].url;
                         }}
                       />
                       
-                      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+                      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/85 via-transparent to-black/30" />
 
                       {/* Top Overlay Badge & Fit Toggle */}
-                      <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-amber-900 shadow-xs">
-                          {newPhotoCategory || 'Special Occasion'}
-                        </span>
+                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-auto">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/95 text-amber-950 shadow-md">
+                            {newPhotoCategory || 'Special Occasion'}
+                          </span>
+                          <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">
+                            HD Archive
+                          </span>
+                        </div>
                         
                         <button
                           type="button"
                           onClick={() => setPhotoPreviewFit(prev => prev === 'contain' ? 'cover' : 'contain')}
-                          className="px-2 py-0.5 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] font-semibold flex items-center gap-1 backdrop-blur-xs border border-white/20 transition-colors cursor-pointer"
-                          title="Toggle fit vs cover"
+                          className="px-2.5 py-1 rounded-xl bg-black/70 hover:bg-black/90 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-xs border border-white/20 transition-colors cursor-pointer shadow-sm"
+                          title="Toggle full photograph fit vs cover fill"
                         >
-                          <Eye className="w-3 h-3 text-cyan-300" />
-                          <span>{photoPreviewFit === 'contain' ? 'Fit' : 'Cover'}</span>
+                          <Eye className="w-3.5 h-3.5 text-cyan-300" />
+                          <span>{photoPreviewFit === 'contain' ? 'Fit (Entire Photo)' : 'Cover (Fill)'}</span>
                         </button>
                       </div>
 
                       {/* Bottom Info Overlay */}
-                      <div className="absolute bottom-2 left-2 right-2 pointer-events-none text-white">
-                        <div className="text-xs font-bold truncate drop-shadow-md">
-                          {newPhotoTitle || 'Photograph Preview'}
-                        </div>
-                        {uploadedFileName ? (
-                          <div className="text-[10px] text-emerald-300 font-mono truncate">
-                            ✓ {uploadedFileName}
+                      <div className="absolute bottom-3 left-3 right-3 pointer-events-none text-white flex flex-col sm:flex-row sm:items-end justify-between gap-1.5">
+                        <div className="space-y-0.5">
+                          <div className="text-sm sm:text-base font-bold truncate drop-shadow-md">
+                            {newPhotoTitle || 'Special Occasion Photograph Preview'}
                           </div>
-                        ) : (
-                          <div className="text-[10px] text-slate-300 font-sans truncate">
-                            {newPhotoDate || 'Hospital Event Archive'}
+                          <div className="text-xs text-slate-300 font-sans truncate">
+                            {newPhotoDate || 'Hospital Event Archive'} • {newPhotoLocation.split(',')[0]}
+                          </div>
+                        </div>
+
+                        {uploadedFileName && (
+                          <div className="text-[11px] text-emerald-300 font-mono bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-1 rounded-xl truncate">
+                            ✓ {uploadedFileName}
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* Source Selection Mode Pills */}
-                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                    <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl">
                       <button
                         type="button"
                         onClick={() => setPhotoStudioTab('device')}
-                        className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
                           photoStudioTab === 'device'
-                            ? 'bg-amber-600 text-white shadow-xs'
+                            ? 'bg-amber-600 text-white shadow-sm'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        <Upload className="w-3 h-3" />
-                        <span>Device</span>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload From Device</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setPhotoStudioTab('presets')}
-                        className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
                           photoStudioTab === 'presets'
-                            ? 'bg-amber-600 text-white shadow-xs'
+                            ? 'bg-amber-600 text-white shadow-sm'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        <ImageIcon className="w-3 h-3" />
-                        <span>Presets ({PRESET_OCCASION_PHOTOS.length})</span>
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>Curated Presets ({PRESET_OCCASION_PHOTOS.length})</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setPhotoStudioTab('url')}
-                        className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
                           photoStudioTab === 'url'
-                            ? 'bg-amber-600 text-white shadow-xs'
+                            ? 'bg-amber-600 text-white shadow-sm'
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        <Sparkles className="w-3 h-3" />
-                        <span>Web URL</span>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Web Image URL</span>
                       </button>
                     </div>
 
-                    {/* TAB CONTENT: DEVICE FILE UPLOAD */}
+                    {/* TAB CONTENT: DEVICE FILE UPLOAD / BROWSE DEVICE DROPZONE (min-h-[100px] p-5 w-6 h-6 icon) */}
                     {photoStudioTab === 'device' && (
-                      <label className="border-2 border-dashed border-amber-400 hover:border-amber-500 bg-amber-50/70 hover:bg-amber-100/80 rounded-xl p-2.5 flex items-center justify-center gap-2.5 cursor-pointer transition-colors text-amber-950">
-                        <Upload className="w-5 h-5 text-amber-600 shrink-0" />
-                        <div className="text-left">
-                          <div className="font-bold text-xs">
+                      <div className="w-full">
+                        <label 
+                          className="w-full min-h-[100px] p-5 border-2 border-dashed border-amber-400 hover:border-amber-500 bg-amber-50/70 hover:bg-amber-100/90 rounded-2xl flex flex-col items-center justify-center text-center gap-2 cursor-pointer transition-colors text-amber-950 group shadow-xs"
+                        >
+                          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-700 border border-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                            <Upload className="w-6 h-6 text-amber-600" />
+                          </div>
+                          <div className="font-bold text-sm text-slate-900">
                             {uploadedFileName ? 'Change Photo File' : 'Click to Browse Device Photo'}
                           </div>
-                          <div className="text-[10px] text-amber-800">
+                          <div className="text-[11px] text-amber-800">
                             {uploadedFileName ? uploadedFileName : 'PNG, JPG, JPEG, WebP from Computer / Mobile'}
                           </div>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoFileUpload}
-                          className="hidden"
-                        />
-                      </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoFileUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
                     )}
 
-                    {/* TAB CONTENT: PRESETS (COMPACT 4-COL GRID) */}
+                    {/* TAB CONTENT: PRESETS (COMPACT 4-COL GRID WITH CLEAR THUMBNAILS) */}
                     {photoStudioTab === 'presets' && (
-                      <div className="grid grid-cols-4 gap-1.5 max-h-28 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50">
-                        {PRESET_OCCASION_PHOTOS.map((p, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              setSelectedPresetIdx(idx);
-                              setNewPhotoImageUrl(p.url);
-                              setNewPhotoCustomUrl('');
-                              if (!newPhotoTitle) setNewPhotoTitle(p.label);
-                              if (newPhotoCategory === 'Special Occasion') setNewPhotoCategory(p.category);
-                            }}
-                            className={`p-1 rounded-lg border text-left transition-all relative overflow-hidden cursor-pointer ${
-                              selectedPresetIdx === idx && !newPhotoCustomUrl
-                                ? 'border-amber-600 ring-2 ring-amber-500/40 bg-white'
-                                : 'border-slate-200 bg-white/70 hover:bg-white'
-                            }`}
-                          >
-                            <img src={p.url} alt={p.label} className="w-full h-9 object-cover rounded mb-0.5" />
-                            <span className="text-[9px] font-semibold text-slate-800 line-clamp-1 block leading-tight">
-                              {p.label}
-                            </span>
-                            {selectedPresetIdx === idx && !newPhotoCustomUrl && (
-                              <div className="absolute top-1 right-1 w-3 h-3 bg-amber-600 text-white rounded-full flex items-center justify-center">
-                                <Check className="w-2 h-2" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                      <div className="space-y-1.5">
+                        <span className="text-xs text-slate-500 font-semibold block">
+                          Click any verified hospital event photograph to set as occasion cover:
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-44 sm:max-h-52 overflow-y-auto p-1 border border-slate-200 rounded-2xl bg-slate-50">
+                          {PRESET_OCCASION_PHOTOS.map((p, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setSelectedPresetIdx(idx);
+                                setNewPhotoImageUrl(p.url);
+                                setNewPhotoCustomUrl('');
+                                if (!newPhotoTitle) setNewPhotoTitle(p.label);
+                                if (newPhotoCategory === 'Special Occasion') setNewPhotoCategory(p.category);
+                              }}
+                              className={`p-1.5 rounded-xl border text-left transition-all relative overflow-hidden cursor-pointer ${
+                                selectedPresetIdx === idx && !newPhotoCustomUrl
+                                  ? 'border-amber-600 ring-2 ring-amber-500/40 bg-white shadow-xs'
+                                  : 'border-slate-200 bg-white/80 hover:bg-white'
+                              }`}
+                            >
+                              <img src={p.url} alt={p.label} className="w-full h-14 sm:h-16 object-cover rounded-lg mb-1" />
+                              <span className="text-[10px] font-bold text-slate-800 line-clamp-1 block leading-tight">
+                                {p.label}
+                              </span>
+                              <span className="text-[9px] text-amber-700 font-medium block">
+                                {p.category}
+                              </span>
+                              {selectedPresetIdx === idx && !newPhotoCustomUrl && (
+                                <div className="absolute top-2 right-2 w-4 h-4 bg-amber-600 text-white rounded-full flex items-center justify-center shadow-xs">
+                                  <Check className="w-2.5 h-2.5" />
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {/* TAB CONTENT: WEB URL */}
                     {photoStudioTab === 'url' && (
-                      <div className="flex gap-1.5">
-                        <input
-                          type="url"
-                          value={newPhotoCustomUrl}
-                          onChange={e => {
-                            setNewPhotoCustomUrl(e.target.value);
-                            setSelectedPresetIdx(-1);
-                          }}
-                          placeholder="https://example.com/photo.jpg"
-                          className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (newPhotoCustomUrl.trim()) {
-                              triggerToast('Web URL photo loaded to preview.', 'info');
-                            }
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer"
-                        >
-                          Load
-                        </button>
+                      <div className="space-y-2">
+                        <label className="text-xs text-slate-600 font-semibold block">
+                          Direct Web Image URL:
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            value={newPhotoCustomUrl}
+                            onChange={e => {
+                              setNewPhotoCustomUrl(e.target.value);
+                              setSelectedPresetIdx(-1);
+                            }}
+                            placeholder="https://example.com/hospital-conference-photo.jpg"
+                            className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (newPhotoCustomUrl.trim()) {
+                                triggerToast('Web URL photo loaded to preview.', 'info');
+                              }
+                            }}
+                            className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer shadow-xs"
+                          >
+                            Load Photo
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* RIGHT COLUMN: OCCASION DETAILS (7 cols on md+) */}
-                  <div className="md:col-span-7 space-y-2">
+                  {/* RIGHT COLUMN: OCCASION DETAILS (md:col-span-7) */}
+                  <div className="md:col-span-7 space-y-3.5">
                     {/* Title */}
                     <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                      <label className="block font-bold text-slate-800 mb-1 text-xs sm:text-sm">
                         Occasion Title / Event Name *
                       </label>
                       <input
@@ -1569,20 +1640,20 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                         value={newPhotoTitle}
                         onChange={e => setNewPhotoTitle(e.target.value)}
                         placeholder="e.g. World Stroke Day Medical Summit 2026 or Neuro-ICU Inauguration"
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                       />
                     </div>
 
                     {/* Category & Date */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Category *
                         </label>
                         <select
                           value={newPhotoCategory}
                           onChange={e => setNewPhotoCategory(e.target.value)}
-                          className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                         >
                           <option value="Special Occasion">Special Occasion</option>
                           <option value="Stroke Awareness">Stroke Awareness</option>
@@ -1596,7 +1667,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Event Date *
                         </label>
                         <input
@@ -1604,16 +1675,16 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                           required
                           value={newPhotoDate}
                           onChange={e => setNewPhotoDate(e.target.value)}
-                          placeholder="e.g. 29 Oct 2026"
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                          placeholder="e.g. 29 Oct 2026 or Diwali 2026"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                         />
                       </div>
                     </div>
 
                     {/* Venue & Attendees */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Venue / Location *
                         </label>
                         <input
@@ -1622,12 +1693,12 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                           value={newPhotoLocation}
                           onChange={e => setNewPhotoLocation(e.target.value)}
                           placeholder="Sopan Hospital Auditorium, Nashik"
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Attendees Count
                         </label>
                         <input
@@ -1635,15 +1706,15 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                           value={newPhotoAttendees}
                           onChange={e => setNewPhotoAttendees(e.target.value)}
                           placeholder="e.g. 150+ Attendees"
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                         />
                       </div>
                     </div>
 
                     {/* Principal Lead & Tags */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Principal Lead / Dignitary
                         </label>
                         <input
@@ -1651,12 +1722,12 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                           value={newPhotoLead}
                           onChange={e => setNewPhotoLead(e.target.value)}
                           placeholder="Dr. Sanjay Sopan Varade"
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                         />
                       </div>
 
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Topical Tags
                         </label>
                         <input
@@ -1664,62 +1735,62 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                           value={newPhotoTags}
                           onChange={e => setNewPhotoTags(e.target.value)}
                           placeholder="SopanHospital, StrokeSummit"
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                         />
                       </div>
                     </div>
 
-                    {/* Description & Milestones in clean 2-col */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Description & Milestones (min-h-[90px] py-2.5) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Occasion Description / Synopsis *
                         </label>
                         <textarea
-                          rows={2}
+                          rows={3}
                           required
                           value={newPhotoSummary}
                           onChange={e => setNewPhotoSummary(e.target.value)}
-                          placeholder="Brief clinical synopsis, equipment inaugurated, or felicitation..."
-                          className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
+                          placeholder="Clinical synopsis, medical equipment inaugurated, or felicitation notes..."
+                          className="w-full px-3 py-2.5 min-h-[90px] bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
                         />
                       </div>
 
                       <div>
-                        <label className="block font-bold text-slate-800 mb-0.5 text-xs">
+                        <label className="block font-bold text-slate-800 mb-1 text-xs">
                           Key Milestones (1 per line)
                         </label>
                         <textarea
-                          rows={2}
+                          rows={3}
                           value={newPhotoHighlights}
                           onChange={e => setNewPhotoHighlights(e.target.value)}
                           placeholder="• Stroke unit expanded&#10;• 50+ Survivors felicitated"
-                          className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
+                          className="w-full px-3 py-2.5 min-h-[90px] bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Compact Sticky Footer - Always in View */}
-                <div className="pt-2.5 mt-2.5 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-                  <span className="text-[11px] text-slate-500 hidden sm:inline">
-                    ✓ Side-by-side view: photo and details immediately publish together.
+                {/* Sticky Action Footer */}
+                <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+                  <span className="text-xs text-slate-500 hidden sm:inline">
+                    ✓ High-resolution photographs immediately sync across hospital web archives and patient gallery.
                   </span>
 
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center justify-end gap-2.5 ml-auto">
                     <button
                       type="button"
                       onClick={() => setIsAddPhotoModalOpen(false)}
-                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
+                      className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 via-amber-700 to-[#8E5B3E] hover:from-amber-500 hover:to-[#784A31] text-white font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all transform hover:scale-[1.01]"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-4 h-4" />
                       <span>Add Photograph to Gallery</span>
                     </button>
                   </div>

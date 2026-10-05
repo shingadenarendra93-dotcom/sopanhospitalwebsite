@@ -171,13 +171,21 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   };
 
   const handleAcceptAppointment = (apt: Appointment) => {
-    const updated = updateAppointmentStatus(apt.id, 'Confirmed');
+    if (!isAdminLoggedIn()) {
+      setReminderToast('Access denied: Only authenticated administrators can accept appointments.');
+      return;
+    }
+    const updated = updateAppointmentStatus(apt.id, 'Confirmed', undefined, adminSession?.username || 'OPD Admin');
     setAppointments(updated);
     setReminderToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) ACCEPTED & confirmed.`);
   };
 
   const handleRejectAppointment = (apt: Appointment) => {
-    const updated = updateAppointmentStatus(apt.id, 'Cancelled', 'Cancelled by OPD Administration');
+    if (!isAdminLoggedIn()) {
+      setReminderToast('Access denied: Only authenticated administrators can reject appointments.');
+      return;
+    }
+    const updated = updateAppointmentStatus(apt.id, 'Cancelled', 'Cancelled by OPD Administration', adminSession?.username || 'OPD Admin');
     setAppointments(updated);
     setReminderToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) REJECTED. 1 slot restored (+1 added back to total available quota).`);
   };
@@ -566,17 +574,18 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
         ))}
       </div>
 
-      {/* Booked Appointments Status List */}
-      <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-3xl p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EAE3D6] pb-3 gap-2">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#8E5B3E]" />
-            <h3 className="font-serif font-bold text-base text-[#27231E]">Active Booked Appointments ({appointments.length})</h3>
+      {/* Booked Appointments Status List - STRICT ACCESS CONTROL: VISIBLE ONLY INSIDE ADMIN ACCESS */}
+      {adminActive && (
+        <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EAE3D6] pb-3 gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-[#8E5B3E]" />
+              <h3 className="font-serif font-bold text-base text-[#27231E]">Active Booked Appointments ({appointments.length})</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-[#7A746B]">Live Hospital OPD Token System (Admin Access)</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-[#7A746B]">Live Hospital OPD Token System</span>
-          </div>
-        </div>
 
         {/* OPD Admin Control Strip */}
         <div className="bg-[#F2ECE1] border border-[#DDD5C7] rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -834,6 +843,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
           ))}
         </div>
       </div>
+      )}
 
       {/* Booking Wizard Modal */}
       {isBookingModalOpen && (

@@ -302,6 +302,7 @@ export function setAdminSession(session: AdminUserSession | null): void {
 
 /**
  * Updates appointment status (Accept as Confirmed or Reject as Cancelled).
+ * Strictly requires active Administrator authentication.
  * Automatically produces formal audit log entries.
  */
 export function updateAppointmentStatus(
@@ -310,6 +311,12 @@ export function updateAppointmentStatus(
   rejectionReason?: string,
   adminName = 'Dr. Sanjay Varade Clinic Desk'
 ): Appointment[] {
+  // STRICT AUTHORIZATION CHECK: Only authenticated administrators can accept or reject appointments
+  if (!isAdminLoggedIn()) {
+    console.error('Security alert: Unauthorized call to updateAppointmentStatus blocked. Admin authentication is required.');
+    return loadOpdAppointments();
+  }
+
   const current = loadOpdAppointments();
   let targetApt: Appointment | undefined;
 
