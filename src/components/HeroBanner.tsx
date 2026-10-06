@@ -14,9 +14,11 @@ import {
   Newspaper,
   CheckCircle2,
   Users,
-  TrendingDown
+  TrendingDown,
+  MapPin
 } from 'lucide-react';
 import { calculateOpdSlotStats, loadOpdAppointments, getOpdCapacity } from '../utils/opdSlotUtils';
+import { useConsultationFee } from '../hooks/useConsultationFee';
 
 interface HeroBannerProps {
   onNavigate: (tabId: string) => void;
@@ -28,6 +30,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onOpenWhatsApp
 }) => {
   const [opdStats, setOpdStats] = useState(() => calculateOpdSlotStats(loadOpdAppointments(), undefined, getOpdCapacity()));
+  const consultationFee = useConsultationFee();
 
   // Guarantee that the doctor photo stays default (/DSC_0050.png) & sync OPD stats
   useEffect(() => {
@@ -56,10 +59,19 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           <div className="lg:col-span-7 space-y-5">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FDF2E2] text-[#8E5124] text-xs font-semibold border border-[#ECD3B9] shadow-xs">
-              <ShieldCheck className="w-4 h-4 text-[#C26D38]" />
-              NABH Accredited Super-Speciality Neuroscience Center • Mumbai Naka, Nashik
-            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('location')}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FDF2E2] hover:bg-[#FAE3C4] text-[#8E5124] text-xs font-semibold border border-[#ECD3B9] shadow-xs cursor-pointer transition-colors text-left group"
+              title="Click to view Sopan Hospital location on Google Maps"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#C26D38] shrink-0" />
+              <span>NABH Accredited Super-Speciality Neuroscience Center • Mumbai Naka, Nashik</span>
+              <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8A86B]/25 text-[#733B14] px-1.5 py-0.5 rounded-full font-bold ml-1 group-hover:bg-[#E8A86B]/40 transition-colors">
+                <MapPin className="w-2.5 h-2.5 text-rose-600" />
+                <span>Map 📍</span>
+              </span>
+            </button>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold tracking-tight text-[#221B14] leading-tight">
               Compassionate Clinical Excellence in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#8E5B3E] via-[#A86439] to-[#456254]">Neurology & Brain Sciences</span>
@@ -105,7 +117,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 className="px-6 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
               >
                 <Calendar className="w-4 h-4" />
-                Schedule OPD (₹1,500)
+                Schedule OPD (₹{consultationFee.toLocaleString('en-IN')})
                 <ChevronRight className="w-4 h-4" />
               </button>
 
@@ -196,7 +208,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   <Stethoscope className="w-3.5 h-3.5 text-[#8E5B3E]" />
                   Consultation Fee:
                 </span>
-                <span className="font-bold text-[#221B14] text-sm">₹1,500</span>
+                <span className="font-bold text-[#221B14] text-sm">₹{consultationFee.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex items-center justify-between text-[#5C5346]">
                 <span className="flex items-center gap-1.5">
@@ -237,7 +249,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 id="hero-quick-symptom-checker"
                 onClick={() => onNavigate('symptom-checker')}
-                className="p-2 rounded-xl bg-[#FAF5EE] hover:bg-[#F2E8DC] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs"
+                className="p-2 rounded-xl bg-[#FAF5EE] hover:bg-[#F2E8DC] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Activity className="w-3.5 h-3.5 text-[#8E5B3E] shrink-0" />
                 <span className="font-medium text-[11px] truncate">Checker</span>
@@ -246,7 +258,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 id="hero-quick-vr"
                 onClick={() => onNavigate('vr-brain')}
-                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs"
+                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Glasses className="w-3.5 h-3.5 text-[#8E5B3E] shrink-0" />
                 <span className="font-medium text-[11px] truncate">3D Brain</span>
@@ -255,7 +267,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 id="hero-quick-stories"
                 onClick={() => onNavigate('stories')}
-                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs"
+                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#456254] shrink-0" />
                 <span className="font-medium text-[11px] truncate">Stories</span>
@@ -283,7 +295,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           </div>
           <div>
             <span className="text-[#7A7163] block">Consultation OPD Fee</span>
-            <span className="text-lg font-serif font-bold text-[#221B14]">₹1,500</span>
+            <span className="text-lg font-serif font-bold text-[#221B14]">₹{consultationFee.toLocaleString('en-IN')}</span>
             <span className="text-[11px] text-[#867E73] block">35+ Years Clinical Practice</span>
           </div>
         </div>

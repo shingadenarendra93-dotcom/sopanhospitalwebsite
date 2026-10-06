@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Calendar, 
   MapPin, 
@@ -27,7 +28,11 @@ import {
   Info,
   Maximize2,
   Minimize2,
-  FileText
+  FileText,
+  Award,
+  Heart,
+  BookOpen,
+  Layers
 } from 'lucide-react';
 import { HospitalEvent } from '../types';
 import { 
@@ -37,7 +42,8 @@ import {
   resetHospitalEventsToDefault,
   syncHospitalEventsWithFirestore,
   PRESET_OCCASION_PHOTOS,
-  OCCASION_CATEGORIES 
+  OCCASION_CATEGORIES,
+  matchEventCategory
 } from '../utils/hospitalEventsUtils';
 import { isAdminLoggedIn, getAdminSession } from '../utils/opdSlotUtils';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
@@ -61,11 +67,12 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
   const [adminUser, setAdminUser] = useState(() => getAdminSession());
   const [showAdminLoginModal, setShowAdminLoginModal] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [photoAddedSuccess, setPhotoAddedSuccess] = useState<string | null>(null);
 
   // Add Photo Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [newTitle, setNewTitle] = useState<string>('');
-  const [newCategory, setNewCategory] = useState<string>('Special Occasion');
+  const [newCategory, setNewCategory] = useState<string>('Events');
   const [newDate, setNewDate] = useState<string>(() => {
     const d = new Date();
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -121,9 +128,32 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Category icon mapping
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Events':
+        return <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+      case 'Awards':
+        return <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+      case 'Staff':
+        return <Users className="w-3.5 h-3.5 text-sky-500 shrink-0" />;
+      case 'Patient Stories':
+        return <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
+      case 'Medical Camps':
+        return <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+      case 'Clinical CME':
+        return <BookOpen className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
+      case 'Special Occasion':
+        return <Camera className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+      default:
+        return <Layers className="w-3.5 h-3.5 text-slate-500 shrink-0" />;
+    }
+  };
+
+  // Filtered Events with Smart Category Matching
   const filteredEvents = useMemo(() => {
     return eventsList.filter(evt => {
-      const matchesCategory = selectedCategory === 'All' || evt.category === selectedCategory;
+      const matchesCategory = matchEventCategory(evt, selectedCategory);
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch = !q || (
         evt.title.toLowerCase().includes(q) ||
@@ -134,6 +164,17 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
       return matchesCategory && matchesSearch;
     });
   }, [eventsList, selectedCategory, searchQuery]);
+
+  // Dynamic count badges for each category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: eventsList.length };
+    OCCASION_CATEGORIES.forEach(cat => {
+      if (cat !== 'All') {
+        counts[cat] = eventsList.filter(evt => matchEventCategory(evt, cat)).length;
+      }
+    });
+    return counts;
+  }, [eventsList]);
 
   // Handle local image file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,14 +239,18 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
     });
 
     setEventsList(loadHospitalEvents());
-    setIsAddModalOpen(false);
-    triggerToast(`Photograph for "${created.title}" successfully added to hospital occasion gallery!`);
+    // Keep modal open to allow adding more photographs or viewing confirmation without interrupting workflow
+    setPhotoAddedSuccess(created.title);
+    triggerToast(`Photograph "${created.title}" successfully added to the hospital occasion gallery!`);
 
-    // Reset Form
+    // Reset Form for next photograph
     setNewTitle('');
     setNewSummary('');
     setNewHighlights('');
     setCustomImageUrl('');
+    setNewImageUrl(PRESET_OCCASION_PHOTOS[0].url);
+    setSelectedPresetIndex(0);
+    setUploadedFileName('');
   };
 
   // Confirm delete
@@ -223,15 +268,24 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-in slide-in-from-top-4 duration-200 text-xs">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="font-semibold">{toastMessage}</span>
-          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white ml-2">
-            <X className="w-3.5 h-3.5" />
+      {/* Toast Alert Portaled to body with high z-index */}
+      {toastMessage && typeof document !== 'undefined' && createPortal(
+        <div className="fixed top-5 right-5 sm:right-6 z-[100005] bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-500/50 flex items-center gap-3.5 animate-in slide-in-from-top-4 duration-200 text-xs sm:text-sm max-w-md">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-white flex items-center gap-2">
+              <span>Photo Upload Confirmed</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono uppercase font-bold">Live</span>
+            </div>
+            <div className="text-slate-300 text-xs mt-0.5">{toastMessage}</div>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
+            <X className="w-4 h-4" />
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Header Banner */}
@@ -321,56 +375,164 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
         </div>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-3 sm:p-4 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
-        {/* Category Filter Pills (Touch friendly) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
-          {OCCASION_CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`gallery-filter-pill touch-friendly-btn px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === cat
-                  ? 'bg-[#342E28] text-white shadow-2xs'
-                  : 'bg-white text-[#635E56] hover:bg-[#EFE9DF] border border-[#E6E0D4]'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+      {/* Category Filter and Search Toolbar */}
+      <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-xs space-y-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
+          
+          {/* Category Filter Header & Pills */}
+          <div className="space-y-1.5 flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#8A8173] flex items-center gap-1.5">
+                <Filter className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                Browse By Category
+              </span>
+              <span className="text-xs text-[#635E56] font-medium hidden sm:inline">
+                {eventsList.length} Photographs in Archive
+              </span>
+            </div>
+
+            {/* Category Filter Pills (Touch friendly, horizontal scrollable) */}
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {OCCASION_CATEGORIES.map(cat => {
+                const count = categoryCounts[cat] || 0;
+                const isSelected = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`gallery-filter-pill touch-friendly-btn px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                      isSelected
+                        ? 'bg-[#342E28] text-white shadow-md ring-2 ring-[#8E5B3E]/30'
+                        : 'bg-white text-[#635E56] hover:bg-[#EFE9DF] hover:text-[#27231E] border border-[#E6E0D4]'
+                    }`}
+                  >
+                    {getCategoryIcon(cat)}
+                    <span>{cat}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                      isSelected 
+                        ? 'bg-white/25 text-amber-200' 
+                        : 'bg-[#F2ECE1] text-[#7A5338]'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative w-full lg:w-72 shrink-0">
+            <Search className="w-4 h-4 text-[#8C8478] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search title, venue, tags..."
+              className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-[#D8CFC2] bg-white text-xs text-[#27231E] focus:outline-hidden focus:ring-2 focus:ring-[#8E5B3E]/30 min-h-[44px]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-72">
-          <Search className="w-4 h-4 text-[#8C8478] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search occasion photos, camps..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#D8CFC2] bg-white text-xs text-[#27231E] focus:outline-hidden focus:ring-2 focus:ring-[#8E5B3E]/30 min-h-[44px]"
-          />
-        </div>
+        {/* Active Filter Status & Reset Strip */}
+        {(selectedCategory !== 'All' || searchQuery) && (
+          <div className="pt-2.5 border-t border-[#EAE3D6] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[#7A746B]">Active Filter:</span>
+              {selectedCategory !== 'All' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#342E28] text-white font-semibold text-xs shadow-2xs">
+                  {getCategoryIcon(selectedCategory)}
+                  <span>Category: {selectedCategory}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('All')}
+                    className="ml-1 text-amber-300 hover:text-white cursor-pointer"
+                    title="Clear category filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-200 font-semibold text-xs">
+                  <Search className="w-3 h-3 text-amber-700" />
+                  <span>Query: "{searchQuery}"</span>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="ml-1 text-amber-700 hover:text-amber-950 cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              <span className="text-[#8A8173] font-medium ml-1">
+                ({filteredEvents.length} {filteredEvents.length === 1 ? 'photograph' : 'photographs'} matching)
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory('All');
+                setSearchQuery('');
+              }}
+              className="text-xs text-[#8E5B3E] hover:text-[#704229] font-bold hover:underline cursor-pointer"
+            >
+              Reset to All ({eventsList.length})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Events Photograph Grid */}
       {filteredEvents.length === 0 ? (
         <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-dashed border-slate-200 text-slate-400 space-y-3">
           <Camera className="w-10 h-10 mx-auto text-slate-300" />
-          <h4 className="text-sm font-bold text-slate-700">No hospital event photographs found</h4>
+          <h4 className="text-sm font-bold text-slate-700">No photographs found in "{selectedCategory}"</h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {searchQuery ? `No photos matching "${searchQuery}".` : 'No photos available in this category.'}
+            {searchQuery 
+              ? `No images matching "${searchQuery}" in category "${selectedCategory}".` 
+              : `No photographs have been cataloged under "${selectedCategory}" yet.`}
           </p>
-          {isAdmin && (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
             <button
               type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="touch-friendly-btn px-4 py-2 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+              onClick={() => {
+                setSelectedCategory('All');
+                setSearchQuery('');
+              }}
+              className="touch-friendly-btn px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              Add Photo to this Category
+              <RotateCcw className="w-3.5 h-3.5" />
+              View All Photographs ({eventsList.length})
             </button>
-          )}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewCategory(selectedCategory === 'All' ? 'Events' : selectedCategory);
+                  setIsAddModalOpen(true);
+                }}
+                className="touch-friendly-btn px-4 py-2 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Photo to {selectedCategory === 'All' ? 'Gallery' : `"${selectedCategory}"`}
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -399,10 +561,18 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
                   
-                  {/* Category Pill */}
-                  <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/90 text-[#7A5338] backdrop-blur-xs border border-white/50 shadow-2xs">
-                    {evt.category}
-                  </span>
+                  {/* Category Pill with 1-click filter */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCategory(evt.category);
+                    }}
+                    className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/95 hover:bg-white text-[#7A5338] hover:text-[#5B3921] backdrop-blur-xs border border-white/50 shadow-2xs cursor-pointer transition-all hover:scale-105 z-10 flex items-center gap-1"
+                    title={`Click to filter by "${evt.category}"`}
+                  >
+                    <span>{evt.category}</span>
+                  </button>
 
                   {/* Admin Delete Action Button on photo card */}
                   {isAdmin && (
@@ -500,11 +670,21 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* MODAL 1: ADD SPECIAL OCCASION PHOTO (PUBLIC GALLERY MODAL) */}
+      {/* MODAL 1: ADD SPECIAL OCCASION PHOTO (EXPANSIVE 1200px+ STUDIO PORTALED TO DOCUMENT.BODY) */}
       {/* ======================================================== */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-6xl h-[85vh] min-h-[650px] bg-white rounded-3xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden my-auto">
+      {isAddModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+          <div 
+            style={{
+              boxSizing: 'border-box',
+              flexShrink: 0,
+            }}
+            className={`bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden my-auto shrink-0 transition-all duration-200 ${
+              isPhotoStudioMaximized
+                ? 'w-[99vw] h-[98vh] max-w-none'
+                : 'w-[calc(100vw-24px)] sm:w-[94vw] max-w-[1240px] h-[92vh] max-h-[92vh] min-h-[640px]'
+            }`}
+          >
             
             {/* Standard Top Header */}
             <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900 text-white shrink-0">
@@ -537,114 +717,196 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
               </div>
             </div>
 
-            {/* Form Body - Balanced 2-Column Side-by-Side Layout */}
-            <form onSubmit={handleAddPhotoSubmit} className="flex-1 overflow-y-auto p-6 flex flex-col">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+            {/* Form Body - Vertical Stack Layout (No fixed height restrictions, clean vertical flow) */}
+            <form onSubmit={handleAddPhotoSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 md:p-8 flex flex-col gap-6 text-xs text-slate-700">
+              
+              {/* IN-MODAL TOAST CONFIRMATION BANNER (PERSISTS WHILE MODAL STAYS OPEN) */}
+              {photoAddedSuccess && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-400 text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <CheckCircle2 className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-sm text-emerald-900 flex items-center gap-2">
+                        <span>Photograph Added to Gallery Successfully!</span>
+                        <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Confirmed</span>
+                      </div>
+                      <p className="text-xs text-emerald-800 mt-0.5">
+                        "{photoAddedSuccess}" is now live in the hospital gallery. You can upload another photograph below, or click "Done / Close Window".
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddModalOpen(false);
+                        setPhotoAddedSuccess(null);
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                    >
+                      Done / Close Window
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPhotoAddedSuccess(null)}
+                      className="p-1.5 rounded-xl text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
+                      title="Dismiss message"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* TOP 'SPECIAL OCCASION' PHOTO UPLOAD BANNER (VERTICAL STACK - SQUARE SHAPE) */}
+              <div className="flex flex-col items-center justify-center gap-4 p-5 sm:p-6 rounded-3xl bg-slate-50 border border-slate-200 text-center w-full">
                 
-                {/* LEFT COLUMN: LIVE PHOTO CANVAS & UPLOAD STUDIO (5 cols on md+) */}
-                <div className="md:col-span-5 space-y-2.5">
-                  {/* Live Photo Preview Canvas */}
-                  <div className="relative w-full h-36 sm:h-44 md:h-48 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-md flex items-center justify-center group">
+                {/* Header text for photo section */}
+                <div className="space-y-1 text-center max-w-lg">
+                  <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center justify-center gap-2">
+                    <Camera className="w-4 h-4 text-amber-600" />
+                    <span>Special Occasion Photograph Upload</span>
+                  </h4>
+                  <p className="text-[11px] sm:text-xs text-slate-500">
+                    Click the square box below to upload a photo from your device, or choose from hospital presets or web URL.
+                  </p>
+                </div>
+
+                {/* EXACT 250px x 250px SQUARE PHOTO UPLOAD & PREVIEW BOX */}
+                <div className="relative flex flex-col items-center justify-center">
+                  <label
+                    style={{ width: '250px', height: '250px', minWidth: '250px', minHeight: '250px' }}
+                    className="w-[250px] h-[250px] min-w-[250px] min-h-[250px] aspect-square rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border-2 border-dashed border-amber-500/80 hover:border-amber-400 shadow-xl relative flex flex-col items-center justify-center cursor-pointer group shrink-0 transition-all hover:scale-[1.01]"
+                    title="Click to browse & upload photo from your device"
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+
+                    {/* Image Preview inside 250px Square */}
                     <img
                       src={customImageUrl || newImageUrl}
                       alt="Special Occasion Preview"
-                      className={`w-full h-full ${
-                        photoPreviewFit === 'contain' ? 'object-contain p-2' : 'object-cover'
-                      } transition-all duration-200`}
+                      className={`w-full h-full ${photoPreviewFit === 'cover' ? 'object-cover' : 'object-contain'} p-1.5 transition-all duration-200`}
                       onError={(e) => {
                         e.currentTarget.src = PRESET_OCCASION_PHOTOS[0].url;
                       }}
                     />
 
-                    {/* Dark gradient overlay */}
-                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+                    {/* Subtle gradient vignette */}
+                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/85 via-black/20 to-black/40 group-hover:from-black/90 group-hover:via-black/40 transition-colors" />
 
-                    {/* Top Overlay Badge & Fit Toggle */}
-                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/90 text-amber-900 shadow-xs">
+                    {/* Top Overlay Badge & Fit/Cover Toggle */}
+                    <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-auto">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/95 text-amber-950 shadow-sm">
                         {newCategory || 'Special Occasion'}
                       </span>
                       
                       <button
                         type="button"
-                        onClick={() => setPhotoPreviewFit(prev => prev === 'contain' ? 'cover' : 'contain')}
-                        className="px-2 py-0.5 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] font-semibold flex items-center gap-1 backdrop-blur-xs border border-white/20 transition-colors cursor-pointer"
-                        title="Toggle fit vs fill canvas"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setPhotoPreviewFit(prev => prev === 'contain' ? 'cover' : 'contain');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-black/75 hover:bg-black text-white text-[10px] font-semibold flex items-center gap-1 backdrop-blur-xs border border-white/25 transition-colors cursor-pointer shadow-sm"
+                        title="Toggle full fit vs fill cover"
                       >
                         <Eye className="w-3 h-3 text-cyan-300" />
                         <span>{photoPreviewFit === 'contain' ? 'Fit' : 'Cover'}</span>
                       </button>
                     </div>
 
-                    {/* Bottom Info Overlay */}
-                    <div className="absolute bottom-2 left-2 right-2 pointer-events-none text-white">
-                      <div className="text-xs font-bold truncate drop-shadow-md">
-                        {newTitle || 'Photograph Preview'}
+                    {/* Hover Upload Indicator Overlay */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-2 pointer-events-none p-4">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/30 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-lg">
+                        <Upload className="w-6 h-6" />
                       </div>
+                      <div className="font-bold text-xs text-amber-200">
+                        {uploadedFileName ? 'Click to Change Photo' : 'Click to Upload Photo'}
+                      </div>
+                      <div className="text-[10px] text-slate-300">
+                        Square 250px × 250px
+                      </div>
+                    </div>
+
+                    {/* Bottom Status / Filename Badge */}
+                    <div className="absolute bottom-2.5 left-2.5 right-2.5 pointer-events-none text-white text-center">
                       {uploadedFileName ? (
-                        <div className="text-[10px] text-emerald-300 font-mono truncate">
+                        <div className="text-[11px] text-emerald-300 font-mono bg-emerald-950/90 border border-emerald-500/50 px-2 py-0.5 rounded-lg truncate shadow-sm">
                           ✓ {uploadedFileName}
                         </div>
                       ) : (
-                        <div className="text-[10px] text-slate-300 font-sans truncate">
-                          {newDate || 'Hospital Event Archive'}
+                        <div className="text-[10px] text-slate-200 drop-shadow-md flex items-center justify-center gap-1">
+                          <Upload className="w-3 h-3 text-amber-400 shrink-0" />
+                          <span className="truncate">Click square to upload device image</span>
                         </div>
                       )}
                     </div>
-                  </div>
+                  </label>
+                </div>
 
+                {/* Photo Source Controls (Browse Device, Presets, Web URL) */}
+                <div className="w-full max-w-lg space-y-3">
                   {/* Photo Source Switcher Pills */}
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                  <div className="flex items-center gap-1.5 bg-slate-200/80 p-1.5 rounded-2xl">
                     <button
                       type="button"
                       onClick={() => setPhotoStudioTab('device')}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                      className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
                         photoStudioTab === 'device'
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Upload className="w-3 h-3" />
-                      <span>Device</span>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Browse Device</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setPhotoStudioTab('presets')}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                      className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
                         photoStudioTab === 'presets'
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <ImageIcon className="w-3 h-3" />
+                      <ImageIcon className="w-3.5 h-3.5" />
                       <span>Presets ({PRESET_OCCASION_PHOTOS.length})</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setPhotoStudioTab('url')}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+                      className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
                         photoStudioTab === 'url'
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Sparkles className="w-3 h-3" />
+                      <Sparkles className="w-3.5 h-3.5" />
                       <span>Web URL</span>
                     </button>
                   </div>
 
-                  {/* TAB 1: DEVICE FILE UPLOAD */}
+                  {/* TAB 1: DEVICE FILE UPLOAD HELPER */}
                   {photoStudioTab === 'device' && (
-                    <label className="border-2 border-dashed border-amber-400 hover:border-amber-500 bg-amber-50/70 hover:bg-amber-100/80 rounded-xl p-2.5 flex items-center justify-center gap-2.5 cursor-pointer transition-colors text-amber-950">
-                      <Upload className="w-5 h-5 text-amber-600 shrink-0" />
-                      <div className="text-left">
-                        <div className="font-bold text-xs">
-                          {uploadedFileName ? 'Change Photo File' : 'Click to Browse Device Photo'}
+                    <label className="border-2 border-dashed border-amber-400 hover:border-amber-500 bg-white hover:bg-amber-50/70 rounded-2xl p-3 flex items-center justify-center gap-3 cursor-pointer transition-colors text-amber-950 group shadow-xs">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 border border-amber-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                        <Upload className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <div className="font-bold text-xs sm:text-sm text-slate-900">
+                          {uploadedFileName ? 'Change Photo File' : 'Browse & Upload Device Photo'}
                         </div>
-                        <div className="text-[10px] text-amber-800">
-                          {uploadedFileName ? uploadedFileName : 'PNG, JPG, JPEG, WebP from Computer / Mobile'}
+                        <div className="text-[11px] text-amber-800">
+                          {uploadedFileName ? uploadedFileName : 'Supports PNG, JPG, JPEG, WebP (Square 250px × 250px)'}
                         </div>
                       </div>
                       <input
@@ -656,9 +918,9 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
                     </label>
                   )}
 
-                  {/* TAB 2: CURATED PRESETS SHELF (COMPACT 4-COL GRID) */}
+                  {/* TAB 2: CURATED PRESETS SHELF */}
                   {photoStudioTab === 'presets' && (
-                    <div className="grid grid-cols-4 gap-1.5 max-h-28 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-2 border border-slate-200 rounded-2xl bg-white text-left">
                       {PRESET_OCCASION_PHOTOS.map((p, idx) => (
                         <button
                           key={idx}
@@ -670,19 +932,19 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
                             if (!newTitle) setNewTitle(p.label);
                             if (newCategory === 'Special Occasion') setNewCategory(p.category);
                           }}
-                          className={`p-1 rounded-lg border text-left transition-all relative overflow-hidden cursor-pointer ${
+                          className={`p-1.5 rounded-xl border text-left transition-all relative overflow-hidden cursor-pointer ${
                             selectedPresetIndex === idx && !customImageUrl
-                              ? 'border-amber-600 ring-2 ring-amber-500/40 bg-white'
-                              : 'border-slate-200 bg-white/70 hover:bg-white'
+                              ? 'border-amber-600 ring-2 ring-amber-500/40 bg-amber-50/30'
+                              : 'border-slate-200 bg-white hover:bg-slate-50'
                           }`}
                         >
-                          <img src={p.url} alt={p.label} className="w-full h-9 object-cover rounded mb-0.5" />
-                          <span className="text-[9px] font-semibold text-slate-800 line-clamp-1 block leading-tight">
+                          <img src={p.url} alt={p.label} className="w-full h-14 object-cover rounded-lg mb-1" />
+                          <span className="text-[10px] font-semibold text-slate-800 line-clamp-1 block leading-tight">
                             {p.label}
                           </span>
                           {selectedPresetIndex === idx && !customImageUrl && (
-                            <div className="absolute top-1 right-1 w-3 h-3 bg-amber-600 text-white rounded-full flex items-center justify-center">
-                              <Check className="w-2 h-2" />
+                            <div className="absolute top-2 right-2 w-4 h-4 bg-amber-600 text-white rounded-full flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5" />
                             </div>
                           )}
                         </button>
@@ -692,7 +954,7 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
 
                   {/* TAB 3: WEB IMAGE URL */}
                   {photoStudioTab === 'url' && (
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-2">
                       <input
                         type="url"
                         value={customImageUrl}
@@ -700,202 +962,204 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
                           setCustomImageUrl(e.target.value);
                           setSelectedPresetIndex(-1);
                         }}
-                        placeholder="https://example.com/photo.jpg"
-                        className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
+                        placeholder="https://example.com/hospital-special-occasion.jpg"
+                        className="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
                       />
                       <button
                         type="button"
                         onClick={() => {
                           if (customImageUrl.trim()) {
-                            triggerToast('Web URL photo loaded to preview.');
+                            triggerToast('Web URL photo loaded to square preview.');
                           }
                         }}
-                        className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer shadow-xs"
                       >
-                        Load
+                        Load Photo
                       </button>
                     </div>
                   )}
                 </div>
+              </div>
 
-                {/* RIGHT COLUMN: OCCASION DETAILS (7 cols on md+) */}
-                <div className="md:col-span-7 space-y-2">
-                  {/* Title */}
+              {/* OCCASION DETAILS - PLACED DIRECTLY BELOW THE PHOTO UPLOAD SECTION */}
+              <div className="space-y-4">
+                {/* Occasion Title - Placed right below the photo upload box! */}
+                <div>
+                  <label className="block font-bold text-slate-800 mb-1 text-xs sm:text-sm">
+                    Occasion Title / Event Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newTitle}
+                    onChange={e => setNewTitle(e.target.value)}
+                    placeholder="e.g. World Stroke Day Medical Summit 2026 or Neuro-ICU Inauguration"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                  />
+                </div>
+
+                {/* Category & Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                      Occasion Title / Event Name *
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Category *
+                    </label>
+                    <select
+                      value={newCategory}
+                      onChange={e => setNewCategory(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                    >
+                      <option value="Events">Events</option>
+                      <option value="Awards">Awards</option>
+                      <option value="Staff">Staff</option>
+                      <option value="Patient Stories">Patient Stories</option>
+                      <option value="Medical Camps">Medical Camps</option>
+                      <option value="Clinical CME">Clinical CME</option>
+                      <option value="Special Occasion">Special Occasion</option>
+                      <option value="Facility Inauguration">Facility Inauguration</option>
+                      <option value="Stroke Awareness">Stroke Awareness</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Event Date *
                     </label>
                     <input
                       type="text"
                       required
-                      value={newTitle}
-                      onChange={e => setNewTitle(e.target.value)}
-                      placeholder="e.g. World Stroke Day Medical Summit 2026 or Neuro-ICU Inauguration"
-                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                      value={newDate}
+                      onChange={e => setNewDate(e.target.value)}
+                      placeholder="e.g. 29 Oct 2026"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Venue & Attendees */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Venue / Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newLocation}
+                      onChange={e => setNewLocation(e.target.value)}
+                      placeholder="Sopan Hospital Auditorium, Nashik"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
                     />
                   </div>
 
-                  {/* Category & Date */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Category *
-                      </label>
-                      <select
-                        value={newCategory}
-                        onChange={e => setNewCategory(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
-                      >
-                        <option value="Special Occasion">Special Occasion</option>
-                        <option value="Stroke Awareness">Stroke Awareness</option>
-                        <option value="Clinical CME">Clinical CME</option>
-                        <option value="Free Medical Camp">Free Medical Camp</option>
-                        <option value="Facility Inauguration">Facility Inauguration</option>
-                        <option value="Survivor Meet">Survivor Meet</option>
-                        <option value="Hospital Celebration">Hospital Celebration</option>
-                        <option value="Doctor Felicitation">Doctor Felicitation</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Attendees Count
+                    </label>
+                    <input
+                      type="text"
+                      value={newAttendees}
+                      onChange={e => setNewAttendees(e.target.value)}
+                      placeholder="e.g. 150+ Attendees"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                    />
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Event Date *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newDate}
-                        onChange={e => setNewDate(e.target.value)}
-                        placeholder="e.g. 29 Oct 2026"
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
-                      />
-                    </div>
+                {/* Principal Lead & Tags */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Principal Lead / Dignitary
+                    </label>
+                    <input
+                      type="text"
+                      value={newLeadClinician}
+                      onChange={e => setNewLeadClinician(e.target.value)}
+                      placeholder="Dr. Sanjay Sopan Varade"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                    />
                   </div>
 
-                  {/* Venue & Attendees */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Venue / Location *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newLocation}
-                        onChange={e => setNewLocation(e.target.value)}
-                        placeholder="Sopan Hospital Auditorium, Nashik"
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
-                      />
-                    </div>
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Topical Tags
+                    </label>
+                    <input
+                      type="text"
+                      value={newTags}
+                      onChange={e => setNewTags(e.target.value)}
+                      placeholder="SopanHospital, StrokeSummit"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
+                    />
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Attendees Count
-                      </label>
-                      <input
-                        type="text"
-                        value={newAttendees}
-                        onChange={e => setNewAttendees(e.target.value)}
-                        placeholder="e.g. 150+ Attendees"
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
-                      />
-                    </div>
+                {/* Description & Milestones */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Description / Synopsis *
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={newSummary}
+                      onChange={e => setNewSummary(e.target.value)}
+                      placeholder="Clinical overview, equipment inaugurated, or felicitation notes..."
+                      className="w-full px-3 py-2.5 min-h-[90px] bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
+                    />
                   </div>
 
-                  {/* Principal Lead & Tags */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Principal Lead / Dignitary
-                      </label>
-                      <input
-                        type="text"
-                        value={newLeadClinician}
-                        onChange={e => setNewLeadClinician(e.target.value)}
-                        placeholder="Dr. Sanjay Sopan Varade"
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Topical Tags
-                      </label>
-                      <input
-                        type="text"
-                        value={newTags}
-                        onChange={e => setNewTags(e.target.value)}
-                        placeholder="SopanHospital, StrokeSummit"
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Description & Milestones */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Description / Synopsis *
-                      </label>
-                      <textarea
-                        rows={2}
-                        required
-                        value={newSummary}
-                        onChange={e => setNewSummary(e.target.value)}
-                        placeholder="Clinical overview, equipment inaugurated, or felicitation..."
-                        className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-800 mb-0.5 text-xs">
-                        Key Milestones (1 per line)
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={newHighlights}
-                        onChange={e => setNewHighlights(e.target.value)}
-                        placeholder="• Unit expanded&#10;• 50+ Survivors felicitated"
-                        className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
-                      />
-                    </div>
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1 text-xs">
+                      Key Milestones (1 per line)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={newHighlights}
+                      onChange={e => setNewHighlights(e.target.value)}
+                      placeholder="• Unit expanded&#10;• 50+ Survivors felicitated"
+                      className="w-full px-3 py-2.5 min-h-[90px] bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:bg-white resize-none"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Compact Footer Strip - Always in View */}
-              <div className="pt-2.5 mt-2.5 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-                <span className="text-[11px] text-slate-500 hidden sm:inline">
-                  ✓ Side-by-side view: photo and details immediately publish together.
+              {/* Compact Footer Strip */}
+              <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+                <span className="text-xs text-slate-500 hidden sm:inline">
+                  ✓ High-resolution photographs immediately sync across hospital web archives.
                 </span>
 
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center justify-end gap-2.5 ml-auto">
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+                    className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-4 h-4" />
                     <span>Add Photograph to Gallery</span>
                   </button>
                 </div>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* MODAL 2: CONFIRM DELETE PHOTO (HOSPITAL ADMIN) */}
       {/* ======================================================== */}
-      {photoToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      {photoToDelete && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 text-rose-600">
               <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0">
@@ -941,14 +1205,15 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* MODAL 3: EVENT DETAILS & HIGH-RES PHOTO MODAL */}
       {/* ======================================================== */}
-      {activeEventModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      {activeEventModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto border border-slate-200 shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200 my-auto">
             {/* Modal Image Hero */}
             <div className="relative h-64 sm:h-72 w-full bg-slate-950 overflow-hidden shrink-0">
@@ -1096,7 +1361,8 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Admin Login Modal if requested */}

@@ -98,6 +98,17 @@
         "addedAt": { "type": "string" }
       },
       "required": ["id", "title", "category", "date", "imageUrl"]
+    },
+    "HospitalSettings": {
+      "title": "HospitalSettings",
+      "description": "Hospital configuration settings such as consultation fee and OPD quotas",
+      "type": "object",
+      "properties": {
+        "consultationFee": { "type": "number" },
+        "opdCapacity": { "type": "number" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -116,6 +127,10 @@
     "/hospital_events/{eventId}": {
       "schema": { "$ref": "#/entities/HospitalEvent" },
       "description": "Hospital photographs of special occasions and clinical events"
+    },
+    "/hospital_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/HospitalSettings" },
+      "description": "Global hospital settings like home page consultation fee"
     },
     "/users/{userId}/chats/{messageId}": {
       "schema": { "$ref": "#/entities/ChatMessage" },

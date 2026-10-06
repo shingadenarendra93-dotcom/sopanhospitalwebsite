@@ -41,6 +41,7 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
 }) => {
   const [showSimControls, setShowSimControls] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const [adminTab, setAdminTab] = useState<'fee' | 'counter'>('fee');
   const adminActive = isAdminLoggedIn();
 
   // Status-based styling
@@ -115,8 +116,11 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
             )}
             <button
               type="button"
-              onClick={() => setShowAdminModal(true)}
-              className="p-1.5 rounded-xl bg-white border border-[#DDD5C7] text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
+              onClick={() => {
+                setAdminTab('counter');
+                setShowAdminModal(true);
+              }}
+              className="p-1.5 rounded-xl bg-white border border-[#DDD5C7] text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
               title="OPD Administration: Reset counter, extend capacity, accept/reject"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-cyan-700" />
@@ -129,6 +133,7 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
 
         <OpdAdminPortalModal
           isOpen={showAdminModal}
+          initialTab={adminTab}
           onClose={() => setShowAdminModal(false)}
         />
       </>
@@ -160,8 +165,11 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
           <button
             type="button"
             id="btn-opd-admin-panel"
-            onClick={() => setShowAdminModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-2xs transition-colors"
+            onClick={() => {
+              setAdminTab('fee');
+              setShowAdminModal(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
             title="Open OPD Desk Administration to reset counter, extend capacity, or accept/reject appointments"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
@@ -446,6 +454,7 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
       {/* Modal instance for full view */}
       <OpdAdminPortalModal
         isOpen={showAdminModal}
+        initialTab={adminTab}
         onClose={() => setShowAdminModal(false)}
       />
     </div>

@@ -283,5 +283,44 @@ export async function fetchHospitalEventsFromFirestore() {
   }
 }
 
+// Save Hospital Configuration Settings (consultationFee, opdCapacity)
+export async function saveHospitalSettingsToFirestore(settings: {
+  consultationFee?: number;
+  opdCapacity?: number;
+  updatedBy?: string;
+}) {
+  try {
+    const settingsRef = doc(db, 'hospital_settings', 'configuration');
+    await setDoc(settingsRef, {
+      ...settings,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn('Firestore fallback: Settings saved locally:', err);
+    return false;
+  }
+}
+
+// Fetch Hospital Configuration Settings from Firestore
+export async function fetchHospitalSettingsFromFirestore(): Promise<{
+  consultationFee?: number;
+  opdCapacity?: number;
+  updatedAt?: string;
+  updatedBy?: string;
+} | null> {
+  try {
+    const settingsRef = doc(db, 'hospital_settings', 'configuration');
+    const snap = await getDoc(settingsRef);
+    if (snap.exists()) {
+      return snap.data() as any;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Falling back to local settings:', err);
+    return null;
+  }
+}
+
 export { onAuthStateChanged };
 export type { FirebaseUser };

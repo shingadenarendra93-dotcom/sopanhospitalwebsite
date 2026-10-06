@@ -43,6 +43,7 @@ import { SopanLogo } from './SopanLogo';
 import { saveAppointmentToFirestore } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
+import { useConsultationFee } from '../hooks/useConsultationFee';
 import { 
   TOTAL_OPD_DAILY_SLOTS, 
   calculateOpdSlotStats, 
@@ -78,6 +79,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 }) => {
   const [doctorsList] = useState<Doctor[]>(DOCTORS);
   const [appointments, setAppointments] = useState<Appointment[]>(() => loadOpdAppointments());
+  const consultationFee = useConsultationFee();
   const [slotOffset, setSlotOffset] = useState<number>(() => getOpdManualOffset());
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentType>('All');
   const [searchDoctor, setSearchDoctor] = useState<string>('');
@@ -370,7 +372,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
             Schedule Doctor Appointment & Tele-Consultation
           </h2>
           <p className="text-[#635E56] text-sm mt-1 max-w-2xl leading-relaxed">
-            Book guaranteed OPD consultations with Chief Consultant Neurologist <strong className="text-[#27231E] font-semibold">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> at Sopan Hospital & Neurology Institute, Shrihari Kute Marg, Mumbai Naka, Nashik (Hotline: 0253 2317364) with consultation fee <strong className="text-[#8E5B3E]">₹1,500</strong>.
+            Book guaranteed OPD consultations with Chief Consultant Neurologist <strong className="text-[#27231E] font-semibold">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> at Sopan Hospital & Neurology Institute, Shrihari Kute Marg, Mumbai Naka, Nashik (Hotline: 0253 2317364) with consultation fee <strong className="text-[#8E5B3E]">₹{consultationFee.toLocaleString('en-IN')}</strong>.
           </p>
         </div>
 
@@ -665,10 +667,10 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                 type="button"
                 onClick={() => setShowAdminModal(true)}
                 className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
-                title="Log in as admin to reset counters, extend capacity, or accept/reject appointments"
+                title="Log in as admin to reset counters, extend capacity, and manage appointments"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                Admin Log In (Reset / Extend Quota / Accept-Reject)
+                Admin Log In (OPD Desk Administration)
               </button>
             )}
           </div>
@@ -792,32 +794,6 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                {/* Accept Button for Pending or Cancelled */}
-                {apt.status !== 'Confirmed' && (
-                  <button
-                    type="button"
-                    onClick={() => handleAcceptAppointment(apt)}
-                    className="text-xs text-white px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                    title="Accept & Confirm this appointment"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    Accept
-                  </button>
-                )}
-
-                {/* Reject Button for Confirmed or Pending */}
-                {apt.status !== 'Cancelled' && (
-                  <button
-                    type="button"
-                    onClick={() => handleRejectAppointment(apt)}
-                    className="text-xs text-[#9E3939] hover:text-[#7D2828] px-3 py-1.5 rounded-xl border border-[#E9C8C8] hover:bg-[#FBEBEB] transition-colors font-semibold flex items-center gap-1"
-                    title="Reject and free slot back to available quota"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    Reject
-                  </button>
-                )}
-
                 <button
                   type="button"
                   onClick={() => handleOpenReminderModal(apt)}

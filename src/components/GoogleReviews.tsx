@@ -7,7 +7,10 @@ import {
   X, 
   HeartHandshake, 
   Lock, 
-  UserX
+  UserX,
+  MapPin,
+  Navigation,
+  ExternalLink
 } from 'lucide-react';
 import { GoogleReview } from '../types';
 import { 
@@ -15,6 +18,11 @@ import {
   saveStoredReviews 
 } from '../utils/feedbackUtils';
 import { PatientExperienceFeedbackModalOrSection } from './PatientExperienceFeedback';
+import { 
+  SOPAN_HOSPITAL_GOOGLE_MAPS_URL, 
+  SOPAN_HOSPITAL_DIRECTIONS_URL, 
+  SOPAN_HOSPITAL_REVIEWS_URL 
+} from './HospitalMapLocation';
 
 interface GoogleReviewsProps {
   onOpenSuccessStories?: () => void;
@@ -142,11 +150,37 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2.5 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+          <a
+            id="btn-open-google-maps-review"
+            href={SOPAN_HOSPITAL_REVIEWS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 sm:px-5 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
+            title="Write a review directly on Sopan Hospital's Google Maps profile"
+          >
+            <Star className="w-4 h-4 fill-white text-white" />
+            <span>Write on Google Maps</span>
+            <ExternalLink className="w-3.5 h-3.5 text-amber-200" />
+          </a>
+
+          <a
+            id="btn-view-google-maps-location"
+            href={SOPAN_HOSPITAL_GOOGLE_MAPS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-3 rounded-2xl bg-white hover:bg-[#FAF7F2] text-[#27231E] border border-[#E6E0D4] font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
+            title="Locate Sopan Hospital & Neurology Institute on Google Maps"
+          >
+            <MapPin className="w-4 h-4 text-rose-600" />
+            <span>Locate on Google Maps</span>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+          </a>
+
           <button
             id="btn-patient-experience-feedback"
             onClick={() => setShowFeedbackModal(true)}
-            className="px-5 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
+            className="px-4 sm:px-5 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
             title="Submit anonymous post-consultation feedback"
           >
             <HeartHandshake className="w-4 h-4 text-emerald-200" />
@@ -156,10 +190,10 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
           <button
             id="btn-write-google-review"
             onClick={() => setShowWriteModal(true)}
-            className="px-5 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
+            className="px-4 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs shadow-xs transition-all flex items-center justify-center gap-2 shrink-0"
           >
-            <Star className="w-4 h-4 fill-white" />
-            <span>Write a Google Review</span>
+            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span>In-App Review</span>
           </button>
         </div>
       </div>

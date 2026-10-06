@@ -37,6 +37,7 @@ import {
   assessSymptoms, 
   PresetScenario 
 } from '../data/symptomCheckerData';
+import { useConsultationFee } from '../hooks/useConsultationFee';
 
 interface SymptomCheckerProps {
   onBookAppointment: (symptomsSummary: string, suspectedCondition?: string) => void;
@@ -49,6 +50,7 @@ export const SymptomChecker: React.FC<SymptomCheckerProps> = ({
   onOpenWhatsApp,
   onExploreVR
 }) => {
+  const consultationFee = useConsultationFee();
   // Symptom state
   const [selectedSymptomIds, setSelectedSymptomIds] = useState<string[]>([
     'sym-severe-throbbing-headache',
@@ -187,7 +189,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
             <span>•</span>
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4 text-[#E2A676]" />
-              Direct OPD Booking (₹1,500)
+              Direct OPD Booking (₹{consultationFee.toLocaleString('en-IN')})
             </span>
           </div>
         </div>
@@ -573,7 +575,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                   onClick={handleScheduleAppointment}
                   className="mt-2 px-4 py-2 bg-[#8E5B3E] text-white text-xs font-bold rounded-xl"
                 >
-                  Schedule Evaluation (₹1,500)
+                  Schedule Evaluation (₹{consultationFee.toLocaleString('en-IN')})
                 </button>
               </div>
             ) : (
@@ -708,7 +710,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                       Dr. Sanjay Sopan Varade (MD, DM Neuro)
                     </div>
                     <div className="text-[11px] text-[#8E5B3E] font-semibold">
-                      OPD Fee: ₹1,500 • 35+ Yrs Practice
+                      OPD Fee: ₹{consultationFee.toLocaleString('en-IN')} • 35+ Yrs Practice
                     </div>
                     <div className="text-[10px] text-[#73695B]">
                       Sopan Hospital, Mumbai Naka, Nashik
@@ -723,7 +725,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                   className="w-full py-3 px-4 bg-[#8E5B3E] hover:bg-[#784A31] text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>Book OPD Consultation with Dr. Varade (₹1,500)</span>
+                  <span>Book OPD Consultation with Dr. Varade (₹{consultationFee.toLocaleString('en-IN')})</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
 
@@ -887,7 +889,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                 className="w-full sm:w-auto px-5 py-2.5 bg-[#8E5B3E] hover:bg-[#784A31] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Calendar className="w-3.5 h-3.5" />
-                Proceed to Book OPD (₹1,500)
+                Proceed to Book OPD (₹{consultationFee.toLocaleString('en-IN')})
               </button>
             </div>
           </div>

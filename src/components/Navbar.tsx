@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 import { isAdminLoggedIn, setAdminSession } from '../utils/opdSlotUtils';
+import { useConsultationFee } from '../hooks/useConsultationFee';
 import { 
   Activity, 
   Phone, 
@@ -29,7 +30,8 @@ import {
   LogIn,
   Globe,
   Sliders,
-  Camera
+  Camera,
+  MapPin
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -51,6 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
   const [adminActive, setAdminActive] = useState<boolean>(() => isAdminLoggedIn());
+  const consultationFee = useConsultationFee();
 
   useEffect(() => {
     const checkAdmin = () => setAdminActive(isAdminLoggedIn());
@@ -72,6 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const navItems = [
     { id: 'gemini-assistant', label: t('nav.ai_assistant'), icon: <Bot className="w-4 h-4 text-emerald-600" /> },
     { id: 'symptom-checker', label: t('nav.symptom_checker'), icon: <Stethoscope className="w-4 h-4 text-[#8E5B3E]" /> },
+    { id: 'location', label: t('nav.location'), icon: <MapPin className="w-4 h-4 text-rose-600" /> },
     { id: 'stories', label: t('nav.stories'), icon: <Sparkles className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'gallery', label: t('nav.gallery'), icon: <Camera className="w-4 h-4 text-amber-600" /> },
     { id: 'news', label: t('nav.news'), icon: <Newspaper className="w-4 h-4 text-[#456254]" /> },
@@ -229,7 +233,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="btn-nav-opd-admin"
               onClick={() => setAdminModalOpen(true)}
               className="h-9 px-2.5 sm:px-3 rounded-xl bg-[#27231E] hover:bg-[#3E3832] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-              title="Hospital OPD Administration: Reset counter, extend capacity, accept/reject appointments, manage photos"
+              title="Hospital OPD Administration: Authenticate to manage appointments, quotas, and consultation settings"
             >
               <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
               <span className="whitespace-nowrap">{adminActive ? 'Admin Desk' : 'OPD Admin'}</span>
@@ -248,14 +252,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="whitespace-nowrap">{t('whatsapp.btn')}</span>
             </button>
 
-            {/* OPTION 3: BOOK OPD (₹1,500) BUTTON */}
+            {/* OPTION 3: BOOK OPD BUTTON */}
             <button
               onClick={() => handleNavClick('appointments')}
               className="h-9 px-3 sm:px-3.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-              title="Book OPD Consultation with Dr. Sanjay Sopan Varade (₹1,500)"
+              title={`Book OPD Consultation with Dr. Sanjay Sopan Varade (₹${consultationFee.toLocaleString('en-IN')})`}
             >
               <Calendar className="w-4 h-4 shrink-0" />
-              <span className="whitespace-nowrap">{t('book.opd')}</span>
+              <span className="whitespace-nowrap">
+                {language === 'mr' ? `ओपीडी (₹${consultationFee.toLocaleString('en-IN')})` : `Book OPD (₹${consultationFee.toLocaleString('en-IN')})`}
+              </span>
             </button>
 
             {/* Tablet Menu Toggle */}
@@ -359,7 +365,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>OPD Desk Admin Portal</span>
               </div>
               <span className="text-[10px] bg-slate-800 text-cyan-300 px-2 py-0.5 rounded font-mono">
-                Reset / Extend Quota
+                Admin Access
               </span>
             </button>
             {adminActive && (
@@ -401,6 +407,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* OPD Admin Portal Modal */}
       <OpdAdminPortalModal
         isOpen={adminModalOpen}
+        initialTab="fee"
         onClose={() => setAdminModalOpen(false)}
       />
     </header>

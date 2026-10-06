@@ -1,11 +1,18 @@
 import { Appointment, OpdAuditLog, OpdAuditActionType } from '../types';
 import { INITIAL_APPOINTMENTS } from '../data/mockData';
-import { saveAuditLogToFirestore, clearAuditLogsFromFirestore } from '../lib/firebase';
+import { 
+  saveAuditLogToFirestore, 
+  clearAuditLogsFromFirestore,
+  saveHospitalSettingsToFirestore,
+  fetchHospitalSettingsFromFirestore
+} from '../lib/firebase';
 
 export const TOTAL_OPD_DAILY_SLOTS = 50;
+export const DEFAULT_CONSULTATION_FEE = 1500;
 const STORAGE_KEY = 'sopan_hospital_opd_appointments';
 const MANUAL_OVERRIDE_KEY = 'sopan_hospital_opd_manual_override';
 const CAPACITY_STORAGE_KEY = 'sopan_hospital_opd_custom_capacity';
+const CONSULTATION_FEE_KEY = 'sopan_hospital_consultation_fee';
 const ADMIN_SESSION_KEY = 'sopan_hospital_admin_session';
 const AUDIT_LOG_STORAGE_KEY = 'sopan_hospital_opd_audit_logs';
 
@@ -211,6 +218,90 @@ export function setOpdCapacity(capacity: number): void {
 }
 
 /**
+ * Returns current doctor consultation fee in INR (default 1500).
+ */
+export function getConsultationFee(): number {
+  if (typeof window === 'undefined') return DEFAULT_CONSULTATION_FEE;
+  try {
+    const raw = localStorage.getItem(CONSULTATION_FEE_KEY);
+    if (!raw) return DEFAULT_CONSULTATION_FEE;
+    const parsed = parseInt(raw, 10);
+    return !isNaN(parsed) && parsed > 0 ? parsed : DEFAULT_CONSULTATION_FEE;
+  } catch {
+    return DEFAULT_CONSULTATION_FEE;
+  }
+}
+
+/**
+ * Formats a fee number as Indian Rupee string (e.g. "₹1,500").
+ */
+export function formatConsultationFee(fee?: number): string {
+  const val = typeof fee === 'number' && fee > 0 ? fee : getConsultationFee();
+  return `₹${val.toLocaleString('en-IN')}`;
+}
+
+/**
+ * Updates doctor consultation fee with audit logging and Firestore synchronization.
+ */
+export function setConsultationFee(newFee: number, adminUser?: { username?: string; email?: string }): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const sanitized = Math.max(0, Math.min(100000, Math.round(newFee)));
+    const prevFee = getConsultationFee();
+    localStorage.setItem(CONSULTATION_FEE_KEY, String(sanitized));
+
+    // Audit log
+    addAdminAuditLog({
+      action: 'CONSULTATION_FEE_UPDATED',
+      details: `Home page & OPD consultation fee changed from ₹${prevFee.toLocaleString('en-IN')} to ₹${sanitized.toLocaleString('en-IN')}.`,
+      adminName: adminUser?.username,
+      adminEmail: adminUser?.email
+    });
+
+    // Save to Firestore
+    saveHospitalSettingsToFirestore({
+      consultationFee: sanitized,
+      updatedBy: adminUser?.username || 'Hospital Administrator'
+    }).catch(() => {});
+
+    // Broadcast across all components
+    window.dispatchEvent(new CustomEvent('sopan_consultation_fee_updated', {
+      detail: { fee: sanitized, previousFee: prevFee }
+    }));
+  } catch (err) {
+    console.error('Failed to set consultation fee:', err);
+  }
+}
+
+/**
+ * Synchronize consultation fee from remote Firestore on application load.
+ */
+export async function syncConsultationFeeFromFirestore(): Promise<number> {
+  try {
+    const data = await fetchHospitalSettingsFromFirestore();
+    if (data && typeof data.consultationFee === 'number' && data.consultationFee > 0) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(CONSULTATION_FEE_KEY, String(data.consultationFee));
+        window.dispatchEvent(new CustomEvent('sopan_consultation_fee_updated', {
+          detail: { fee: data.consultationFee }
+        }));
+      }
+      return data.consultationFee;
+    }
+  } catch {
+    // Ignore offline errors
+  }
+  return getConsultationFee();
+}
+
+// Background sync on boot
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    syncConsultationFeeFromFirestore().catch(() => {});
+  }, 100);
+}
+
+/**
  * Resets the patient OPD counter:
  * Sets offset so booked counter is strictly 0, restoring 100% full capacity.
  */
@@ -371,23 +462,38 @@ export function updateAppointmentStatus(
 }
 
 /**
- * Loads appointments from local storage or returns initial mock appointments.
+ * Loads appointments from local storage and purges any legacy demo appointments.
  */
 export function loadOpdAppointments(): Appointment[] {
-  if (typeof window === 'undefined') return INITIAL_APPOINTMENTS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_APPOINTMENTS));
-      return INITIAL_APPOINTMENTS;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+    if (Array.isArray(parsed)) {
+      // Purge legacy sample demo appointments (Rajesh, Meera, Anand, Sunita / apt-901..904)
+      const sampleIds = new Set(['apt-901', 'apt-902', 'apt-903', 'apt-904', 'STRK-04', 'EPI-12', 'PRK-07', 'MIG-03']);
+      const sampleNames = new Set(['Rajesh S. Kulkarni', 'Meera N. Patel', 'Anand K. Joshi', 'Sunita M. Sharma']);
+      
+      const filtered = parsed.filter(apt => {
+        if (!apt) return false;
+        if (sampleIds.has(apt.id) || sampleIds.has(apt.tokenNumber)) return false;
+        if (sampleNames.has(apt.patientName)) return false;
+        return true;
+      });
+
+      if (filtered.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+        localStorage.removeItem(MANUAL_OVERRIDE_KEY);
+      }
+      return filtered;
     }
-    return INITIAL_APPOINTMENTS;
+    return [];
   } catch {
-    return INITIAL_APPOINTMENTS;
+    return [];
   }
 }
 

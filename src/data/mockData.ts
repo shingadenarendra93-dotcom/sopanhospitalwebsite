@@ -181,107 +181,7 @@ export const INITIAL_VITALS_LOGS: PatientVitalsLog[] = [
   }
 ];
 
-export const INITIAL_APPOINTMENTS: Appointment[] = [
-  {
-    id: 'apt-901',
-    patientName: 'Rajesh S. Kulkarni',
-    patientAge: 58,
-    patientGender: 'Male',
-    patientPhone: '+91 98230 45678',
-    patientEmail: 'rajesh.kulkarni@example.com',
-    doctorId: 'doc-sanjay-varade',
-    doctorName: 'Dr. Sanjay Sopan Varade MD, DM Neuro',
-    department: 'Comprehensive Stroke Center',
-    date: '2026-09-24',
-    timeSlot: '11:00 AM',
-    visitType: 'In-Person Hospital OPD',
-    symptoms: '1-Month post mechanical thrombectomy routine Doppler & motor recovery assessment',
-    status: 'Confirmed',
-    tokenNumber: 'STRK-04',
-    slotNumber: 1,
-    remainingSlotsAtBooking: 49,
-    createdAt: '2026-09-18',
-    reminderSettings: {
-      whatsapp: true,
-      email: true,
-      leadTimeHours: 24,
-      whatsappNumber: '+91 98230 45678',
-      emailAddress: 'rajesh.kulkarni@example.com',
-      status: 'Active',
-      scheduledTimeText: '24 Hours Prior (2026-09-23 at 11:00 AM)',
-      confirmedAt: '2026-09-18'
-    }
-  },
-  {
-    id: 'apt-902',
-    patientName: 'Meera N. Patel',
-    patientAge: 34,
-    patientGender: 'Female',
-    patientPhone: '+91 94220 11223',
-    patientEmail: 'meera.patel@example.com',
-    doctorId: 'doc-sanjay-varade',
-    doctorName: 'Dr. Sanjay Sopan Varade MD, DM Neuro',
-    department: 'Comprehensive Stroke Center',
-    date: '2026-09-22',
-    timeSlot: '02:00 PM',
-    visitType: 'Tele-Neurology Video Consultation',
-    symptoms: 'Breakthrough nocturnal myoclonic jerks and Levetiracetam dosage titration',
-    status: 'Confirmed',
-    tokenNumber: 'EPI-12',
-    slotNumber: 2,
-    remainingSlotsAtBooking: 48,
-    createdAt: '2026-09-19',
-    reminderSettings: {
-      whatsapp: true,
-      email: false,
-      leadTimeHours: 2,
-      whatsappNumber: '+91 94220 11223',
-      emailAddress: 'meera.patel@example.com',
-      status: 'Scheduled',
-      scheduledTimeText: '2 Hours Prior (Today at 12:00 PM)',
-      confirmedAt: '2026-09-19'
-    }
-  },
-  {
-    id: 'apt-903',
-    patientName: 'Anand K. Joshi',
-    patientAge: 62,
-    patientGender: 'Male',
-    patientPhone: '+91 98221 55443',
-    patientEmail: 'anand.joshi@example.com',
-    doctorId: 'doc-sanjay-varade',
-    doctorName: 'Dr. Sanjay Sopan Varade MD, DM Neuro',
-    department: 'Movement Disorders & Parkinson’s',
-    date: '2026-09-25',
-    timeSlot: '10:30 AM',
-    visitType: 'In-Person Hospital OPD',
-    symptoms: 'Rest tremor in right hand, bradykinesia and clinical evaluation for Parkinsonism',
-    status: 'Pending',
-    tokenNumber: 'PRK-07',
-    createdAt: '2026-09-20'
-  },
-  {
-    id: 'apt-904',
-    patientName: 'Sunita M. Sharma',
-    patientAge: 42,
-    patientGender: 'Female',
-    patientPhone: '+91 98500 77889',
-    patientEmail: 'sunita.sharma@example.com',
-    doctorId: 'doc-sanjay-varade',
-    doctorName: 'Dr. Sanjay Sopan Varade MD, DM Neuro',
-    department: 'Spine & Peripheral Nerve',
-    date: '2026-09-25',
-    timeSlot: '04:00 PM',
-    visitType: 'In-Person Hospital OPD',
-    symptoms: 'Intractable refractory hemicranial migraine and cervical radiculopathy pain',
-    status: 'Cancelled',
-    rejectionReason: 'Doctor in Emergency OT / Thrombectomy Procedure',
-    adminActionAt: '2026-09-21T09:30:00Z',
-    adminActionBy: 'Dr. Sanjay Varade Clinic Desk Admin',
-    tokenNumber: 'MIG-03',
-    createdAt: '2026-09-20'
-  }
-];
+export const INITIAL_APPOINTMENTS: Appointment[] = [];
 
 export const BRAIN_HOTSPOTS: BrainAnatomyHotspot[] = [
   {
@@ -1083,14 +983,14 @@ export const HOSPITAL_EVENTS: HospitalEvent[] = [
   {
     id: 'evt-05',
     title: 'Acute Stroke Survivors & Caregiver Felicitation Conclave',
-    category: 'Survivor Meet',
+    category: 'Patient Stories',
     date: '05 June 2026',
     location: 'Sopan Neuro-Rehabilitation Courtyard, Nashik',
     leadClinician: 'Dr. Sanjay Sopan Varade & Neuro-Rehabilitation Department',
     summary: 'Inspiring annual felicitation gathering celebrating 50+ acute stroke survivors who regained functional independence and motor capability through prompt acute care and dedicated neuro-rehab.',
     attendeesCount: '190+ Patients & Caregiver Families',
     imageUrl: 'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?auto=format&fit=crop&w=1200&q=80',
-    tags: ['Stroke Survivors', 'Neuro Recovery', 'Inspiring Journeys', 'Rehabilitation'],
+    tags: ['Patient Stories', 'Stroke Survivors', 'Neuro Recovery', 'Inspiring Journeys', 'Rehabilitation'],
     keyHighlights: [
       'Testimonials from patients who received thrombectomy within the golden window and returned to active work.',
       'Caregiver awards honoring spouses and children providing heroic home care support.',
@@ -1100,18 +1000,86 @@ export const HOSPITAL_EVENTS: HospitalEvent[] = [
   {
     id: 'evt-06',
     title: 'Refractory Migraine, Vertigo & Brain Health Community Drive',
-    category: 'Stroke Awareness',
+    category: 'Events',
     date: '22 July 2026 (World Brain Day)',
     location: 'Mumbai Naka Community Center & Sopan Hospital Health Desk',
     leadClinician: 'Dr. Sanjay Sopan Varade',
     summary: 'Public education symposium and open forum addressing chronic migraine management, vestibular vertigo rehabilitation, sleep hygiene, and blood pressure control for stroke prevention.',
     attendeesCount: '210+ Nashik Residents',
     imageUrl: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=1200&q=80',
-    tags: ['World Brain Day', 'Migraine Care', 'Vertigo Clinic', 'Healthy Brain'],
+    tags: ['Events', 'World Brain Day', 'Migraine Care', 'Vertigo Clinic', 'Healthy Brain'],
     keyHighlights: [
       'Guidance on distinguishing benign tension headaches from red-flag neurological headaches.',
       'Epley maneuver demonstrations for Benign Paroxysmal Positional Vertigo (BPPV).',
       'Free distribution of headache trigger diary trackers and dietary wellness charts.'
+    ]
+  },
+  {
+    id: 'evt-07',
+    title: 'Sopan Hospital 35th Silver Jubilee Annual Neurology Summit & Gala',
+    category: 'Events',
+    date: '14 November 2025',
+    location: 'Sopan Hospital Grand Pavilion, Shrihari Kute Marg, Nashik',
+    leadClinician: 'Dr. Sanjay Sopan Varade (Founder & Medical Director)',
+    summary: 'Commemorating 35+ years of pioneering neurology service in North Maharashtra with clinical symposium, medical technology exhibition, and civic reception.',
+    attendeesCount: '350+ Doctors, Dignitaries & Civic Leaders',
+    imageUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Events', 'Silver Jubilee', 'Annual Summit', 'Sopan Neurology', 'Nashik'],
+    keyHighlights: [
+      'Retrospective presentation covering 100,000+ neurological patients consulted over 35 years.',
+      'Unveiling of the AI-integrated acute stroke neuro-imaging telemedicine pipeline.',
+      'Felicitation of veteran healthcare workers and rural neurological outreach pioneers.'
+    ]
+  },
+  {
+    id: 'evt-08',
+    title: 'Lifetime Achievement & Excellence in Stroke Care Award 2026',
+    category: 'Awards',
+    date: '18 January 2026',
+    location: 'Maharashtra Neurological Society Annual Conclave, Pune',
+    leadClinician: 'Dr. Sanjay Sopan Varade (Recipient of Honor)',
+    summary: 'Dr. Sanjay Sopan Varade honored with the prestigious Lifetime Achievement Award for pioneering 24/7 mechanical thrombectomy and hyper-acute stroke care across Nashik and North Maharashtra.',
+    attendeesCount: '400+ Senior Neurologists & Surgeons',
+    imageUrl: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Awards', 'Lifetime Achievement', 'Dr Varade', 'Medical Honors', 'Excellence'],
+    keyHighlights: [
+      'Citation honoring 35 years of unremitting neurological service and sub-25-minute door-to-needle record.',
+      'Gold medal presentation by the President of Maharashtra Neurological Association.',
+      'Keynote lecture by Dr. Varade on establishing acute stroke networks in tier-2 Indian cities.'
+    ]
+  },
+  {
+    id: 'evt-09',
+    title: 'Sopan Neuro-Critical Care & Comprehensive Nursing Staff Conclave',
+    category: 'Staff',
+    date: '12 May 2026 (International Nurses Day)',
+    location: 'Sopan Institute Academic Amphitheatre & Simulation Center',
+    leadClinician: 'Dr. Sanjay Sopan Varade & Chief Nursing Superintendent',
+    summary: 'Annual recognition and specialized skills certification conclave honoring the dedicated neuro-ICU nurses, stroke triage paramedics, and emergency technician staff of Sopan Hospital.',
+    attendeesCount: '110+ Specialized Healthcare Staff',
+    imageUrl: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Staff', 'Nursing Conclave', 'Healthcare Heroes', 'Neuro ICU', 'Team Sopan'],
+    keyHighlights: [
+      'Awarding of 10-year and 20-year long-service recognition awards to emergency clinical nurses.',
+      'Hands-on simulation drills in acute Glasgow Coma Scale (GCS) and NIHSS stroke scoring.',
+      'Celebratory luncheon and cultural program organized by the hospital staff association.'
+    ]
+  },
+  {
+    id: 'evt-10',
+    title: 'Intractable Epilepsy Recovery & Student Academic Triumph Story',
+    category: 'Patient Stories',
+    date: '08 August 2026',
+    location: 'Outpatient Auditorium, Sopan Hospital, Mumbai Naka, Nashik',
+    leadClinician: 'Dr. Sanjay Sopan Varade',
+    summary: 'Heartwarming celebration honoring a 16-year-old student who achieved seizure freedom following tailored anti-epileptic therapy at Sopan Hospital and went on to score 96% in board examinations.',
+    attendeesCount: '75+ Family Members & Caregivers',
+    imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80',
+    tags: ['Patient Stories', 'Epilepsy Recovery', 'Academic Triumph', 'Seizure Freedom', 'Inspiration'],
+    keyHighlights: [
+      'Patient testimonial on overcoming debilitating absence seizures with 24-hour video EEG monitoring.',
+      'Scholarship grant presented by Sopan Hospital Foundation to encourage higher education.',
+      'Inspirational address by Dr. Sanjay Sopan Varade encouraging families affected by neurological disorders.'
     ]
   }
 ];

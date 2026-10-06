@@ -57,7 +57,7 @@ export const PatientPortal: React.FC = () => {
     const patientApts = all.filter(
       a => a.patientName.toLowerCase().includes('rajesh') || a.patientPhone === INITIAL_PATIENT.emergencyContact
     );
-    return patientApts.length > 0 ? patientApts : all.slice(0, 1);
+    return patientApts.length > 0 ? patientApts : (all.length > 0 ? all.slice(0, 1) : []);
   });
 
   const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'prescriptions' | 'telemetry'>('overview');
@@ -73,7 +73,7 @@ export const PatientPortal: React.FC = () => {
       const patientApts = all.filter(
         a => a.patientName.toLowerCase().includes('rajesh') || a.patientPhone === patient.emergencyContact
       );
-      setAppointments(patientApts.length > 0 ? patientApts : all.slice(0, 1));
+      setAppointments(patientApts.length > 0 ? patientApts : (all.length > 0 ? all.slice(0, 1) : []));
     };
 
     window.addEventListener('sopan_opd_quota_updated', syncAppointments);
@@ -258,7 +258,10 @@ export const PatientPortal: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Metric 1: Upcoming Appointments */}
           <div 
-            onClick={() => setSelectedAppointmentModal(nextAppointment || appointments[0])}
+            onClick={() => {
+              const target = nextAppointment || (appointments.length > 0 ? appointments[0] : null);
+              if (target) setSelectedAppointmentModal(target);
+            }}
             className="group relative bg-gradient-to-br from-blue-50/40 via-white to-slate-50/50 hover:to-blue-50/30 border border-blue-100 hover:border-blue-300 rounded-2xl p-4 sm:p-5 transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between"
           >
             <div>

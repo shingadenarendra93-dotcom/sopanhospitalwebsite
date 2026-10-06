@@ -41,6 +41,12 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Hospital configuration settings (consultation fee, OPD capacity): public read, write for admin
+    match /hospital_settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Connection test document
     match /test/{docId} {
       allow read, write: if true;

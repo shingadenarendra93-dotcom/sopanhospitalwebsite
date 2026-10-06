@@ -15,58 +15,171 @@ const STORAGE_KEY = 'sopan_hospital_events_gallery';
  */
 export const PRESET_OCCASION_PHOTOS = [
   {
-    label: 'Neuro-Intervention Suite Inauguration',
+    label: 'Neuro-Intervention Suite Inauguration Ceremony',
     url: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1200&q=80',
-    category: 'Facility Inauguration'
+    category: 'Events'
   },
   {
-    label: 'World Stroke Day Medical Summit',
+    label: 'World Stroke Day Medical Summit & Protocol Seminar',
     url: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80',
-    category: 'Stroke Awareness'
+    category: 'Events'
   },
   {
-    label: 'Free Parkinson’s & Geriatric Health Camp',
-    url: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80',
-    category: 'Free Medical Camp'
+    label: 'Lifetime Achievement & Neurological Excellence Award',
+    url: 'https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=1200&q=80',
+    category: 'Awards'
   },
   {
-    label: 'Hospital Doctors & Staff Felicitation Conclave',
+    label: 'Hospital Doctors & Multidisciplinary Specialists Conclave',
     url: 'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?auto=format&fit=crop&w=1200&q=80',
-    category: 'Doctor Felicitation'
+    category: 'Awards'
   },
   {
-    label: 'Pediatric Epilepsy Workshop & Video-EEG CME',
+    label: 'Neuro-ICU Nursing & Clinical Staff Conclave',
+    url: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=1200&q=80',
+    category: 'Staff'
+  },
+  {
+    label: 'Acute Stroke Survivors & Functional Recovery Felicitation',
+    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80',
+    category: 'Patient Stories'
+  },
+  {
+    label: 'Free Parkinson’s & Geriatric Tremor Screening Camp',
+    url: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80',
+    category: 'Medical Camps'
+  },
+  {
+    label: 'Pediatric Epilepsy Workshop & Video-EEG CME Training',
     url: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=1200&q=80',
     category: 'Clinical CME'
   },
   {
-    label: 'Hospital Annual Day & Patient Recovery Conclave',
+    label: 'Silver Jubilee Annual Neurology Day & Recovery Gala',
+    url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
+    category: 'Events'
+  },
+  {
+    label: 'Hospital Doctors, Nurses & Rehabilitation Team',
     url: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=1200&q=80',
-    category: 'Special Occasion'
-  },
-  {
-    label: 'Diwali & Festival Neurological Ward Celebration',
-    url: 'https://images.unsplash.com/photo-1607344645866-009c320c5ab8?auto=format&fit=crop&w=1200&q=80',
-    category: 'Hospital Celebration'
-  },
-  {
-    label: 'Comprehensive Stroke Walkathon & Awareness Flag-off',
-    url: 'https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?auto=format&fit=crop&w=1200&q=80',
-    category: 'Stroke Awareness'
+    category: 'Staff'
   }
 ];
 
 export const OCCASION_CATEGORIES = [
   'All',
-  'Stroke Awareness',
+  'Events',
+  'Awards',
+  'Staff',
+  'Patient Stories',
+  'Medical Camps',
   'Clinical CME',
-  'Free Medical Camp',
-  'Facility Inauguration',
-  'Survivor Meet',
-  'Special Occasion',
-  'Hospital Celebration',
-  'Doctor Felicitation'
+  'Special Occasion'
 ] as const;
+
+/**
+ * Smart Category Matching: supports direct category match as well as semantic alias tags
+ * (e.g. 'Events', 'Awards', 'Staff', 'Patient Stories')
+ */
+export function matchEventCategory(evt: HospitalEvent, category: string): boolean {
+  if (!category || category === 'All') return true;
+  if (evt.category === category) return true;
+
+  const catLower = category.toLowerCase();
+  const evtCatLower = (evt.category || '').toLowerCase();
+  const tagsStr = (evt.tags || []).join(' ').toLowerCase();
+  const textStr = `${evt.title || ''} ${evt.summary || ''}`.toLowerCase();
+
+  if (category === 'Events') {
+    return (
+      evtCatLower === 'events' ||
+      evtCatLower.includes('occasion') ||
+      evtCatLower.includes('inauguration') ||
+      evtCatLower.includes('celebration') ||
+      evtCatLower.includes('stroke awareness') ||
+      tagsStr.includes('event') ||
+      tagsStr.includes('summit') ||
+      tagsStr.includes('jubilee') ||
+      textStr.includes('summit') ||
+      textStr.includes('seminar') ||
+      textStr.includes('conclave')
+    );
+  }
+
+  if (category === 'Awards') {
+    return (
+      evtCatLower === 'awards' ||
+      evtCatLower.includes('felicitation') ||
+      evtCatLower.includes('honor') ||
+      tagsStr.includes('award') ||
+      tagsStr.includes('honor') ||
+      tagsStr.includes('achievement') ||
+      textStr.includes('award') ||
+      textStr.includes('lifetime achievement') ||
+      textStr.includes('felicitation') ||
+      textStr.includes('gold medal')
+    );
+  }
+
+  if (category === 'Staff') {
+    return (
+      evtCatLower === 'staff' ||
+      tagsStr.includes('staff') ||
+      tagsStr.includes('nursing') ||
+      tagsStr.includes('team') ||
+      tagsStr.includes('doctor') ||
+      tagsStr.includes('clinician') ||
+      textStr.includes('staff') ||
+      textStr.includes('nurses') ||
+      textStr.includes('physicians') ||
+      textStr.includes('paramedic') ||
+      textStr.includes('healthcare heroes')
+    );
+  }
+
+  if (category === 'Patient Stories') {
+    return (
+      evtCatLower === 'patient stories' ||
+      evtCatLower.includes('survivor') ||
+      tagsStr.includes('patient stories') ||
+      tagsStr.includes('survivor') ||
+      tagsStr.includes('recovery') ||
+      tagsStr.includes('inspiration') ||
+      textStr.includes('survivor') ||
+      textStr.includes('patient story') ||
+      textStr.includes('recovery journey') ||
+      textStr.includes('triumph')
+    );
+  }
+
+  if (category === 'Medical Camps') {
+    return (
+      evtCatLower === 'medical camps' ||
+      evtCatLower.includes('camp') ||
+      tagsStr.includes('camp') ||
+      tagsStr.includes('screening') ||
+      textStr.includes('free screening') ||
+      textStr.includes('camp')
+    );
+  }
+
+  if (category === 'Clinical CME') {
+    return (
+      evtCatLower === 'clinical cme' ||
+      evtCatLower.includes('cme') ||
+      tagsStr.includes('cme') ||
+      tagsStr.includes('workshop') ||
+      textStr.includes('cme') ||
+      textStr.includes('workshop')
+    );
+  }
+
+  if (category === 'Special Occasion') {
+    return evtCatLower.includes('occasion') || evtCatLower.includes('celebration');
+  }
+
+  return false;
+}
 
 /**
  * Loads hospital events and special occasion photos from local storage
@@ -81,6 +194,14 @@ export function loadHospitalEvents(): HospitalEvent[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
+      // Merge in any newly added default category items (e.g. Awards, Staff, Events, Patient Stories)
+      const existingIds = new Set(parsed.map((p: any) => p?.id));
+      const missingDefaults = HOSPITAL_EVENTS.filter(def => !existingIds.has(def.id));
+      if (missingDefaults.length > 0) {
+        const merged = [...parsed, ...missingDefaults];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        return merged;
+      }
       return parsed;
     }
     return HOSPITAL_EVENTS;

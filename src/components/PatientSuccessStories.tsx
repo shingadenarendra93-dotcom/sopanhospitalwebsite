@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { PatientSuccessStory } from '../types';
 import { INITIAL_SUCCESS_STORIES } from '../data/mockData';
+import { useConsultationFee } from '../hooks/useConsultationFee';
 
 interface PatientSuccessStoriesProps {
   onBookAppointment?: () => void;
@@ -34,6 +35,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
   onOpenReviews,
   onOpenWhatsApp
 }) => {
+  const consultationFee = useConsultationFee();
   const [stories, setStories] = useState<PatientSuccessStory[]>(INITIAL_SUCCESS_STORIES);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [activeAudioStoryId, setActiveAudioStoryId] = useState<string | null>(null);
@@ -199,7 +201,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
                 className="px-5 py-2.5 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2"
               >
                 <Calendar className="w-3.5 h-3.5" />
-                Book OPD Consultation (₹1,500)
+                Book OPD Consultation (₹{consultationFee.toLocaleString('en-IN')})
               </button>
             )}
           </div>
@@ -394,7 +396,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
                 Director & Chief Consultant Neurologist • Sopan Hospital & Neurology Institute Nashik
               </p>
               <div className="flex items-center gap-4 text-xs text-[#7A5338] font-medium mt-1">
-                <span>OPD Consultation: <strong className="text-[#27231E]">₹1,500</strong></span>
+                <span>OPD Consultation: <strong className="text-[#27231E]">₹{consultationFee.toLocaleString('en-IN')}</strong></span>
                 <span>•</span>
                 <span>Experience: <strong className="text-[#27231E]">17+ Years</strong></span>
                 <span>•</span>
@@ -410,7 +412,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
                 className="w-full md:w-auto px-5 py-2.5 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-2"
               >
                 <Calendar className="w-4 h-4" />
-                Book Consultation (₹1,500)
+                Book Consultation (₹{consultationFee.toLocaleString('en-IN')})
               </button>
             )}
 

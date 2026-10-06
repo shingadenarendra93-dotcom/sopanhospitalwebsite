@@ -331,6 +331,7 @@ export type OpdAuditActionType =
   | 'APPOINTMENT_REJECTED' 
   | 'OPD_COUNTER_RESET' 
   | 'OPD_CAPACITY_EXTENDED'
+  | 'CONSULTATION_FEE_UPDATED'
   | 'ADMIN_LOGIN'
   | 'ADMIN_LOGOUT'
   | 'EVENT_PHOTO_ADDED'
@@ -355,19 +356,26 @@ export interface OpdAuditLog {
   meta?: Record<string, any>;
 }
 
+export type HospitalEventCategory = 
+  | 'Events'
+  | 'Awards'
+  | 'Staff'
+  | 'Patient Stories'
+  | 'Medical Camps'
+  | 'Clinical CME'
+  | 'Stroke Awareness'
+  | 'Free Medical Camp'
+  | 'Facility Inauguration'
+  | 'Survivor Meet'
+  | 'Special Occasion'
+  | 'Hospital Celebration'
+  | 'Doctor Felicitation'
+  | string;
+
 export interface HospitalEvent {
   id: string;
   title: string;
-  category: 
-    | 'Stroke Awareness' 
-    | 'Clinical CME' 
-    | 'Free Medical Camp' 
-    | 'Facility Inauguration' 
-    | 'Survivor Meet'
-    | 'Special Occasion'
-    | 'Hospital Celebration'
-    | 'Doctor Felicitation'
-    | string;
+  category: HospitalEventCategory;
   date: string;
   location: string;
   leadClinician: string;

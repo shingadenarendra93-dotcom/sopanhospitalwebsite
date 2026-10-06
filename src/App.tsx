@@ -13,6 +13,7 @@ import { PatientExperienceFeedbackModalOrSection } from './components/PatientExp
 import { PatientSuccessStories } from './components/PatientSuccessStories';
 import { LatestNeurologyNews } from './components/LatestNeurologyNews';
 import { HospitalEventsGallery } from './components/HospitalEventsGallery';
+import { HospitalMapLocation } from './components/HospitalMapLocation';
 import { SymptomChecker } from './components/SymptomChecker';
 import { GeminiChatbot } from './components/GeminiChatbot';
 import { OpdAdminPortalModal } from './components/OpdAdminPortalModal';
@@ -42,6 +43,9 @@ function MainApp() {
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
   const [whatsAppDefaultTemplate, setWhatsAppDefaultTemplate] = useState<string>('stroke-emergency');
   const [isEmergencyCallModalOpen, setIsEmergencyCallModalOpen] = useState<boolean>(false);
+  const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState<boolean>(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+  const [adminInitialTab, setAdminInitialTab] = useState<'fee' | 'counter' | 'appointments' | 'logs' | 'gallery'>('fee');
 
   React.useEffect(() => {
     // Keep the doctor photo default: purge any legacy local storage overrides
@@ -49,6 +53,10 @@ function MainApp() {
       localStorage.removeItem('sopan_dr_custom_photo');
       window.dispatchEvent(new Event('sopan_photo_updated'));
     }
+
+    const handleQuota = () => setGmpQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handleQuota);
+    return () => window.removeEventListener('gmp-quota-exceeded', handleQuota);
   }, []);
 
   const handleOpenWhatsApp = (template = 'stroke-emergency') => {
@@ -68,6 +76,7 @@ function MainApp() {
   const subTabs = [
     { id: 'gemini-assistant', label: t('nav.ai_assistant') },
     { id: 'symptom-checker', label: t('nav.symptom_checker') },
+    { id: 'location', label: t('nav.location') },
     { id: 'stories', label: t('nav.stories') },
     { id: 'gallery', label: 'Hospital Occasion Photos' },
     { id: 'news', label: t('nav.news') },
@@ -85,6 +94,24 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-[#F6F3EE] text-[#27231E] flex flex-col font-sans antialiased selection:bg-[#8E5B3E] selection:text-white">
+      {/* Google Maps Quota Warning Banner (GHP Compliance) */}
+      {gmpQuotaExceeded && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <span>
+            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+            <a
+              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-amber-950 hover:text-amber-800"
+            >
+              maps developer site
+            </a>{' '}
+            for instructions to update your account.
+          </span>
+        </div>
+      )}
+
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
@@ -141,6 +168,15 @@ function MainApp() {
                 setActiveTab('vr-brain');
                 window.scrollTo({ top: 380, behavior: 'smooth' });
               }}
+            />
+          )}
+          {activeTab === 'location' && (
+            <HospitalMapLocation
+              onBookConsultation={() => {
+                setActiveTab('appointments');
+                window.scrollTo({ top: 380, behavior: 'smooth' });
+              }}
+              onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
             />
           )}
           {activeTab === 'stories' && (
@@ -200,6 +236,7 @@ function MainApp() {
           {activeTab === 'opd-admin' && (
             <OpdAdminPortalModal
               isEmbedded={true}
+              initialTab="fee"
               onClose={() => {
                 setActiveTab('appointments');
                 window.scrollTo({ top: 380, behavior: 'smooth' });
@@ -217,6 +254,13 @@ function MainApp() {
           )}
         </div>
       </main>
+
+      {/* OPD Admin Portal Modal for Instant Home Fee & Quota Changes */}
+      <OpdAdminPortalModal
+        isOpen={isAdminModalOpen}
+        initialTab={adminInitialTab}
+        onClose={() => setIsAdminModalOpen(false)}
+      />
 
       {/* Persistent Floating WhatsApp Help Desk Button */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
