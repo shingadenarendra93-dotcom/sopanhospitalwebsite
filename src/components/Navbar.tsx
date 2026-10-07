@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { SopanLogo } from './SopanLogo';
-import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
@@ -46,7 +45,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenWhatsApp,
   onOpenEmergencyCall
 }) => {
-  const { user, logOut } = useAuth();
   const { t, language } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
@@ -60,12 +58,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const navItems = [
+    { id: 'appointments', label: t('nav.appointments'), icon: <Calendar className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'symptom-checker', label: t('nav.symptom_checker'), icon: <Stethoscope className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'location', label: t('nav.location'), icon: <MapPin className="w-4 h-4 text-rose-600" /> },
     { id: 'stories', label: t('nav.stories'), icon: <Sparkles className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'gallery', label: t('nav.gallery'), icon: <Camera className="w-4 h-4 text-amber-600" /> },
     { id: 'news', label: t('nav.news'), icon: <Newspaper className="w-4 h-4 text-[#456254]" /> },
-    { id: 'appointments', label: t('nav.appointments'), icon: <Calendar className="w-4 h-4" /> },
     { id: 'reviews', label: t('nav.reviews'), icon: <Star className="w-4 h-4 fill-amber-500 text-amber-500" /> },
     { id: 'patient-feedback', label: t('nav.feedback'), icon: <MessageSquare className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'patient-portal', label: t('nav.portal'), icon: <User className="w-4 h-4" /> },
@@ -95,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-3 shrink-0 text-xs font-semibold">
           <button
             onClick={onOpenEmergencyCall}
-            className="hover:underline flex items-center gap-1.5 text-white"
+            className="hover:underline flex items-center gap-1.5 text-white cursor-pointer"
             title="Call 24/7 Stroke Emergency Hotline"
           >
             <Phone className="w-3.5 h-3.5" />
@@ -107,7 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             onClick={onOpenWhatsApp}
-            className="hover:underline flex items-center gap-1.5 text-white"
+            className="hover:underline flex items-center gap-1.5 text-white cursor-pointer"
             title="WhatsApp Stroke Emergency Desk"
           >
             <MessageCircle className="w-3.5 h-3.5" />
@@ -119,83 +117,35 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-18 py-2 gap-2 sm:gap-4">
-          {/* Hospital Brand & Logo (flexible width to avoid pushing right actions) */}
+        <div className="flex items-center justify-between h-16 sm:h-20 py-2 gap-3 sm:gap-6">
+          {/* Hospital Brand & Logo - Clean, prominent, never squeezed or truncated */}
           <div 
-            onClick={() => handleNavClick('stories')}
-            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group min-w-0 shrink"
+            onClick={() => handleNavClick('appointments')}
+            className="flex items-center gap-2.5 sm:gap-3.5 cursor-pointer select-none group shrink-0"
+            title="Sopan Hospital & Neurology Institute - Director: Dr. Sanjay Sopan Varade"
           >
-            <div className="p-1 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
+            <div className="p-1 sm:p-1.5 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
               <SopanLogo size="md" />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-base sm:text-lg xl:text-xl font-serif font-bold tracking-tight text-[#27231E] truncate">
+            <div className="flex flex-col justify-center min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-base sm:text-xl lg:text-2xl font-serif font-black tracking-tight text-[#27231E] whitespace-nowrap">
                   {t('hospital.name')}
                 </span>
-                <span className="hidden md:inline text-[9px] sm:text-[10px] bg-[#EFE9DF] text-[#7A5338] font-semibold px-2 py-0.5 rounded-full border border-[#DFD6C8] whitespace-nowrap">
+                <span className="text-[9px] sm:text-[11px] bg-[#EFE9DF] text-[#7A5338] font-bold px-2 sm:px-2.5 py-0.5 rounded-full border border-[#DFD6C8] whitespace-nowrap hidden xs:inline-block">
                   {t('hospital.tagline')}
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] font-medium text-[#7A5338] tracking-wide truncate max-w-[150px] sm:max-w-[240px] lg:max-w-xs xl:max-w-md hidden xs:block">
-                {t('doctor.title')}
+              <p className="text-[10px] sm:text-xs font-semibold text-[#7A5338] tracking-wide whitespace-nowrap mt-0.5">
+                {language === 'mr' ? 'वरिष्ठ न्यूरोलॉजिस्ट: डॉ. संजय सोपान वराडे (MD, DM Neuro)' : 'Chief Neurologist: Dr. Sanjay Sopan Varade (MD, DM Neuro)'}
               </p>
             </div>
           </div>
 
-          {/* Desktop Links (only visible on ultra-wide 2xl screens to preserve right button placement) */}
-          <nav className="hidden 2xl:flex items-center gap-1 shrink-0">
-            {navItems.slice(0, 5).map(item => {
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  id={`nav-link-${item.id}`}
-                  onClick={() => handleNavClick(item.id)}
-                  className={`h-9 px-2.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1 shrink-0 ${
-                    isActive
-                      ? 'bg-[#342E28] text-white shadow-xs'
-                      : 'text-[#635E56] hover:text-[#27231E] hover:bg-[#EFE9DF]'
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
           {/* ======================================================== */}
-          {/* RIGHT SIDE ACTIONS: DESKTOP & TABLET VIEW (NO SIDE SCROLL) */}
+          {/* RIGHT SIDE ACTIONS: DESKTOP & TABLET VIEW (CLEAN & BALANCED) */}
           {/* ======================================================== */}
-          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-            {/* Authenticated User Profile */}
-            {user && (
-              <div className="h-9 flex items-center gap-1.5 bg-[#FAF7F2] border border-[#D8CFC2] px-2.5 rounded-xl shadow-2xs">
-                {user.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt={user.displayName || 'User'}
-                    className="w-5 h-5 rounded-full object-cover border border-[#8E5B3E]/30"
-                  />
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-[#8E5B3E] text-white flex items-center justify-center text-[10px] font-bold">
-                    {(user.displayName || user.email || 'U')[0].toUpperCase()}
-                  </div>
-                )}
-                <span className="text-xs font-semibold text-[#27231E] max-w-[80px] truncate hidden md:inline">
-                  {user.displayName?.split(' ')[0] || 'Patient'}
-                </span>
-                <button
-                  onClick={() => logOut()}
-                  title="Sign Out"
-                  className="p-0.5 text-[#8E867A] hover:text-rose-600 transition-colors cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-
+          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
             {/* Language Switcher */}
             <LanguageSwitcher />
 
@@ -238,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Tablet Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="2xl:hidden h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] flex items-center justify-center shrink-0 cursor-pointer ml-1"
+              className="xl:hidden h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] flex items-center justify-center shrink-0 cursor-pointer ml-1"
               title="All Sections Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

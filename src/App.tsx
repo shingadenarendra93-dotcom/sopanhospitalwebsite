@@ -34,7 +34,7 @@ import {
 
 function MainApp() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<string>('symptom-checker');
+  const [activeTab, setActiveTab] = useState<string>('appointments');
   const [appointmentPrefill, setAppointmentPrefill] = useState<{
     symptoms?: string;
     condition?: string;
@@ -73,12 +73,12 @@ function MainApp() {
   };
 
   const subTabs = [
+    { id: 'appointments', label: t('nav.appointments') },
     { id: 'symptom-checker', label: t('nav.symptom_checker') },
     { id: 'location', label: t('nav.location') },
     { id: 'stories', label: t('nav.stories') },
     { id: 'gallery', label: 'Hospital Occasion Photos' },
     { id: 'news', label: t('nav.news') },
-    { id: 'appointments', label: t('nav.appointments') },
     { id: 'reviews', label: t('nav.reviews') },
     { id: 'patient-feedback', label: t('nav.feedback') },
     { id: 'vr-brain', label: t('nav.vr_brain') },
