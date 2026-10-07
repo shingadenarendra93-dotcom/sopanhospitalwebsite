@@ -15,7 +15,6 @@ import { LatestNeurologyNews } from './components/LatestNeurologyNews';
 import { HospitalEventsGallery } from './components/HospitalEventsGallery';
 import { HospitalMapLocation } from './components/HospitalMapLocation';
 import { SymptomChecker } from './components/SymptomChecker';
-import { GeminiChatbot } from './components/GeminiChatbot';
 import { OpdAdminPortalModal } from './components/OpdAdminPortalModal';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -74,7 +73,6 @@ function MainApp() {
   };
 
   const subTabs = [
-    { id: 'gemini-assistant', label: t('nav.ai_assistant') },
     { id: 'symptom-checker', label: t('nav.symptom_checker') },
     { id: 'location', label: t('nav.location') },
     { id: 'stories', label: t('nav.stories') },
@@ -152,7 +150,6 @@ function MainApp() {
 
         {/* View Switcher Container */}
         <div className="transition-opacity duration-200">
-          {activeTab === 'gemini-assistant' && <GeminiChatbot />}
           {activeTab === 'symptom-checker' && (
             <SymptomChecker
               onBookAppointment={handleBookFromSymptomChecker}

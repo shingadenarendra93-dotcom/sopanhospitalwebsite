@@ -25,7 +25,6 @@ import {
   Sparkles,
   Newspaper,
   Stethoscope,
-  Bot,
   LogOut,
   LogIn,
   Globe,
@@ -61,7 +60,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const navItems = [
-    { id: 'gemini-assistant', label: t('nav.ai_assistant'), icon: <Bot className="w-4 h-4 text-emerald-600" /> },
     { id: 'symptom-checker', label: t('nav.symptom_checker'), icon: <Stethoscope className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'location', label: t('nav.location'), icon: <MapPin className="w-4 h-4 text-rose-600" /> },
     { id: 'stories', label: t('nav.stories'), icon: <Sparkles className="w-4 h-4 text-[#8E5B3E]" /> },
