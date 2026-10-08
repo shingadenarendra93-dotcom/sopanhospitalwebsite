@@ -274,20 +274,6 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     }
   };
 
-  const handleQuickDemoLogin = () => {
-    const session = {
-      username: 'Dr. Sanjay Varade Clinic Desk Admin',
-      role: 'Chief Neurologist Clinical Coordinator',
-      email: 'admin@sopanhospital.com',
-      loginTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setAdminSession(session);
-    setIsLoggedIn(true);
-    setAdminUser(session);
-    setAuthError(null);
-    triggerToast('One-click Administrator login successful.', 'success');
-  };
-
   const handleLogout = () => {
     setAdminSession(null);
     setIsLoggedIn(false);
@@ -799,23 +785,13 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                   />
                 </div>
 
-                <div className="pt-2 space-y-2">
+                <div className="pt-2">
                   <button
                     type="submit"
                     className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5 text-cyan-400" />
                     Authenticate Administrator
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleQuickDemoLogin}
-                    className="w-full py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="1-Click authorized clinic staff login"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Quick Staff Sign-In (Clinic PIN: 2317)</span>
                   </button>
                 </div>
               </form>
