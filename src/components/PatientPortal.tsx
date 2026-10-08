@@ -44,6 +44,7 @@ import {
 } from '../data/mockData';
 import { loadOpdAppointments, saveOpdAppointments } from '../utils/opdSlotUtils';
 import { AppointmentReminderModal } from './AppointmentReminderModal';
+import { subscribeToAppointments } from '../lib/firebase';
 
 export const PatientPortal: React.FC = () => {
   const [patient] = useState<PatientProfile>(INITIAL_PATIENT);
@@ -66,8 +67,15 @@ export const PatientPortal: React.FC = () => {
   const [selectedAppointmentModal, setSelectedAppointmentModal] = useState<Appointment | null>(null);
   const [showReminderSettingsModal, setShowReminderSettingsModal] = useState<boolean>(false);
 
-  // Sync appointments with system events
+  // Sync appointments with system events & real-time Firestore onSnapshot
   useEffect(() => {
+    const unsubscribe = subscribeToAppointments((liveList) => {
+      const patientApts = liveList.filter(
+        a => a.patientName.toLowerCase().includes('rajesh') || a.patientPhone === patient.emergencyContact
+      );
+      setAppointments(patientApts.length > 0 ? patientApts : (liveList.length > 0 ? liveList.slice(0, 1) : []));
+    });
+
     const syncAppointments = () => {
       const all = loadOpdAppointments();
       const patientApts = all.filter(
@@ -79,6 +87,7 @@ export const PatientPortal: React.FC = () => {
     window.addEventListener('sopan_opd_quota_updated', syncAppointments);
     window.addEventListener('storage', syncAppointments);
     return () => {
+      unsubscribe();
       window.removeEventListener('sopan_opd_quota_updated', syncAppointments);
       window.removeEventListener('storage', syncAppointments);
     };

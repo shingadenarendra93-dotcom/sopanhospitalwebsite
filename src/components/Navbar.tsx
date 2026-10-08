@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 import { isAdminLoggedIn, setAdminSession } from '../utils/opdSlotUtils';
-import { useConsultationFee } from '../hooks/useConsultationFee';
+import { useHospitalContent } from '../hooks/useHospitalContent';
 import { 
   Activity, 
   Phone, 
@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
   const [adminActive, setAdminActive] = useState<boolean>(() => isAdminLoggedIn());
-  const consultationFee = useConsultationFee();
+  const { content } = useHospitalContent();
 
   useEffect(() => {
     const checkAdmin = () => setAdminActive(isAdminLoggedIn());
@@ -86,20 +86,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
           </span>
           <span className="tracking-wide truncate">
-            {t('emergency.banner')} {t('emergency.location')}
+            {content.emergencyBannerText}
           </span>
         </div>
 
         <div className="flex items-center gap-3 shrink-0 text-xs font-semibold">
-          <button
-            onClick={onOpenEmergencyCall}
+          <a
+            href={`tel:${content.emergencyPhone}`}
             className="hover:underline flex items-center gap-1.5 text-white cursor-pointer"
             title="Call 24/7 Stroke Emergency Hotline"
           >
             <Phone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">0253 2317364</span>
+            <span className="hidden sm:inline">{content.emergencyPhoneDisplay}</span>
             <span className="sm:hidden">Call</span>
-          </button>
+          </a>
 
           <span className="text-white/40">|</span>
 
@@ -109,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="WhatsApp Stroke Emergency Desk"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">WhatsApp: 9405545521</span>
+            <span className="hidden sm:inline">{content.whatsappDisplay}</span>
             <span className="sm:hidden">WhatsApp</span>
           </button>
         </div>
@@ -177,11 +177,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={() => handleNavClick('appointments')}
               className="h-9 px-3 sm:px-3.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-              title={`Book OPD Consultation with Dr. Sanjay Sopan Varade (₹${consultationFee.toLocaleString('en-IN')})`}
+              title={`Book OPD Consultation with Dr. Sanjay Sopan Varade (₹${content.consultationFee.toLocaleString('en-IN')})`}
             >
               <Calendar className="w-4 h-4 shrink-0" />
               <span className="whitespace-nowrap">
-                {language === 'mr' ? `ओपीडी (₹${consultationFee.toLocaleString('en-IN')})` : `Book OPD (₹${consultationFee.toLocaleString('en-IN')})`}
+                {language === 'mr' ? `ओपीडी (₹${content.consultationFee.toLocaleString('en-IN')})` : `Book OPD (₹${content.consultationFee.toLocaleString('en-IN')})`}
               </span>
             </button>
 

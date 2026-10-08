@@ -17,7 +17,7 @@ import {
   Clock,
   Check
 } from 'lucide-react';
-import { savePatientToWebsiteData, fetchWebsiteData, PatientWebsiteData } from '../lib/firebase';
+import { savePatientToWebsiteData, fetchWebsiteData, subscribeToWebsiteData, PatientWebsiteData } from '../lib/firebase';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
 interface PatientWebsiteDataFormProps {
@@ -70,6 +70,12 @@ export const PatientWebsiteDataForm: React.FC<PatientWebsiteDataFormProps> = ({ 
 
   useEffect(() => {
     loadRecords();
+    const unsubscribe = subscribeToWebsiteData((liveRecords) => {
+      setRecentRecords(liveRecords);
+    });
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {

@@ -9,6 +9,7 @@ import {
   Check, 
   X, 
   AlertTriangle, 
+  AlertCircle,
   Calendar, 
   Clock, 
   User, 
@@ -34,9 +35,22 @@ import {
   Eye,
   MapPin,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Globe,
+  Edit3,
+  RefreshCcw
 } from 'lucide-react';
 import { Appointment, OpdAuditLog, HospitalEvent } from '../types';
+import { 
+  subscribeToAppointments, 
+  subscribeToHospitalSettings, 
+  saveHospitalSettingsToFirestore, 
+  updateAppointmentStatusInFirestore, 
+  deleteAppointmentFromFirestore,
+  DEFAULT_HOSPITAL_CONTENT,
+  HospitalContentSettings,
+  db
+} from '../lib/firebase';
 import { 
   loadHospitalEvents,
   addHospitalEventPhoto,
@@ -73,7 +87,7 @@ interface OpdAdminPortalModalProps {
   onClose?: () => void;
   onAppointmentsUpdated?: () => void;
   isEmbedded?: boolean;
-  initialTab?: 'fee' | 'counter' | 'appointments' | 'logs' | 'gallery';
+  initialTab?: 'fee' | 'content' | 'counter' | 'appointments' | 'logs' | 'gallery';
 }
 
 export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
@@ -91,13 +105,33 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Active Admin View Tab
-  const [activeAdminTab, setActiveAdminTab] = useState<'fee' | 'counter' | 'appointments' | 'logs' | 'gallery'>(initialTab);
+  const [activeAdminTab, setActiveAdminTab] = useState<'fee' | 'content' | 'counter' | 'appointments' | 'logs' | 'gallery'>(initialTab);
+
+  // Home Page Content & Hospital Settings (Live Firestore Sync)
+  const [contentFormData, setContentFormData] = useState<HospitalContentSettings>(DEFAULT_HOSPITAL_CONTENT);
+  const [isSavingContent, setIsSavingContent] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialTab) {
       setActiveAdminTab(initialTab);
     }
   }, [initialTab]);
+
+  // Real-time onSnapshot subscription to appointments & hospital content
+  useEffect(() => {
+    const unsubAppts = subscribeToAppointments((liveApts) => {
+      setAppointments(liveApts);
+    });
+    const unsubSettings = subscribeToHospitalSettings((liveSettings) => {
+      setContentFormData(liveSettings);
+      setConsultationFeeState(liveSettings.consultationFee);
+      setCapacityState(liveSettings.opdCapacity);
+    });
+    return () => {
+      unsubAppts();
+      unsubSettings();
+    };
+  }, []);
 
   // Hospital Events Gallery State
   const [hospitalEvents, setHospitalEvents] = useState<HospitalEvent[]>(() => loadHospitalEvents());
@@ -306,14 +340,66 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     onAppointmentsUpdated?.();
   };
 
+  // --- ACTIONS: HOME PAGE CONTENT & BANNER SETTINGS (LIVE FIRESTORE SYNC) ---
+  const handleSaveHospitalContent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdminLoggedIn()) {
+      triggerToast('Security alert: Admin authentication required to update home page content.', 'warning');
+      return;
+    }
+    setIsSavingContent(true);
+    try {
+      const payload: Partial<HospitalContentSettings> = {
+        ...contentFormData,
+        consultationFee: consultationFeeState,
+        opdCapacity: capacity,
+        updatedBy: adminUser?.username || 'OPD Desk Administrator'
+      };
+      const ok = await saveHospitalSettingsToFirestore(payload);
+      if (ok) {
+        addAdminAuditLog({
+          action: 'CONSULTATION_FEE_UPDATED',
+          adminName: adminUser?.username || 'OPD Desk Admin',
+          details: 'Home page banners, text, hotline numbers & hospital configuration updated live to Firestore across all devices.'
+        });
+        triggerToast('Home page content & banners synced live to Firestore! All devices updated.', 'success');
+        onAppointmentsUpdated?.();
+      } else {
+        triggerToast('Notice: Saved locally. Check network/Firestore connection.', 'warning');
+      }
+    } catch (err: any) {
+      triggerToast(`Error saving content: ${err?.message || 'Failed to update'}`, 'warning');
+    } finally {
+      setIsSavingContent(false);
+    }
+  };
+
+  const handleResetHospitalContentToDefaults = () => {
+    if (!isAdminLoggedIn()) {
+      triggerToast('Security alert: Admin authentication required.', 'warning');
+      return;
+    }
+    if (window.confirm('Reset all home page text, headlines and banners back to standard hospital defaults?')) {
+      setContentFormData(DEFAULT_HOSPITAL_CONTENT);
+      saveHospitalSettingsToFirestore({
+        ...DEFAULT_HOSPITAL_CONTENT,
+        updatedBy: adminUser?.username || 'OPD Desk Administrator'
+      }).catch(() => {});
+      triggerToast('Hospital content reset to standard defaults.', 'info');
+      onAppointmentsUpdated?.();
+    }
+  };
+
   // --- ACTIONS: ACCEPT & REJECT APPOINTMENTS (ADMIN ACCESS ONLY) ---
 
-  const handleAcceptAppointment = (apt: Appointment) => {
+  const handleAcceptAppointment = async (apt: Appointment) => {
     if (!isAdminLoggedIn()) {
       triggerToast('Security alert: Admin authentication required to accept appointments.', 'warning');
       return;
     }
-    const updated = updateAppointmentStatus(apt.id, 'Confirmed', undefined, adminUser?.username || 'OPD Desk Admin');
+    const adminName = adminUser?.username || 'OPD Desk Admin';
+    await updateAppointmentStatusInFirestore(apt.id, 'Confirmed', undefined, adminName);
+    const updated = updateAppointmentStatus(apt.id, 'Confirmed', undefined, adminName);
     setAppointments(updated);
     triggerToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) accepted & confirmed.`, 'success');
     onAppointmentsUpdated?.();
@@ -329,7 +415,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     setCustomRejectionText('');
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (!isAdminLoggedIn()) {
       triggerToast('Security alert: Admin authentication required to reject appointments.', 'warning');
       return;
@@ -339,11 +425,13 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
       ? (customRejectionText.trim() || 'Rescheduled by OPD Administration')
       : rejectionReason;
 
+    const adminName = adminUser?.username || 'OPD Desk Admin';
+    await updateAppointmentStatusInFirestore(rejectingAppointment.id, 'Cancelled', finalReason, adminName);
     const updated = updateAppointmentStatus(
       rejectingAppointment.id, 
       'Cancelled', 
       finalReason, 
-      adminUser?.username || 'OPD Desk Admin'
+      adminName
     );
     setAppointments(updated);
     triggerToast(`Appointment for ${rejectingAppointment.patientName} rejected. Slot released back to available pool.`, 'warning');
@@ -351,12 +439,13 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     onAppointmentsUpdated?.();
   };
 
-  const handleDeleteAppointment = (apt: Appointment) => {
+  const handleDeleteAppointment = async (apt: Appointment) => {
     if (!isAdminLoggedIn()) {
       triggerToast('Security alert: Admin authentication required.', 'warning');
       return;
     }
     if (window.confirm(`Permanently remove appointment record for "${apt.patientName}" (Token: ${apt.tokenNumber})?`)) {
+      await deleteAppointmentFromFirestore(apt.id);
       const updated = appointments.filter(a => a.id !== apt.id);
       saveOpdAppointments(updated);
       setAppointments(updated);
@@ -370,12 +459,19 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     }
   };
 
-  const handleClearAllAppointments = () => {
+  const handleClearAllAppointments = async () => {
     if (!isAdminLoggedIn()) {
       triggerToast('Security alert: Admin authentication required.', 'warning');
       return;
     }
     if (window.confirm('Are you sure you want to clear all appointments? This will delete all sample and test appointment records and restore the full 50/50 OPD slots.')) {
+      try {
+        const { deleteDoc, getDocs, collection } = await import('firebase/firestore');
+        const snap = await getDocs(collection(db, 'appointments'));
+        await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+      } catch (err) {
+        console.warn('Error clearing Firestore appointments:', err);
+      }
       saveOpdAppointments([]);
       setAppointments([]);
       resetOpdCounter(true);
@@ -773,6 +869,22 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
               </button>
 
               <button
+                id="admin-tab-content"
+                onClick={() => setActiveAdminTab('content')}
+                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
+                  activeAdminTab === 'content'
+                    ? 'border-[#8E5B3E] text-[#8E5B3E]'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Globe className="w-4 h-4 shrink-0 text-[#8E5B3E]" />
+                <span className="whitespace-nowrap">Home Page Content & Banners</span>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
+                  Firestore Live
+                </span>
+              </button>
+
+              <button
                 onClick={() => setActiveAdminTab('counter')}
                 className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
                   activeAdminTab === 'counter'
@@ -1024,6 +1136,354 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* TAB: HOME PAGE CONTENT & BANNER SETTINGS (LIVE FIRESTORE SYNC) */}
+            {activeAdminTab === 'content' && (
+              <div className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1">
+                {/* Header Summary Card */}
+                <div className="bg-gradient-to-br from-[#FAF5EE] via-white to-[#F2E8DC] border-2 border-[#E7DAC8] rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-[#8E5B3E] text-white flex items-center justify-center font-bold text-2xl shadow-md shrink-0">
+                        <Globe className="w-7 h-7" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-serif font-black text-lg sm:text-xl text-slate-900">
+                            Home Page Content & Live Banners
+                          </h3>
+                          <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            Firestore onSnapshot Live
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                          Modify public text, announcements, emergency telephone numbers, and headlines. Changes are stored in Firestore collection <code className="bg-white/80 px-1 py-0.5 rounded border border-[#E7DAC8] font-mono text-[11px] text-[#8E5B3E]">hospital_settings/configuration</code> and synchronize instantaneously to all patient devices without page reloads.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleResetHospitalContentToDefaults}
+                        className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <RefreshCcw className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Reset Defaults</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content Editor Form */}
+                <form onSubmit={handleSaveHospitalContent} className="space-y-6">
+                  {/* SECTION 1: HERO HEADLINES & SUBTITLE */}
+                  <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-[#8E5B3E]" />
+                        <h4 className="font-serif font-bold text-slate-900 text-sm sm:text-base">
+                          1. Main Hero Card & Headline
+                        </h4>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium">Visible top of home screen</span>
+                    </div>
+
+                    <div className="space-y-4 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Hero Top Badge / Tagline
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.heroBadgeText || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, heroBadgeText: e.target.value })}
+                          placeholder="e.g. NABH Accredited Super-Speciality Neuroscience Center • Mumbai Naka, Nashik"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-medium text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Main Hero Headline
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.heroTitle || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, heroTitle: e.target.value })}
+                          placeholder="e.g. Compassionate Clinical Excellence in Neurology & Brain Sciences"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Hero Subtitle & Clinical Overview
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={contentFormData.heroSubtitle || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, heroSubtitle: e.target.value })}
+                          placeholder="Summary of hospital services, 32-slice CT, acute stroke rescue..."
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-normal text-slate-800 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 2: TOP EMERGENCY STRIP & WHATSAPP */}
+                  <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-rose-600" />
+                        <h4 className="font-serif font-bold text-slate-900 text-sm sm:text-base">
+                          2. 24/7 Stroke Rapid Response Top Bar
+                        </h4>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium">Fixed at top of navigation bar</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      <div className="md:col-span-2">
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Emergency Top Bar Announcement Text
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.emergencyBannerText || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, emergencyBannerText: e.target.value })}
+                          placeholder="24/7 ACUTE STROKE & NEURO EMERGENCY HOTLINE: Mumbai Naka, Nashik • 32-Slice CT & ICU Ready"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Emergency Telephone (Display)
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.emergencyPhoneDisplay || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, emergencyPhoneDisplay: e.target.value })}
+                          placeholder="0253 2317364"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Emergency Telephone (Dial Target)
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.emergencyPhone || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, emergencyPhone: e.target.value })}
+                          placeholder="02532317364"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          WhatsApp Desk Display
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.whatsappDisplay || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, whatsappDisplay: e.target.value })}
+                          placeholder="WhatsApp: 9405545521"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          WhatsApp Number (Digits only)
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.whatsappNumber || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, whatsappNumber: e.target.value })}
+                          placeholder="9405545521"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 3: URGENT ANNOUNCEMENT ALERT BANNER */}
+                  <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                        <h4 className="font-serif font-bold text-slate-900 text-sm sm:text-base">
+                          3. Urgent Alert / Notice Banner
+                        </h4>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(contentFormData.announcementBannerEnabled)}
+                          onChange={e => setContentFormData({ ...contentFormData, announcementBannerEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                        <span className="ml-2 text-xs font-semibold text-slate-700">
+                          {contentFormData.announcementBannerEnabled ? 'Banner Enabled' : 'Banner Disabled'}
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <label className="block font-bold text-slate-700">
+                        Urgent Announcement Banner Text (Displayed above Hero Card)
+                      </label>
+                      <input
+                        type="text"
+                        value={contentFormData.announcementBannerText || ''}
+                        onChange={e => setContentFormData({ ...contentFormData, announcementBannerText: e.target.value })}
+                        placeholder="e.g. Free Epilepsy Consultation Camp this Saturday 9 AM - 1 PM. Walk-in acute stroke triage operational 24/7."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: DIRECTOR CREDENTIALS & HOSPITAL DETAILS */}
+                  <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <h4 className="font-serif font-bold text-slate-900 text-sm sm:text-base">
+                          4. Director Profile & Key Clinical Benchmarks
+                        </h4>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium">Hero right profile & footer</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Director Name
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.directorName || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, directorName: e.target.value })}
+                          placeholder="Dr. Sanjay Sopan Varade"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Credentials & Qualifications
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.directorTitle || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, directorTitle: e.target.value })}
+                          placeholder="MD, DM Neuro (CMC Vellore)"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Clinical Practice Experience
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.directorExperience || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, directorExperience: e.target.value })}
+                          placeholder="35+ Years Clinical Practice"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Door-to-Needle Time Benchmark
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.doorToNeedleTime || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, doorToNeedleTime: e.target.value })}
+                          placeholder="< 25 Minutes"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          CT Scan Diagnostic Spec
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.ctScanTechnology || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, ctScanTechnology: e.target.value })}
+                          placeholder="32-Slice CT Scan"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Seizure Control Success Rate
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.seizureControlRate || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, seizureControlRate: e.target.value })}
+                          placeholder="88.4%"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Official Hospital Address
+                        </label>
+                        <input
+                          type="text"
+                          value={contentFormData.hospitalAddress || ''}
+                          onChange={e => setContentFormData({ ...contentFormData, hospitalAddress: e.target.value })}
+                          placeholder="Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:ring-2 focus:ring-[#8E5B3E] focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SUBMIT BUTTON BAR */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-xs text-slate-500">
+                      When published, all patient screens will update live instantly via Firestore <span className="font-mono text-[#8E5B3E] font-semibold">onSnapshot</span>.
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <button
+                        type="submit"
+                        disabled={isSavingContent}
+                        className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingContent ? (
+                          <>
+                            <RefreshCcw className="w-4 h-4 animate-spin" />
+                            <span>Publishing to Firestore...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            <span>Save & Publish Live to All Devices</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </form>
               </div>
             )}
 

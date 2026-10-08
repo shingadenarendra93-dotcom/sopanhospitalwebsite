@@ -40,7 +40,12 @@ import { downloadIcsFile, formatAppointmentReminderMessage } from '../utils/cale
 import { OpdSlotCounterMeter } from './OpdSlotCounterMeter';
 import { PatientExperienceFeedbackModalOrSection } from './PatientExperienceFeedback';
 import { SopanLogo } from './SopanLogo';
-import { saveAppointmentToFirestore, savePatientToWebsiteData } from '../lib/firebase';
+import { 
+  saveAppointmentToFirestore, 
+  savePatientToWebsiteData, 
+  subscribeToAppointments, 
+  updateAppointmentStatusInFirestore 
+} from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 import { useConsultationFee } from '../hooks/useConsultationFee';
@@ -122,6 +127,11 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       localStorage.removeItem('sopan_dr_custom_photo');
     }
 
+    // Real-Time onSnapshot subscription to live Firestore appointments
+    const unsubscribe = subscribeToAppointments((liveList) => {
+      setAppointments(liveList);
+    });
+
     const handleSync = () => {
       setAppointments(loadOpdAppointments());
       setSlotOffset(getOpdManualOffset());
@@ -131,6 +141,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     window.addEventListener('sopan_opd_quota_updated', handleSync);
     window.addEventListener('sopan_admin_session_changed', handleSync);
     return () => {
+      unsubscribe();
       window.removeEventListener('sopan_opd_quota_updated', handleSync);
       window.removeEventListener('sopan_admin_session_changed', handleSync);
     };
@@ -172,22 +183,26 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     setOpdManualOffset(0);
   };
 
-  const handleAcceptAppointment = (apt: Appointment) => {
+  const handleAcceptAppointment = async (apt: Appointment) => {
     if (!isAdminLoggedIn()) {
       setReminderToast('Access denied: Only authenticated administrators can accept appointments.');
       return;
     }
-    const updated = updateAppointmentStatus(apt.id, 'Confirmed', undefined, adminSession?.username || 'OPD Admin');
+    const adminName = adminSession?.username || 'OPD Admin';
+    await updateAppointmentStatusInFirestore(apt.id, 'Confirmed', undefined, adminName);
+    const updated = updateAppointmentStatus(apt.id, 'Confirmed', undefined, adminName);
     setAppointments(updated);
     setReminderToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) ACCEPTED & confirmed.`);
   };
 
-  const handleRejectAppointment = (apt: Appointment) => {
+  const handleRejectAppointment = async (apt: Appointment) => {
     if (!isAdminLoggedIn()) {
       setReminderToast('Access denied: Only authenticated administrators can reject appointments.');
       return;
     }
-    const updated = updateAppointmentStatus(apt.id, 'Cancelled', 'Cancelled by OPD Administration', adminSession?.username || 'OPD Admin');
+    const adminName = adminSession?.username || 'OPD Admin';
+    await updateAppointmentStatusInFirestore(apt.id, 'Cancelled', 'Cancelled by OPD Administration', adminName);
+    const updated = updateAppointmentStatus(apt.id, 'Cancelled', 'Cancelled by OPD Administration', adminName);
     setAppointments(updated);
     setReminderToast(`Appointment for ${apt.patientName} (Token: ${apt.tokenNumber}) REJECTED. 1 slot restored (+1 added back to total available quota).`);
   };
@@ -311,19 +326,32 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     saveOpdAppointments(updated);
     setLastConfirmedAppointment(newAppointment);
 
-    // Persist to Firestore database
+    // Persist to Firestore database with document ID matching appointment ID
     saveAppointmentToFirestore({
+      id: newAppointment.id,
       patientName: newAppointment.patientName,
       contactNumber: newAppointment.patientPhone,
+      patientPhone: newAppointment.patientPhone,
       age: String(newAppointment.patientAge),
+      patientAge: newAppointment.patientAge,
       gender: newAppointment.patientGender,
+      patientGender: newAppointment.patientGender,
       doctor: newAppointment.doctorName,
+      doctorName: newAppointment.doctorName,
+      doctorId: newAppointment.doctorId,
       date: newAppointment.date,
       timeSlot: newAppointment.timeSlot,
       tokenNumber: newAppointment.tokenNumber,
       department: newAppointment.department,
       conditionContext: newAppointment.symptoms || '',
-      status: 'CONFIRMED',
+      symptoms: newAppointment.symptoms || '',
+      status: 'Confirmed',
+      visitType: newAppointment.visitType,
+      slotNumber: newAppointment.slotNumber,
+      remainingSlotsAtBooking: newAppointment.remainingSlotsAtBooking,
+      email: newAppointment.patientEmail,
+      patientEmail: newAppointment.patientEmail,
+      reminderSettings: newAppointment.reminderSettings,
       userId: user?.uid || 'guest'
     });
 
@@ -368,7 +396,8 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     setIsReminderModalOpen(true);
   };
 
-  const cancelAppointment = (id: string) => {
+  const cancelAppointment = async (id: string) => {
+    await updateAppointmentStatusInFirestore(id, 'Cancelled', 'Cancelled by patient', 'Patient Online Portal');
     const updated = appointments.map(a => a.id === id ? { ...a, status: 'Cancelled' as const } : a);
     setAppointments(updated);
     saveOpdAppointments(updated);

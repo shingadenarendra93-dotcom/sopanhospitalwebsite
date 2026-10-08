@@ -15,10 +15,12 @@ import {
   CheckCircle2,
   Users,
   TrendingDown,
-  MapPin
+  MapPin,
+  BellRing
 } from 'lucide-react';
-import { calculateOpdSlotStats, loadOpdAppointments, getOpdCapacity } from '../utils/opdSlotUtils';
-import { useConsultationFee } from '../hooks/useConsultationFee';
+import { calculateOpdSlotStats, loadOpdAppointments } from '../utils/opdSlotUtils';
+import { subscribeToAppointments } from '../lib/firebase';
+import { useHospitalContent } from '../hooks/useHospitalContent';
 
 interface HeroBannerProps {
   onNavigate: (tabId: string) => void;
@@ -29,10 +31,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onNavigate,
   onOpenWhatsApp
 }) => {
-  const [opdStats, setOpdStats] = useState(() => calculateOpdSlotStats(loadOpdAppointments(), undefined, getOpdCapacity()));
-  const consultationFee = useConsultationFee();
+  const { content } = useHospitalContent();
+  const [appointments, setAppointments] = useState(() => loadOpdAppointments());
 
-  // Guarantee that the doctor photo stays default (/DSC_0050.png) & sync OPD stats
+  // Guarantee that the doctor photo stays default (/DSC_0050.png) & listen to live appointments
   useEffect(() => {
     // Purge any temporary custom photo overrides from localStorage
     if (localStorage.getItem('sopan_dr_custom_photo')) {
@@ -40,17 +42,36 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       window.dispatchEvent(new Event('sopan_photo_updated'));
     }
 
-    const updateStats = () => {
-      setOpdStats(calculateOpdSlotStats(loadOpdAppointments(), undefined, getOpdCapacity()));
-    };
-    window.addEventListener('sopan_opd_quota_updated', updateStats);
-    return () => window.removeEventListener('sopan_opd_quota_updated', updateStats);
+    // Real-time onSnapshot subscription to appointments for live slot counts across all devices
+    const unsubscribe = subscribeToAppointments((liveList) => {
+      setAppointments(liveList);
+    });
+
+    return () => unsubscribe();
   }, []);
 
+  const opdStats = calculateOpdSlotStats(appointments, undefined, content.opdCapacity);
   const doctorPhotoSrc = '/DSC_0050.png';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Optional Live Announcement Banner from Firestore */}
+      {content.announcementBannerEnabled && content.announcementBannerText && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white px-4 py-2.5 rounded-2xl shadow-xs flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 truncate">
+            <BellRing className="w-4 h-4 shrink-0 animate-bounce" />
+            <span className="truncate">{content.announcementBannerText}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('appointments')}
+            className="px-3 py-1 bg-white text-orange-700 hover:bg-orange-50 rounded-xl text-xs font-bold shrink-0 transition-colors cursor-pointer"
+          >
+            Book Token
+          </button>
+        </div>
+      )}
+
       {/* Primary Warm & Bright Hero Card */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#FFFDF9] via-[#FAF5EC] to-[#F3EADB] border-2 border-[#EADCC8] text-[#241E17] p-6 sm:p-10 shadow-sm">
         {/* Soft warm sunlit ambient glows */}
@@ -66,7 +87,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               title="Click to view Sopan Hospital location on Google Maps"
             >
               <ShieldCheck className="w-4 h-4 text-[#C26D38] shrink-0" />
-              <span>NABH Accredited Super-Speciality Neuroscience Center • Mumbai Naka, Nashik</span>
+              <span>{content.heroBadgeText}</span>
               <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8A86B]/25 text-[#733B14] px-1.5 py-0.5 rounded-full font-bold ml-1 group-hover:bg-[#E8A86B]/40 transition-colors">
                 <MapPin className="w-2.5 h-2.5 text-rose-600" />
                 <span>Map 📍</span>
@@ -74,12 +95,11 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             </button>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold tracking-tight text-[#221B14] leading-tight">
-              Compassionate Clinical Excellence in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#8E5B3E] via-[#A86439] to-[#456254]">Neurology & Brain Sciences</span>
+              {content.heroTitle}
             </h1>
 
             <p className="text-[#52493D] text-sm sm:text-base leading-relaxed max-w-xl">
-              Led by Director & Chief Consultant <strong className="text-[#221B14] font-semibold">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> with over <strong className="text-[#8E5B3E] font-bold">35+ Years of Experience</strong>. 
-              Comprehensive acute stroke rescue, 32-Slice high-speed CT diagnostic angiography, continuous 24-hr Video-EEG, and dedicated neuro-rehabilitation delivered with warmth, precision, and dignity.
+              {content.heroSubtitle}
             </p>
 
             {/* Live OPD Quota Descending Counter Badge */}
@@ -101,10 +121,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                       ? 'bg-amber-100 text-amber-900 border-amber-200'
                       : 'bg-emerald-100 text-emerald-900 border-emerald-200'
                 }`}>
-                  {opdStats.remainingSlots} / 50 Slots Available
+                  {opdStats.remainingSlots} / {content.opdCapacity} Slots Available
                 </span>
                 <span className="text-[11px] text-[#8E5B3E] font-semibold hidden sm:inline">
-                  (Descending Live 50 → 0)
+                  (Descending Live {content.opdCapacity} → 0)
                 </span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-[#8E5B3E] group-hover:translate-x-0.5 transition-transform" />
@@ -114,10 +134,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 id="hero-btn-book"
                 onClick={() => onNavigate('appointments')}
-                className="px-6 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
+                className="px-6 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2 cursor-pointer"
               >
                 <Calendar className="w-4 h-4" />
-                Schedule OPD (₹{consultationFee.toLocaleString('en-IN')})
+                Schedule OPD (₹{content.consultationFee.toLocaleString('en-IN')})
                 <ChevronRight className="w-4 h-4" />
               </button>
 
@@ -191,9 +211,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   <span className="text-[#8A8173] font-normal">• 740+ Reviews</span>
                 </div>
                 <h3 className="text-lg font-serif font-bold text-[#221B14] leading-snug">
-                  Dr. Sanjay Sopan Varade
+                  {content.directorName}
                 </h3>
-                <div className="text-xs text-[#8E5B3E] font-semibold">MD, DM Neuro (CMC Vellore)</div>
+                <div className="text-xs text-[#8E5B3E] font-semibold">{content.directorTitle}</div>
                 <div className="text-[11px] text-[#6B6254]">Director & Chief Consultant Neurologist</div>
                 <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 mt-0.5">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
@@ -208,22 +228,22 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   <Stethoscope className="w-3.5 h-3.5 text-[#8E5B3E]" />
                   Consultation Fee:
                 </span>
-                <span className="font-bold text-[#221B14] text-sm">₹{consultationFee.toLocaleString('en-IN')}</span>
+                <span className="font-bold text-[#221B14] text-sm">₹{content.consultationFee.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex items-center justify-between text-[#5C5346]">
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-[#456254]" />
                   Experience:
                 </span>
-                <span className="font-bold text-[#221B14] bg-[#F3ECE0] px-2 py-0.5 rounded-md text-[11px]">35+ Years Expertise</span>
+                <span className="font-bold text-[#221B14] bg-[#F3ECE0] px-2 py-0.5 rounded-md text-[11px]">{content.directorExperience}</span>
               </div>
               <div className="flex items-center justify-between text-[#5C5346]">
                 <span className="flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-rose-600" />
                   Stroke Emergency Hotline:
                 </span>
-                <a href="tel:02532317364" className="font-bold text-rose-700 hover:underline">
-                  0253 2317364
+                <a href={`tel:${content.emergencyPhone}`} className="font-bold text-rose-700 hover:underline">
+                  {content.emergencyPhoneDisplay}
                 </a>
               </div>
 
@@ -239,7 +259,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                       ? 'bg-amber-100 text-amber-900 border border-amber-300'
                       : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                 }`}>
-                  {opdStats.remainingSlots} / {opdStats.totalSlots} Left Today
+                  {opdStats.remainingSlots} / {content.opdCapacity} Left Today
                 </span>
               </div>
             </div>
@@ -280,22 +300,22 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         <div className="mt-8 pt-6 border-t border-[#E5DAC8] grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
             <span className="text-[#7A7163] block">Door-to-Needle Time</span>
-            <span className="text-lg font-serif font-bold text-[#8E5B3E]">&lt; 25 Minutes</span>
+            <span className="text-lg font-serif font-bold text-[#8E5B3E]">{content.doorToNeedleTime}</span>
             <span className="text-[11px] text-[#867E73] block">Hyper-Acute Stroke Rescue</span>
           </div>
           <div>
             <span className="text-[#7A7163] block">Diagnostic Imaging</span>
-            <span className="text-lg font-serif font-bold text-[#221B14]">32-Slice CT Scan</span>
+            <span className="text-lg font-serif font-bold text-[#221B14]">{content.ctScanTechnology}</span>
             <span className="text-[11px] text-[#867E73] block">High-Speed Helical & Angiography</span>
           </div>
           <div>
             <span className="text-[#7A7163] block">Seizure Control Rate</span>
-            <span className="text-lg font-serif font-bold text-[#456254]">88.4%</span>
+            <span className="text-lg font-serif font-bold text-[#456254]">{content.seizureControlRate}</span>
             <span className="text-[11px] text-[#867E73] block">Continuous 24-hr Video-EEG</span>
           </div>
           <div>
             <span className="text-[#7A7163] block">Consultation OPD Fee</span>
-            <span className="text-lg font-serif font-bold text-[#221B14]">₹{consultationFee.toLocaleString('en-IN')}</span>
+            <span className="text-lg font-serif font-bold text-[#221B14]">₹{content.consultationFee.toLocaleString('en-IN')}</span>
             <span className="text-[11px] text-[#867E73] block">35+ Years Clinical Practice</span>
           </div>
         </div>

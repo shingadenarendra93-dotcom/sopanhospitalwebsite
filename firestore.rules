@@ -21,11 +21,9 @@ service cloud.firestore {
       }
     }
 
-    // Appointments: anyone can create (for OPD booking), owner can read/manage their own
+    // Appointments: real-time live intake, slot counting & bookings across all devices
     match /appointments/{appointmentId} {
-      allow create: if true;
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || !('userId' in resource.data));
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read, create, update, delete: if true;
     }
 
     // Patient feedback: public can read, any patient can submit anonymous or identified feedback

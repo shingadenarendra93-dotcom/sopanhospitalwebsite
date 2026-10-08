@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useConsultationFee } from '../hooks/useConsultationFee';
+import { useHospitalContent } from '../hooks/useHospitalContent';
 import { 
   APIProvider, 
   Map, 
@@ -47,11 +48,12 @@ export const HospitalMapLocation: React.FC<HospitalMapLocationProps> = ({
   onOpenWhatsApp
 }) => {
   const consultationFee = useConsultationFee();
+  const { content } = useHospitalContent();
   const [infoWindowOpen, setInfoWindowOpen] = useState<boolean>(true);
   const [copiedAddress, setCopiedAddress] = useState<boolean>(false);
   const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-  const hospitalAddress = "Sopan Hospital & Neurology Institute, Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik, Maharashtra 422001";
+  const hospitalAddress = content.hospitalAddress || "Sopan Hospital & Neurology Institute, Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik, Maharashtra 422001";
 
   const handleCopyAddress = () => {
     navigator.clipboard.writeText(hospitalAddress);
@@ -413,11 +415,11 @@ export const HospitalMapLocation: React.FC<HospitalMapLocationProps> = ({
             {/* Emergency Hotline quick buttons */}
             <div className="pt-2 border-t border-[#EAE3D6] space-y-2">
               <a
-                href="tel:02532317364"
+                href={`tel:${content.emergencyPhone || '02532317364'}`}
                 className="w-full px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs"
               >
                 <Phone className="w-3.5 h-3.5" />
-                <span>Emergency Stroke Hotline: 0253 2317364</span>
+                <span>Emergency Stroke Hotline: {content.emergencyPhoneDisplay || '0253 2317364'}</span>
               </a>
 
               {onBookConsultation && (

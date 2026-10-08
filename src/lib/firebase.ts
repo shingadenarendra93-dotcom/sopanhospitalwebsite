@@ -12,6 +12,7 @@ import {
   doc, 
   getDoc, 
   setDoc, 
+  deleteDoc,
   collection, 
   addDoc, 
   query, 
@@ -19,8 +20,11 @@ import {
   orderBy, 
   getDocs, 
   getDocFromServer,
+  onSnapshot,
+  Unsubscribe,
   Timestamp 
 } from 'firebase/firestore';
+import { Appointment } from '../types';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -74,6 +78,15 @@ export function cleanFirestoreData<T extends Record<string, any>>(obj: T): Recor
     if (val !== undefined) {
       if (val !== null && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Timestamp) && !(val instanceof Date)) {
         cleaned[key] = cleanFirestoreData(val);
+      } else if (Array.isArray(val)) {
+        cleaned[key] = val
+          .filter(item => item !== undefined)
+          .map(item => {
+            if (item !== null && typeof item === 'object' && !(item instanceof Timestamp) && !(item instanceof Date)) {
+              return cleanFirestoreData(item);
+            }
+            return item;
+          });
       } else {
         cleaned[key] = val;
       }
@@ -88,21 +101,25 @@ export function cleanFirestoreData<T extends Record<string, any>>(obj: T): Recor
 export async function savePatientToWebsiteData(data: Omit<PatientWebsiteData, 'id' | 'createdAt' | 'timestamp'>): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const colRef = collection(db, 'website_data');
-    const cleaned = cleanFirestoreData({
+    const rawData = {
       patientName: data.patientName || 'Patient',
       phone: data.phone || '',
-      email: data.email ?? '',
+      email: data.email || '',
       age: data.age !== undefined && data.age !== null ? String(data.age) : '',
-      gender: data.gender ?? 'Not Specified',
-      department: data.department ?? 'General Neurology',
-      chiefComplaint: data.chiefComplaint ?? '',
-      preferredDate: data.preferredDate ?? new Date().toISOString().split('T')[0],
-      notes: data.notes ?? '',
-      source: data.source ?? 'Sopan Hospital Web Intake',
+      gender: data.gender || 'Not Specified',
+      department: data.department || 'General Neurology',
+      chiefComplaint: data.chiefComplaint || '',
+      preferredDate: data.preferredDate || new Date().toISOString().split('T')[0],
+      notes: data.notes || '',
+      source: data.source || 'Sopan Hospital Web Intake',
       userId: data.userId || 'guest',
       createdAt: new Date().toISOString(),
       timestamp: Timestamp.now()
-    });
+    };
+    const cleaned = cleanFirestoreData(rawData);
+    if (!cleaned.userId) {
+      cleaned.userId = 'guest';
+    }
     const docRef = await addDoc(colRef, cleaned);
     return { success: true, id: docRef.id };
   } catch (err: any) {
@@ -180,38 +197,81 @@ export async function logOut(): Promise<void> {
 
 // Save Appointment to Firestore
 export async function saveAppointmentToFirestore(appointment: {
-  patientName: string;
-  contactNumber: string;
+  id?: string;
+  patientName?: string;
+  contactNumber?: string;
+  patientPhone?: string;
   age?: string | number;
+  patientAge?: string | number;
   gender?: string;
+  patientGender?: string;
   doctor?: string;
-  date: string;
-  timeSlot: string;
-  tokenNumber: string;
-  department: string;
+  doctorName?: string;
+  doctorId?: string;
+  date?: string;
+  timeSlot?: string;
+  tokenNumber?: string;
+  department?: string;
   conditionContext?: string;
-  status: string;
+  symptoms?: string;
+  status?: string;
+  visitType?: string;
+  slotNumber?: number;
+  remainingSlotsAtBooking?: number;
+  email?: string;
+  patientEmail?: string;
+  reminderSettings?: any;
   userId?: string;
-}) {
+  createdAt?: string;
+}): Promise<string | null> {
   try {
-    const apptsCol = collection(db, 'appointments');
-    const cleaned = cleanFirestoreData({
+    const rawData: Record<string, any> = {
       patientName: appointment.patientName || 'Patient',
-      contactNumber: appointment.contactNumber || '',
-      age: appointment.age !== undefined && appointment.age !== null ? String(appointment.age) : '',
-      gender: appointment.gender ?? 'Not Specified',
-      doctor: appointment.doctor ?? 'Dr. Sanjay Sopan Varade',
+      contactNumber: appointment.contactNumber || appointment.patientPhone || '',
+      phone: appointment.contactNumber || appointment.patientPhone || '',
+      age: appointment.age !== undefined && appointment.age !== null 
+        ? String(appointment.age) 
+        : (appointment.patientAge !== undefined && appointment.patientAge !== null ? String(appointment.patientAge) : ''),
+      gender: appointment.gender || appointment.patientGender || 'Not Specified',
+      doctor: appointment.doctor || appointment.doctorName || 'Dr. Sanjay Sopan Varade',
+      doctorName: appointment.doctorName || appointment.doctor || 'Dr. Sanjay Sopan Varade',
+      doctorId: appointment.doctorId || 'dr-sanjay-varade',
       date: appointment.date || new Date().toISOString().split('T')[0],
-      timeSlot: appointment.timeSlot || 'OPD Slot',
+      timeSlot: appointment.timeSlot || '09:00 AM - 01:00 PM',
       tokenNumber: appointment.tokenNumber || '0',
       department: appointment.department || 'Neurology',
-      conditionContext: appointment.conditionContext ?? '',
-      status: appointment.status || 'CONFIRMED',
+      conditionContext: appointment.conditionContext || appointment.symptoms || '',
+      symptoms: appointment.symptoms || appointment.conditionContext || '',
+      status: appointment.status || 'Confirmed',
+      visitType: appointment.visitType || 'In-Person Hospital OPD',
+      slotNumber: appointment.slotNumber || 1,
+      remainingSlotsAtBooking: appointment.remainingSlotsAtBooking ?? 49,
       userId: appointment.userId || 'guest',
-      createdAt: new Date().toISOString()
-    });
-    const docRef = await addDoc(apptsCol, cleaned);
-    return docRef.id;
+      createdAt: appointment.createdAt || new Date().toISOString()
+    };
+
+    if (appointment.email || appointment.patientEmail) {
+      rawData.email = appointment.email || appointment.patientEmail;
+    }
+    if (appointment.reminderSettings) {
+      rawData.reminderSettings = appointment.reminderSettings;
+    }
+
+    const cleaned = cleanFirestoreData(rawData);
+    // Explicit guard: userId must NEVER be undefined
+    if (!cleaned.userId) {
+      cleaned.userId = 'guest';
+    }
+
+    if (appointment.id) {
+      const docRef = doc(db, 'appointments', appointment.id);
+      await setDoc(docRef, cleaned, { merge: true });
+      return appointment.id;
+    } else {
+      const apptsCol = collection(db, 'appointments');
+      const docRef = await addDoc(apptsCol, cleaned);
+      return docRef.id;
+    }
   } catch (err) {
     console.error('Failed to save appointment to Firestore:', err);
     return null;
@@ -395,12 +455,55 @@ export async function fetchHospitalEventsFromFirestore() {
   }
 }
 
-// Save Hospital Configuration Settings (consultationFee, opdCapacity)
-export async function saveHospitalSettingsToFirestore(settings: {
-  consultationFee?: number;
-  opdCapacity?: number;
+// Hospital Content and Configuration Settings Structure for Firestore
+export interface HospitalContentSettings {
+  consultationFee: number;
+  opdCapacity: number;
+  heroBadgeText: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  directorName: string;
+  directorTitle: string;
+  directorExperience: string;
+  emergencyBannerText: string;
+  emergencyPhone: string;
+  emergencyPhoneDisplay: string;
+  whatsappNumber: string;
+  whatsappDisplay: string;
+  hospitalAddress: string;
+  doorToNeedleTime: string;
+  ctScanTechnology: string;
+  seizureControlRate: string;
+  announcementBannerEnabled: boolean;
+  announcementBannerText: string;
+  updatedAt?: string;
   updatedBy?: string;
-}) {
+}
+
+export const DEFAULT_HOSPITAL_CONTENT: HospitalContentSettings = {
+  consultationFee: 1500,
+  opdCapacity: 50,
+  heroBadgeText: 'NABH Accredited Super-Speciality Neuroscience Center • Mumbai Naka, Nashik',
+  heroTitle: 'Compassionate Clinical Excellence in Neurology & Brain Sciences',
+  heroSubtitle: 'Led by Director & Chief Consultant Dr. Sanjay Sopan Varade (MD, DM Neuro) with over 35+ Years of Experience. Comprehensive acute stroke rescue, 32-Slice high-speed CT diagnostic angiography, continuous 24-hr Video-EEG, and dedicated neuro-rehabilitation delivered with warmth, precision, and dignity.',
+  directorName: 'Dr. Sanjay Sopan Varade',
+  directorTitle: 'MD, DM Neuro (CMC Vellore)',
+  directorExperience: '35+ Years Clinical Practice',
+  emergencyBannerText: '24/7 ACUTE STROKE & NEURO EMERGENCY HOTLINE: Mumbai Naka, Nashik • 32-Slice CT & ICU Ready',
+  emergencyPhone: '02532317364',
+  emergencyPhoneDisplay: '0253 2317364',
+  whatsappNumber: '9405545521',
+  whatsappDisplay: 'WhatsApp: 9405545521',
+  hospitalAddress: 'Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001',
+  doorToNeedleTime: '< 25 Minutes',
+  ctScanTechnology: '32-Slice CT Scan',
+  seizureControlRate: '88.4%',
+  announcementBannerEnabled: false,
+  announcementBannerText: 'Walk-in acute stroke triage operational 24/7. Regular OPD tokens issued daily from 9:00 AM.'
+};
+
+// Save Hospital Configuration Settings (consultationFee, opdCapacity, Home Page Content)
+export async function saveHospitalSettingsToFirestore(settings: Partial<HospitalContentSettings>): Promise<boolean> {
   try {
     const settingsRef = doc(db, 'hospital_settings', 'configuration');
     const cleaned = cleanFirestoreData({
@@ -416,23 +519,204 @@ export async function saveHospitalSettingsToFirestore(settings: {
 }
 
 // Fetch Hospital Configuration Settings from Firestore
-export async function fetchHospitalSettingsFromFirestore(): Promise<{
-  consultationFee?: number;
-  opdCapacity?: number;
-  updatedAt?: string;
-  updatedBy?: string;
-} | null> {
+export async function fetchHospitalSettingsFromFirestore(): Promise<HospitalContentSettings> {
   try {
     const settingsRef = doc(db, 'hospital_settings', 'configuration');
     const snap = await getDoc(settingsRef);
     if (snap.exists()) {
-      return snap.data() as any;
+      return {
+        ...DEFAULT_HOSPITAL_CONTENT,
+        ...snap.data()
+      };
     }
-    return null;
+    return DEFAULT_HOSPITAL_CONTENT;
   } catch (err) {
     console.warn('Falling back to local settings:', err);
-    return null;
+    return DEFAULT_HOSPITAL_CONTENT;
   }
+}
+
+/**
+ * Real-Time onSnapshot Subscription for Home Page Content & Hospital Settings
+ * Every change made in the admin panel or Firestore updates all connected devices instantly!
+ */
+export function subscribeToHospitalSettings(callback: (settings: HospitalContentSettings) => void): Unsubscribe {
+  const settingsRef = doc(db, 'hospital_settings', 'configuration');
+  return onSnapshot(settingsRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      const merged: HospitalContentSettings = {
+        ...DEFAULT_HOSPITAL_CONTENT,
+        ...data
+      };
+
+      // Synchronize localStorage & custom events so non-React helpers stay updated
+      if (typeof window !== 'undefined') {
+        try {
+          if (merged.consultationFee) {
+            localStorage.setItem('sopan_hospital_consultation_fee', String(merged.consultationFee));
+            window.dispatchEvent(new CustomEvent('sopan_consultation_fee_updated', {
+              detail: { fee: merged.consultationFee }
+            }));
+          }
+          if (merged.opdCapacity) {
+            localStorage.setItem('sopan_hospital_opd_custom_capacity', String(merged.opdCapacity));
+            window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', {
+              detail: { customCapacity: merged.opdCapacity }
+            }));
+          }
+        } catch {}
+      }
+
+      callback(merged);
+    } else {
+      // First boot: write defaults into Firestore so it's initialized
+      saveHospitalSettingsToFirestore(DEFAULT_HOSPITAL_CONTENT).catch(() => {});
+      callback(DEFAULT_HOSPITAL_CONTENT);
+    }
+  }, (err) => {
+    console.warn('Real-time hospital settings snapshot notice:', err);
+    callback(DEFAULT_HOSPITAL_CONTENT);
+  });
+}
+
+/**
+ * Real-Time onSnapshot Subscription for OPD Appointments
+ * All appointment lists, tables, and slot counts update live across devices without refresh!
+ */
+export function subscribeToAppointments(callback: (appointments: Appointment[]) => void): Unsubscribe {
+  const apptsCol = collection(db, 'appointments');
+  
+  const mapDocToAppointment = (docSnap: any): Appointment => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      patientName: data.patientName || 'Patient',
+      patientAge: Number(data.age) || Number(data.patientAge) || 0,
+      patientGender: (data.gender as any) || (data.patientGender as any) || 'Other',
+      patientPhone: data.contactNumber || data.phone || data.patientPhone || '',
+      patientEmail: data.email || data.patientEmail || '',
+      doctorId: data.doctorId || 'dr-sanjay-varade',
+      doctorName: data.doctor || data.doctorName || 'Dr. Sanjay Sopan Varade',
+      department: (data.department as any) || 'Comprehensive Stroke Center',
+      date: data.date || '',
+      timeSlot: data.timeSlot || '09:00 AM - 01:00 PM',
+      visitType: (data.visitType as any) || 'In-Person Hospital OPD',
+      symptoms: data.conditionContext || data.symptoms || '',
+      status: (data.status === 'CONFIRMED' || data.status === 'Confirmed' 
+        ? 'Confirmed' 
+        : data.status === 'CANCELLED' || data.status === 'Cancelled' 
+          ? 'Cancelled' 
+          : data.status === 'COMPLETED' || data.status === 'Completed' 
+            ? 'Completed' 
+            : 'Confirmed') as any,
+      tokenNumber: data.tokenNumber || '0',
+      slotNumber: Number(data.slotNumber) || 1,
+      remainingSlotsAtBooking: Number(data.remainingSlotsAtBooking) || 50,
+      createdAt: data.createdAt || new Date().toISOString(),
+      rejectionReason: data.rejectionReason,
+      adminActionAt: data.adminActionAt,
+      adminActionBy: data.adminActionBy,
+      reminderSettings: data.reminderSettings
+    };
+  };
+
+  let fallbackUnsub: Unsubscribe | null = null;
+
+  const unsub = onSnapshot(
+    query(apptsCol, orderBy('createdAt', 'desc')),
+    (snapshot) => {
+      const list = snapshot.docs.map(mapDocToAppointment);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('sopan_hospital_opd_appointments', JSON.stringify(list));
+          window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', { detail: { appointments: list } }));
+        } catch {}
+      }
+      callback(list);
+    },
+    (err) => {
+      console.warn('Real-time query with orderBy failed, switching to base collection snapshot listener:', err);
+      fallbackUnsub = onSnapshot(apptsCol, (snap) => {
+        const list = snap.docs.map(mapDocToAppointment).sort((a, b) => 
+          (b.createdAt || '').localeCompare(a.createdAt || '')
+        );
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('sopan_hospital_opd_appointments', JSON.stringify(list));
+            window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', { detail: { appointments: list } }));
+          } catch {}
+        }
+        callback(list);
+      }, (fallbackErr) => {
+        console.warn('Base snapshot listener notice:', fallbackErr);
+      });
+    }
+  );
+
+  return () => {
+    unsub();
+    if (fallbackUnsub) {
+      fallbackUnsub();
+    }
+  };
+}
+
+/**
+ * Updates an appointment's status in Firestore, propagating live via onSnapshot to all devices
+ */
+export async function updateAppointmentStatusInFirestore(
+  appointmentId: string,
+  newStatus: 'Confirmed' | 'Cancelled' | 'Completed' | 'Pending',
+  rejectionReason?: string,
+  adminName = 'Dr. Sanjay Varade Clinic Desk'
+): Promise<boolean> {
+  try {
+    const docRef = doc(db, 'appointments', appointmentId);
+    const cleaned = cleanFirestoreData({
+      status: newStatus === 'Confirmed' ? 'CONFIRMED' : newStatus === 'Cancelled' ? 'CANCELLED' : newStatus,
+      rejectionReason: newStatus === 'Cancelled' ? (rejectionReason || 'Cancelled by OPD Administration') : '',
+      adminActionAt: new Date().toISOString(),
+      adminActionBy: adminName,
+      updatedAt: new Date().toISOString()
+    });
+    await setDoc(docRef, cleaned, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Failed to update appointment in Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Deletes an appointment from Firestore
+ */
+export async function deleteAppointmentFromFirestore(appointmentId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, 'appointments', appointmentId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.error('Failed to delete appointment in Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Real-Time onSnapshot Subscription for website_data Collection
+ */
+export function subscribeToWebsiteData(callback: (records: PatientWebsiteData[]) => void): Unsubscribe {
+  const colRef = collection(db, 'website_data');
+  const q = query(colRef, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const list: PatientWebsiteData[] = snapshot.docs.map(docSnap => ({
+      id: docSnap.id,
+      ...docSnap.data()
+    })) as PatientWebsiteData[];
+    callback(list);
+  }, (err) => {
+    console.warn('Real-time website_data snapshot notice:', err);
+  });
 }
 
 export { onAuthStateChanged };

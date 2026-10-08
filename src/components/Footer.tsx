@@ -17,7 +17,7 @@ import {
   SOPAN_HOSPITAL_REVIEWS_URL, 
   SOPAN_HOSPITAL_DIRECTIONS_URL 
 } from './HospitalMapLocation';
-import { useConsultationFee } from '../hooks/useConsultationFee';
+import { useHospitalContent } from '../hooks/useHospitalContent';
 
 interface FooterProps {
   onNavigate: (tabId: string) => void;
@@ -28,9 +28,10 @@ export const Footer: React.FC<FooterProps> = ({
   onNavigate,
   onOpenWhatsApp
 }) => {
-  const consultationFee = useConsultationFee();
+  const { content } = useHospitalContent();
+  const consultationFee = content.consultationFee;
   return (
-    <footer className="bg-[#FAF7F2] border-t border-[#E6DEC $\to$ #E5DAC8] text-[#5C5346] text-xs mt-16 shadow-xs">
+    <footer className="bg-[#FAF7F2] border-t border-[#E5DAC8] text-[#5C5346] text-xs mt-16 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-10">
           {/* Col 1 & 2: Hospital identity */}
@@ -43,13 +44,13 @@ export const Footer: React.FC<FooterProps> = ({
                 <h3 className="text-[#221B14] font-serif font-bold text-base tracking-tight">
                   SOPAN HOSPITAL & NEUROLOGY INSTITUTE
                 </h3>
-                <p className="text-[11px] text-[#8E5B3E] font-medium">NABH Accredited Super-Speciality Neuroscience Center</p>
+                <p className="text-[11px] text-[#8E5B3E] font-medium">{content.heroBadgeText || 'NABH Accredited Super-Speciality Neuroscience Center'}</p>
               </div>
             </div>
 
             <p className="text-[#685F51] leading-relaxed text-xs max-w-sm">
               Dedicated to clinical excellence in hyper-acute stroke intervention, 32-slice CT emergency diagnostics, 
-              intractable epilepsy, and neuro-critical care led by Dr. Sanjay Sopan Varade (MD, DM Neuro, 35+ Years Experience • Consultation Fee: ₹{consultationFee.toLocaleString('en-IN')}).
+              intractable epilepsy, and neuro-critical care led by {content.directorName} ({content.directorTitle}, {content.directorExperience} • Consultation Fee: ₹{consultationFee.toLocaleString('en-IN')}).
             </p>
 
             <div className="flex items-center gap-3 text-[11px] text-[#456254] font-semibold">
@@ -119,7 +120,7 @@ export const Footer: React.FC<FooterProps> = ({
               <li>
                 <button onClick={onOpenWhatsApp} className="hover:text-[#324B3E] transition-colors text-[#3F5E4D] font-semibold flex items-center gap-1">
                   <MessageCircle className="w-3.5 h-3.5" />
-                  WhatsApp Desk (9405545521)
+                  {content.whatsappDisplay || 'WhatsApp Desk (9405545521)'}
                 </button>
               </li>
             </ul>
@@ -132,7 +133,7 @@ export const Footer: React.FC<FooterProps> = ({
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-[#8E5B3E] shrink-0 mt-0.5" />
                 <span className="leading-relaxed text-[#4F473B]">
-                  Sopan Hospital and Neurology Institute, Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001
+                  {content.hospitalAddress || 'Sopan Hospital and Neurology Institute, Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka, Nashik - 422001'}
                 </span>
               </div>
 
@@ -176,14 +177,14 @@ export const Footer: React.FC<FooterProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-rose-600 shrink-0" />
-                <a href="tel:02532317364" className="font-bold text-rose-700 hover:underline transition-colors">
-                  Stroke Hotline: 0253 2317364
+                <a href={`tel:${content.emergencyPhone || '02532317364'}`} className="font-bold text-rose-700 hover:underline transition-colors">
+                  Stroke Hotline: {content.emergencyPhoneDisplay || '0253 2317364'}
                 </a>
               </div>
               <div className="flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-[#456254] shrink-0" />
                 <button onClick={onOpenWhatsApp} className="font-bold text-[#456254] hover:underline transition-colors flex items-center gap-1 text-left">
-                  WhatsApp: +91 94055 45521
+                  {content.whatsappDisplay || 'WhatsApp: +91 94055 45521'}
                 </button>
               </div>
               <div className="flex items-center gap-2">

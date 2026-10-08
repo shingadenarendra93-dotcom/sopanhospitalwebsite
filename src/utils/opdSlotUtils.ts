@@ -4,7 +4,8 @@ import {
   saveAuditLogToFirestore, 
   clearAuditLogsFromFirestore,
   saveHospitalSettingsToFirestore,
-  fetchHospitalSettingsFromFirestore
+  fetchHospitalSettingsFromFirestore,
+  updateAppointmentStatusInFirestore
 } from '../lib/firebase';
 
 export const TOTAL_OPD_DAILY_SLOTS = 50;
@@ -209,6 +210,8 @@ export function setOpdCapacity(capacity: number): void {
       action: 'OPD_CAPACITY_EXTENDED',
       details: `Daily OPD patient intake quota updated to ${sanitized} slots/day.`
     });
+    // Sync capacity to Firestore in real-time
+    saveHospitalSettingsToFirestore({ opdCapacity: sanitized }).catch(() => {});
     window.dispatchEvent(new CustomEvent('sopan_opd_quota_updated', { 
       detail: { customCapacity: sanitized } 
     }));
@@ -426,6 +429,16 @@ export function updateAppointmentStatus(
   });
 
   saveOpdAppointments(updated);
+
+  // Sync to Firestore in real-time across all devices
+  updateAppointmentStatusInFirestore(
+    appointmentId,
+    newStatus,
+    rejectionReason,
+    adminName
+  ).catch((err) => {
+    console.warn('Background sync of appointment status to Firestore:', err);
+  });
 
   // Proper Audit Logging for Approving or Rejecting
   if (targetApt) {
