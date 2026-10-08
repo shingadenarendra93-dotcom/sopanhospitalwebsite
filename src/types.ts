@@ -386,6 +386,7 @@ export interface HospitalEvent {
   keyHighlights: string[];
   addedBy?: string;
   addedAt?: string;
+  updatedAt?: string;
 }
 
 

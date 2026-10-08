@@ -24,7 +24,7 @@ import {
   Unsubscribe,
   Timestamp 
 } from 'firebase/firestore';
-import { Appointment } from '../types';
+import { Appointment, HospitalEvent } from '../types';
 import firebaseConfigData from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -415,7 +415,7 @@ export async function saveHospitalEventToFirestore(event: {
   keyHighlights: string[];
   addedBy?: string;
   addedAt?: string;
-}) {
+}): Promise<string | null> {
   try {
     const eventRef = doc(db, 'hospital_events', event.id);
     const cleaned = cleanFirestoreData({
@@ -431,9 +431,8 @@ export async function saveHospitalEventToFirestore(event: {
 }
 
 // Delete Hospital Event Photograph from Firestore
-export async function deleteHospitalEventFromFirestore(eventId: string) {
+export async function deleteHospitalEventFromFirestore(eventId: string): Promise<boolean> {
   try {
-    const { deleteDoc } = await import('firebase/firestore');
     const eventRef = doc(db, 'hospital_events', eventId);
     await deleteDoc(eventRef);
     return true;
@@ -444,15 +443,121 @@ export async function deleteHospitalEventFromFirestore(eventId: string) {
 }
 
 // Fetch Hospital Event Photographs from Firestore
-export async function fetchHospitalEventsFromFirestore() {
+export async function fetchHospitalEventsFromFirestore(): Promise<any[]> {
   try {
-    const q = query(collection(db, 'hospital_events'), orderBy('updatedAt', 'desc'));
+    const q = query(collection(db, 'hospital_events'));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (err) {
     console.warn('Falling back or error fetching hospital events from Firestore:', err);
     return [];
   }
+}
+
+// Reset Hospital Event Photographs in Firestore back to default archive
+export async function resetHospitalEventsInFirestore(): Promise<boolean> {
+  try {
+    const { HOSPITAL_EVENTS } = await import('../data/mockData');
+    const existing = await fetchHospitalEventsFromFirestore();
+    const defaultIds = new Set(HOSPITAL_EVENTS.map(e => e.id));
+
+    // Delete non-default docs
+    const toDelete = existing.filter(e => !defaultIds.has(e.id));
+    await Promise.all(toDelete.map(d => deleteHospitalEventFromFirestore(d.id)));
+
+    // Upsert defaults
+    const writePromises = HOSPITAL_EVENTS.map(evt => {
+      const eventRef = doc(db, 'hospital_events', evt.id);
+      return setDoc(eventRef, cleanFirestoreData({
+        ...evt,
+        addedAt: evt.addedAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }), { merge: true });
+    });
+    await Promise.all(writePromises);
+    return true;
+  } catch (err) {
+    console.warn('Error resetting hospital events in Firestore:', err);
+    return false;
+  }
+}
+
+/**
+ * Real-Time onSnapshot Subscription for Hospital Events / Occasion Gallery Photographs
+ * All devices update live instantly whenever a photo is added, edited, or deleted!
+ */
+export function subscribeToHospitalEvents(callback: (events: HospitalEvent[]) => void): Unsubscribe {
+  const eventsCol = collection(db, 'hospital_events');
+  
+  const mapDocToEvent = (docSnap: any): HospitalEvent => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      title: data.title || 'Special Occasion Photograph',
+      category: data.category || 'Events',
+      date: data.date || '',
+      location: data.location || 'Sopan Hospital, Shrihari Kute Marg, Mumbai Naka, Nashik',
+      leadClinician: data.leadClinician || 'Dr. Sanjay Sopan Varade (MD, DM Neuro)',
+      summary: data.summary || '',
+      attendeesCount: data.attendeesCount || '150+ Attendees & Dignitaries',
+      imageUrl: data.imageUrl || '',
+      tags: Array.isArray(data.tags) ? data.tags : ['HospitalOccasion', 'SopanNeuro'],
+      keyHighlights: Array.isArray(data.keyHighlights) ? data.keyHighlights : [],
+      addedBy: data.addedBy,
+      addedAt: data.addedAt,
+      updatedAt: data.updatedAt
+    };
+  };
+
+  return onSnapshot(
+    eventsCol,
+    async (snapshot) => {
+      if (snapshot.empty) {
+        // If Firestore collection has no documents yet, seed with initial curated archive
+        try {
+          const { HOSPITAL_EVENTS } = await import('../data/mockData');
+          const seedPromises = HOSPITAL_EVENTS.map(evt => {
+            const eventRef = doc(db, 'hospital_events', evt.id);
+            return setDoc(eventRef, cleanFirestoreData({
+              ...evt,
+              addedAt: evt.addedAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }), { merge: true });
+          });
+          await Promise.all(seedPromises);
+          callback(HOSPITAL_EVENTS);
+          return;
+        } catch {
+          callback([]);
+          return;
+        }
+      }
+
+      const list = snapshot.docs.map(mapDocToEvent).sort((a, b) => 
+        (b.addedAt || b.date || '').localeCompare(a.addedAt || a.date || '')
+      );
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('sopan_hospital_events_gallery', JSON.stringify(list));
+          window.dispatchEvent(new CustomEvent('sopan_hospital_events_updated', { detail: { events: list } }));
+        } catch {}
+      }
+
+      callback(list);
+    },
+    (err) => {
+      console.warn('Real-time hospital events snapshot listener notice:', err);
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('sopan_hospital_events_gallery');
+          if (raw) {
+            callback(JSON.parse(raw));
+          }
+        } catch {}
+      }
+    }
+  );
 }
 
 // Hospital Content and Configuration Settings Structure for Firestore

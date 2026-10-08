@@ -44,6 +44,7 @@ import { Appointment, OpdAuditLog, HospitalEvent } from '../types';
 import { 
   subscribeToAppointments, 
   subscribeToHospitalSettings, 
+  subscribeToHospitalEvents,
   saveHospitalSettingsToFirestore, 
   updateAppointmentStatusInFirestore, 
   deleteAppointmentFromFirestore,
@@ -56,6 +57,7 @@ import {
   addHospitalEventPhoto,
   removeHospitalEventPhoto,
   resetHospitalEventsToDefault,
+  compressImageFile,
   PRESET_OCCASION_PHOTOS,
   OCCASION_CATEGORIES,
   matchEventCategory
@@ -117,7 +119,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     }
   }, [initialTab]);
 
-  // Real-time onSnapshot subscription to appointments & hospital content
+  // Real-time onSnapshot subscription to appointments, hospital content & occasion gallery photos
   useEffect(() => {
     const unsubAppts = subscribeToAppointments((liveApts) => {
       setAppointments(liveApts);
@@ -127,9 +129,15 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
       setConsultationFeeState(liveSettings.consultationFee);
       setCapacityState(liveSettings.opdCapacity);
     });
+    const unsubEvents = subscribeToHospitalEvents((liveEvents) => {
+      if (liveEvents && liveEvents.length > 0) {
+        setHospitalEvents(liveEvents);
+      }
+    });
     return () => {
       unsubAppts();
       unsubSettings();
+      unsubEvents();
     };
   }, []);
 
@@ -494,7 +502,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     });
   }, [hospitalEvents, galleryCategoryFilter, gallerySearch]);
 
-  const handlePhotoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -504,15 +512,24 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
     }
 
     setUploadedFileName(file.name);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      setNewPhotoImageUrl(result);
+    try {
+      // Compress image so that data URL remains under 200KB and live syncs to Firestore seamlessly
+      const compressedDataUrl = await compressImageFile(file);
+      setNewPhotoImageUrl(compressedDataUrl);
       setNewPhotoCustomUrl('');
       setSelectedPresetIdx(-1);
-      triggerToast(`Photograph "${file.name}" uploaded successfully.`, 'info');
-    };
-    reader.readAsDataURL(file);
+      triggerToast(`Photograph "${file.name}" uploaded and optimized for live sync.`, 'info');
+    } catch {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setNewPhotoImageUrl(result);
+        setNewPhotoCustomUrl('');
+        setSelectedPresetIdx(-1);
+        triggerToast(`Photograph "${file.name}" uploaded successfully.`, 'info');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleAddGalleryPhoto = (e: React.FormEvent) => {

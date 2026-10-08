@@ -41,10 +41,12 @@ import {
   removeHospitalEventPhoto, 
   resetHospitalEventsToDefault,
   syncHospitalEventsWithFirestore,
+  compressImageFile,
   PRESET_OCCASION_PHOTOS,
   OCCASION_CATEGORIES,
   matchEventCategory
 } from '../utils/hospitalEventsUtils';
+import { subscribeToHospitalEvents } from '../lib/firebase';
 import { isAdminLoggedIn, getAdminSession } from '../utils/opdSlotUtils';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 
@@ -97,12 +99,12 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
   const [photoToDelete, setPhotoToDelete] = useState<HospitalEvent | null>(null);
 
   useEffect(() => {
-    // Initial fetch from Firestore to keep photos synchronized
-    syncHospitalEventsWithFirestore().then(synced => {
-      if (synced && synced.length > 0) {
-        setEventsList(synced);
+    // Real-Time onSnapshot subscription: live sync across all devices for added & deleted photos
+    const unsubscribe = subscribeToHospitalEvents((liveEvents) => {
+      if (liveEvents && liveEvents.length > 0) {
+        setEventsList(liveEvents);
       }
-    }).catch(() => {});
+    });
 
     const handleEventsSync = () => {
       setEventsList(loadHospitalEvents());
@@ -117,6 +119,7 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
     window.addEventListener('storage', handleEventsSync);
 
     return () => {
+      unsubscribe();
       window.removeEventListener('sopan_hospital_events_updated', handleEventsSync);
       window.removeEventListener('sopan_admin_session_changed', handleAuthSync);
       window.removeEventListener('storage', handleEventsSync);
@@ -176,8 +179,8 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
     return counts;
   }, [eventsList]);
 
-  // Handle local image file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local image file upload with live compression for fast Firestore sync
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -187,15 +190,24 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
     }
 
     setUploadedFileName(file.name);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      setNewImageUrl(result);
+    try {
+      // Compress so photo stays well under Firestore's 1MB document limit and live-syncs instantly
+      const compressedDataUrl = await compressImageFile(file);
+      setNewImageUrl(compressedDataUrl);
       setCustomImageUrl('');
       setSelectedPresetIndex(-1);
-      triggerToast(`Photograph "${file.name}" uploaded successfully.`);
-    };
-    reader.readAsDataURL(file);
+      triggerToast(`Photograph "${file.name}" uploaded and optimized for live sync.`);
+    } catch {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setNewImageUrl(result);
+        setCustomImageUrl('');
+        setSelectedPresetIndex(-1);
+        triggerToast(`Photograph "${file.name}" uploaded successfully.`);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Submit new photo

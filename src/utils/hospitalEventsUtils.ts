@@ -4,10 +4,56 @@ import { addAdminAuditLog, getAdminSession } from './opdSlotUtils';
 import { 
   saveHospitalEventToFirestore, 
   deleteHospitalEventFromFirestore,
-  fetchHospitalEventsFromFirestore 
+  fetchHospitalEventsFromFirestore,
+  resetHospitalEventsInFirestore
 } from '../lib/firebase';
 
 const STORAGE_KEY = 'sopan_hospital_events_gallery';
+
+/**
+ * Compresses an image file before storing or saving to Firestore.
+ * Keeps payload well under Firestore's 1MB limit (~100-200KB) while maintaining crisp visual fidelity.
+ */
+export function compressImageFile(
+  file: File, 
+  maxWidth = 1280, 
+  maxHeight = 850, 
+  quality = 0.82
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image for compression'));
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 /**
  * Curated preset photographs for hospital special occasions
@@ -253,26 +299,28 @@ export function addHospitalEventPhoto(
     details: `Added new hospital special occasion photograph: "${newEvent.title}" (Category: ${newEvent.category}, Date: ${newEvent.date}, Venue: ${newEvent.location}).`
   });
 
-  // Persist to Firestore
-  try {
-    saveHospitalEventToFirestore({
-      id: newEvent.id,
-      title: newEvent.title,
-      category: newEvent.category,
-      date: newEvent.date,
-      location: newEvent.location,
-      leadClinician: newEvent.leadClinician,
-      summary: newEvent.summary,
-      attendeesCount: newEvent.attendeesCount,
-      imageUrl: newEvent.imageUrl,
-      tags: newEvent.tags,
-      keyHighlights: newEvent.keyHighlights,
-      addedBy: newEvent.addedBy,
-      addedAt: newEvent.addedAt
-    }).catch(() => {});
-  } catch {
-    // Ignore offline errors
-  }
+  // Persist to Firestore - propagates via onSnapshot to all connected devices instantly
+  saveHospitalEventToFirestore({
+    id: newEvent.id,
+    title: newEvent.title,
+    category: newEvent.category,
+    date: newEvent.date,
+    location: newEvent.location,
+    leadClinician: newEvent.leadClinician,
+    summary: newEvent.summary,
+    attendeesCount: newEvent.attendeesCount,
+    imageUrl: newEvent.imageUrl,
+    tags: newEvent.tags,
+    keyHighlights: newEvent.keyHighlights,
+    addedBy: newEvent.addedBy,
+    addedAt: newEvent.addedAt
+  }).then((res) => {
+    if (res) {
+      console.log('Occasion photo synced to Firestore:', newEvent.id);
+    }
+  }).catch((err) => {
+    console.warn('Firestore photo save notice:', err);
+  });
 
   return newEvent;
 }
@@ -303,12 +351,14 @@ export function removeHospitalEventPhoto(
     details: `Removed hospital event photograph "${target.title}" (Category: ${target.category}) from public archive.`
   });
 
-  // Delete from Firestore
-  try {
-    deleteHospitalEventFromFirestore(eventId).catch(() => {});
-  } catch {
-    // Ignore
-  }
+  // Delete from Firestore - triggers onSnapshot across all connected devices
+  deleteHospitalEventFromFirestore(eventId).then((ok) => {
+    if (ok) {
+      console.log('Occasion photo removed from Firestore:', eventId);
+    }
+  }).catch((err) => {
+    console.warn('Firestore photo deletion notice:', err);
+  });
 
   return true;
 }
@@ -329,6 +379,11 @@ export function resetHospitalEventsToDefault(): HospitalEvent[] {
     details: `Reset hospital event gallery photographs to default 35+ years clinical archive (${HOSPITAL_EVENTS.length} photos).`
   });
 
+  // Reset Firestore documents so all devices update live
+  resetHospitalEventsInFirestore().catch((err) => {
+    console.warn('Firestore reset events notice:', err);
+  });
+
   return HOSPITAL_EVENTS;
 }
 
@@ -339,18 +394,25 @@ export async function syncHospitalEventsWithFirestore(): Promise<HospitalEvent[]
   try {
     const remote = await fetchHospitalEventsFromFirestore();
     if (remote && remote.length > 0) {
-      const local = loadHospitalEvents();
-      // Merge unique by ID
-      const remoteMap = new Map<string, HospitalEvent>();
-      remote.forEach((r: any) => remoteMap.set(r.id, r));
-      local.forEach(l => {
-        if (!remoteMap.has(l.id)) {
-          remoteMap.set(l.id, l);
-        }
-      });
-      const merged = Array.from(remoteMap.values());
-      saveHospitalEvents(merged);
-      return merged;
+      const mapped: HospitalEvent[] = remote.map((r: any) => ({
+        id: r.id,
+        title: r.title || 'Special Occasion Photograph',
+        category: r.category || 'Events',
+        date: r.date || '',
+        location: r.location || 'Sopan Hospital, Shrihari Kute Marg, Mumbai Naka, Nashik',
+        leadClinician: r.leadClinician || 'Dr. Sanjay Sopan Varade (MD, DM Neuro)',
+        summary: r.summary || '',
+        attendeesCount: r.attendeesCount || '150+ Attendees & Dignitaries',
+        imageUrl: r.imageUrl || '',
+        tags: Array.isArray(r.tags) ? r.tags : ['HospitalOccasion', 'SopanNeuro'],
+        keyHighlights: Array.isArray(r.keyHighlights) ? r.keyHighlights : [],
+        addedBy: r.addedBy,
+        addedAt: r.addedAt,
+        updatedAt: r.updatedAt
+      })).sort((a, b) => (b.addedAt || b.date || '').localeCompare(a.addedAt || a.date || ''));
+
+      saveHospitalEvents(mapped);
+      return mapped;
     }
   } catch (err) {
     console.warn('Sync with Firestore error:', err);
