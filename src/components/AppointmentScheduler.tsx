@@ -40,7 +40,7 @@ import { downloadIcsFile, formatAppointmentReminderMessage } from '../utils/cale
 import { OpdSlotCounterMeter } from './OpdSlotCounterMeter';
 import { PatientExperienceFeedbackModalOrSection } from './PatientExperienceFeedback';
 import { SopanLogo } from './SopanLogo';
-import { saveAppointmentToFirestore } from '../lib/firebase';
+import { saveAppointmentToFirestore, savePatientToWebsiteData } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 import { useConsultationFee } from '../hooks/useConsultationFee';
@@ -325,6 +325,20 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       conditionContext: newAppointment.symptoms,
       status: 'CONFIRMED',
       userId: user?.uid
+    });
+
+    // Mirror patient intake into Firestore 'website_data' collection
+    savePatientToWebsiteData({
+      patientName: newAppointment.patientName,
+      phone: newAppointment.patientPhone,
+      email: newAppointment.patientEmail,
+      age: newAppointment.patientAge,
+      gender: newAppointment.patientGender,
+      department: newAppointment.department,
+      chiefComplaint: newAppointment.symptoms,
+      preferredDate: newAppointment.date,
+      notes: `Token: ${newAppointment.tokenNumber} | Time: ${newAppointment.timeSlot} | Doctor: ${newAppointment.doctorName}`,
+      source: 'OPD Appointment Booking Engine'
     });
 
     if (onAppointmentBooked) {

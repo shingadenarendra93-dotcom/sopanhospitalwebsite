@@ -30,6 +30,7 @@ const firebaseConfig = {
   storageBucket: firebaseConfigData.storageBucket,
   messagingSenderId: firebaseConfigData.messagingSenderId,
   appId: firebaseConfigData.appId,
+  measurementId: firebaseConfigData.measurementId,
 };
 
 // Initialize Firebase App
@@ -44,6 +45,71 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 export const db = firebaseConfigData.firestoreDatabaseId && firebaseConfigData.firestoreDatabaseId !== '(default)'
   ? getFirestore(app, firebaseConfigData.firestoreDatabaseId)
   : getFirestore(app);
+
+// Data structure for Firestore 'website_data' collection
+export interface PatientWebsiteData {
+  id?: string;
+  patientName: string;
+  phone: string;
+  email?: string;
+  age?: string | number;
+  gender?: string;
+  department?: string;
+  chiefComplaint?: string;
+  preferredDate?: string;
+  notes?: string;
+  source?: string;
+  createdAt?: string;
+  timestamp?: any;
+}
+
+/**
+ * Save patient data record directly into the Firestore collection 'website_data'
+ */
+export async function savePatientToWebsiteData(data: Omit<PatientWebsiteData, 'id' | 'createdAt' | 'timestamp'>): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const colRef = collection(db, 'website_data');
+    const docData = {
+      ...data,
+      source: data.source || 'Sopan Hospital Web Intake',
+      createdAt: new Date().toISOString(),
+      timestamp: Timestamp.now()
+    };
+    const docRef = await addDoc(colRef, docData);
+    return { success: true, id: docRef.id };
+  } catch (err: any) {
+    console.error('Error saving patient to Firestore website_data collection:', err);
+    return { success: false, error: err?.message || 'Failed to save patient data to Firestore.' };
+  }
+}
+
+/**
+ * Retrieve patient data records from the Firestore collection 'website_data'
+ */
+export async function fetchWebsiteData(limitCount = 50): Promise<PatientWebsiteData[]> {
+  try {
+    const colRef = collection(db, 'website_data');
+    const q = query(colRef, orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    })) as PatientWebsiteData[];
+  } catch (err) {
+    console.warn('Error fetching website_data records from Firestore:', err);
+    // If order index is building or not available, fallback to un-ordered query
+    try {
+      const colRef = collection(db, 'website_data');
+      const snap = await getDocs(colRef);
+      return snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })) as PatientWebsiteData[];
+    } catch {
+      return [];
+    }
+  }
+}
 
 // Test Firestore connection on boot
 export async function testFirestoreConnection() {

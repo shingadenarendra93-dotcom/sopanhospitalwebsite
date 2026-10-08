@@ -47,6 +47,13 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Patient data repository for website_data collection
+    match /website_data/{docId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAuthenticated();
+    }
+
     // Connection test document
     match /test/{docId} {
       allow read, write: if true;

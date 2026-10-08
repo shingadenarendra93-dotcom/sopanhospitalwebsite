@@ -16,6 +16,7 @@ import { HospitalEventsGallery } from './components/HospitalEventsGallery';
 import { HospitalMapLocation } from './components/HospitalMapLocation';
 import { SymptomChecker } from './components/SymptomChecker';
 import { OpdAdminPortalModal } from './components/OpdAdminPortalModal';
+import { PatientWebsiteDataForm } from './components/PatientWebsiteDataForm';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { WhatsAppContactModal } from './components/WhatsAppContactModal';
@@ -74,6 +75,7 @@ function MainApp() {
 
   const subTabs = [
     { id: 'appointments', label: t('nav.appointments') },
+    { id: 'website-data', label: 'Patient Data (Firestore)' },
     { id: 'symptom-checker', label: t('nav.symptom_checker') },
     { id: 'location', label: t('nav.location') },
     { id: 'stories', label: t('nav.stories') },
@@ -225,6 +227,9 @@ function MainApp() {
               initialSymptoms={appointmentPrefill?.symptoms}
               initialDiseaseContext={appointmentPrefill?.condition}
             />
+          )}
+          {activeTab === 'website-data' && (
+            <PatientWebsiteDataForm />
           )}
           {activeTab === 'patient-portal' && <PatientPortal />}
           {activeTab === 'remote-monitoring' && <RemoteMonitoring />}
