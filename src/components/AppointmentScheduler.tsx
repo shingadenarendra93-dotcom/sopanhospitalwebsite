@@ -322,23 +322,24 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       timeSlot: newAppointment.timeSlot,
       tokenNumber: newAppointment.tokenNumber,
       department: newAppointment.department,
-      conditionContext: newAppointment.symptoms,
+      conditionContext: newAppointment.symptoms || '',
       status: 'CONFIRMED',
-      userId: user?.uid
+      userId: user?.uid || 'guest'
     });
 
     // Mirror patient intake into Firestore 'website_data' collection
     savePatientToWebsiteData({
       patientName: newAppointment.patientName,
       phone: newAppointment.patientPhone,
-      email: newAppointment.patientEmail,
+      email: newAppointment.patientEmail || '',
       age: newAppointment.patientAge,
       gender: newAppointment.patientGender,
       department: newAppointment.department,
-      chiefComplaint: newAppointment.symptoms,
+      chiefComplaint: newAppointment.symptoms || '',
       preferredDate: newAppointment.date,
       notes: `Token: ${newAppointment.tokenNumber} | Time: ${newAppointment.timeSlot} | Doctor: ${newAppointment.doctorName}`,
-      source: 'OPD Appointment Booking Engine'
+      source: 'OPD Appointment Booking Engine',
+      userId: user?.uid || 'guest'
     });
 
     if (onAppointmentBooked) {

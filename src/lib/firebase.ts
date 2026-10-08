@@ -59,8 +59,27 @@ export interface PatientWebsiteData {
   preferredDate?: string;
   notes?: string;
   source?: string;
+  userId?: string;
   createdAt?: string;
   timestamp?: any;
+}
+
+/**
+ * Sanitizes an object before sending it to Firestore by stripping out any
+ * undefined values or nested undefined keys, preventing "Unsupported field value: undefined" errors.
+ */
+export function cleanFirestoreData<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      if (val !== null && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Timestamp) && !(val instanceof Date)) {
+        cleaned[key] = cleanFirestoreData(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  }
+  return cleaned;
 }
 
 /**
@@ -69,13 +88,22 @@ export interface PatientWebsiteData {
 export async function savePatientToWebsiteData(data: Omit<PatientWebsiteData, 'id' | 'createdAt' | 'timestamp'>): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const colRef = collection(db, 'website_data');
-    const docData = {
-      ...data,
-      source: data.source || 'Sopan Hospital Web Intake',
+    const cleaned = cleanFirestoreData({
+      patientName: data.patientName || 'Patient',
+      phone: data.phone || '',
+      email: data.email ?? '',
+      age: data.age !== undefined && data.age !== null ? String(data.age) : '',
+      gender: data.gender ?? 'Not Specified',
+      department: data.department ?? 'General Neurology',
+      chiefComplaint: data.chiefComplaint ?? '',
+      preferredDate: data.preferredDate ?? new Date().toISOString().split('T')[0],
+      notes: data.notes ?? '',
+      source: data.source ?? 'Sopan Hospital Web Intake',
+      userId: data.userId || 'guest',
       createdAt: new Date().toISOString(),
       timestamp: Timestamp.now()
-    };
-    const docRef = await addDoc(colRef, docData);
+    });
+    const docRef = await addDoc(colRef, cleaned);
     return { success: true, id: docRef.id };
   } catch (err: any) {
     console.error('Error saving patient to Firestore website_data collection:', err);
@@ -154,7 +182,7 @@ export async function logOut(): Promise<void> {
 export async function saveAppointmentToFirestore(appointment: {
   patientName: string;
   contactNumber: string;
-  age?: string;
+  age?: string | number;
   gender?: string;
   doctor?: string;
   date: string;
@@ -167,10 +195,22 @@ export async function saveAppointmentToFirestore(appointment: {
 }) {
   try {
     const apptsCol = collection(db, 'appointments');
-    const docRef = await addDoc(apptsCol, {
-      ...appointment,
+    const cleaned = cleanFirestoreData({
+      patientName: appointment.patientName || 'Patient',
+      contactNumber: appointment.contactNumber || '',
+      age: appointment.age !== undefined && appointment.age !== null ? String(appointment.age) : '',
+      gender: appointment.gender ?? 'Not Specified',
+      doctor: appointment.doctor ?? 'Dr. Sanjay Sopan Varade',
+      date: appointment.date || new Date().toISOString().split('T')[0],
+      timeSlot: appointment.timeSlot || 'OPD Slot',
+      tokenNumber: appointment.tokenNumber || '0',
+      department: appointment.department || 'Neurology',
+      conditionContext: appointment.conditionContext ?? '',
+      status: appointment.status || 'CONFIRMED',
+      userId: appointment.userId || 'guest',
       createdAt: new Date().toISOString()
     });
+    const docRef = await addDoc(apptsCol, cleaned);
     return docRef.id;
   } catch (err) {
     console.error('Failed to save appointment to Firestore:', err);
@@ -198,10 +238,12 @@ export async function fetchUserAppointments(userId: string) {
 export async function saveFeedbackToFirestore(feedback: any) {
   try {
     const feedbacksCol = collection(db, 'feedbacks');
-    const docRef = await addDoc(feedbacksCol, {
+    const cleaned = cleanFirestoreData({
       ...feedback,
+      userId: feedback?.userId || 'guest',
       createdAt: new Date().toISOString()
     });
+    const docRef = await addDoc(feedbacksCol, cleaned);
     return docRef.id;
   } catch (err) {
     console.error('Failed to save feedback to Firestore:', err);
@@ -230,11 +272,13 @@ export async function saveChatMessageToFirestore(userId: string, message: {
   sources?: any;
 }) {
   try {
-    const chatsCol = collection(db, 'users', userId, 'chats');
-    await addDoc(chatsCol, {
+    const safeUserId = userId || 'guest';
+    const chatsCol = collection(db, 'users', safeUserId, 'chats');
+    const cleaned = cleanFirestoreData({
       ...message,
       timestamp: new Date().toISOString()
     });
+    await addDoc(chatsCol, cleaned);
   } catch (err) {
     console.warn('Error persisting chat to Firestore:', err);
   }
@@ -257,10 +301,11 @@ export async function saveAuditLogToFirestore(log: {
 }) {
   try {
     const logsCol = collection(db, 'opd_admin_audit_logs');
-    const docRef = await addDoc(logsCol, {
+    const cleaned = cleanFirestoreData({
       ...log,
       createdAt: new Date().toISOString()
     });
+    const docRef = await addDoc(logsCol, cleaned);
     return docRef.id;
   } catch (err) {
     console.warn('Firestore notice: Audit log fallback to localStorage:', err);
@@ -313,10 +358,11 @@ export async function saveHospitalEventToFirestore(event: {
 }) {
   try {
     const eventRef = doc(db, 'hospital_events', event.id);
-    await setDoc(eventRef, {
+    const cleaned = cleanFirestoreData({
       ...event,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    });
+    await setDoc(eventRef, cleaned, { merge: true });
     return event.id;
   } catch (err) {
     console.warn('Firestore fallback: Event saved locally:', err);
@@ -357,10 +403,11 @@ export async function saveHospitalSettingsToFirestore(settings: {
 }) {
   try {
     const settingsRef = doc(db, 'hospital_settings', 'configuration');
-    await setDoc(settingsRef, {
+    const cleaned = cleanFirestoreData({
       ...settings,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    });
+    await setDoc(settingsRef, cleaned, { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore fallback: Settings saved locally:', err);

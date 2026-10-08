@@ -110,14 +110,15 @@ export const PatientWebsiteDataForm: React.FC<PatientWebsiteDataFormProps> = ({ 
     const result = await savePatientToWebsiteData({
       patientName: formData.patientName.trim(),
       phone: formData.phone.trim(),
-      email: formData.email.trim() || undefined,
-      age: formData.age ? Number(formData.age) : undefined,
-      gender: formData.gender,
-      department: formData.department,
-      chiefComplaint: formData.chiefComplaint.trim(),
-      preferredDate: formData.preferredDate,
-      notes: formData.notes.trim() || undefined,
-      source: 'Patient Web Portal / website_data Form'
+      email: formData.email.trim() || '',
+      age: formData.age ? Number(formData.age) : '',
+      gender: formData.gender || 'Not Specified',
+      department: formData.department || 'General Neurology',
+      chiefComplaint: formData.chiefComplaint.trim() || '',
+      preferredDate: formData.preferredDate || new Date().toISOString().split('T')[0],
+      notes: formData.notes.trim() || '',
+      source: 'Patient Web Portal / website_data Form',
+      userId: 'guest'
     });
 
     setIsSubmitting(false);
