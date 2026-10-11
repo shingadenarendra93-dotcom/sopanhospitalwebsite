@@ -4,10 +4,6 @@ import { HeroBanner } from './components/HeroBanner';
 import { VRBrainViewer } from './components/VRBrainViewer';
 import { DiseaseArticles } from './components/DiseaseArticles';
 import { AppointmentScheduler } from './components/AppointmentScheduler';
-import { PatientPortal } from './components/PatientPortal';
-import { RemoteMonitoring } from './components/RemoteMonitoring';
-import { CaseStudyDatabase } from './components/CaseStudyDatabase';
-import { StaffPayroll } from './components/StaffPayroll';
 import { GoogleReviews } from './components/GoogleReviews';
 import { PatientExperienceFeedbackModalOrSection } from './components/PatientExperienceFeedback';
 import { PatientSuccessStories } from './components/PatientSuccessStories';
@@ -29,7 +25,9 @@ import {
   Clock, 
   X,
   Stethoscope,
-  Activity
+  Activity,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 function MainApp() {
@@ -45,6 +43,17 @@ function MainApp() {
   const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState<boolean>(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
   const [adminInitialTab, setAdminInitialTab] = useState<'fee' | 'counter' | 'appointments' | 'logs' | 'gallery'>('fee');
+  const subTabsNavRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollSubTabs = (direction: 'left' | 'right') => {
+    if (subTabsNavRef.current) {
+      const scrollAmount = 300;
+      subTabsNavRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   React.useEffect(() => {
     // Keep the doctor photo default: purge any legacy local storage overrides
@@ -83,11 +92,6 @@ function MainApp() {
     { id: 'patient-feedback', label: t('nav.feedback') },
     { id: 'vr-brain', label: t('nav.vr_brain') },
     { id: 'diseases', label: t('nav.diseases') },
-    { id: 'patient-portal', label: t('nav.portal') },
-    { id: 'remote-monitoring', label: t('nav.monitoring') },
-    { id: 'case-studies', label: t('nav.case_studies') },
-    { id: 'staff-payroll', label: t('nav.payroll') },
-    { id: 'opd-admin', label: 'OPD Admin Desk' },
   ];
 
   return (
@@ -129,23 +133,57 @@ function MainApp() {
           onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
         />
 
-        {/* Dynamic Section Navigation / Sub-tabs (Touch-friendly & responsive across viewports) */}
-        <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-1.5 sm:p-2 shadow-xs flex items-center gap-1 sm:gap-1.5 overflow-x-auto scrollbar-none">
-          {subTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-              }}
-              className={`touch-friendly-btn px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-[#342E28] text-white shadow-xs font-bold'
-                  : 'text-[#635E56] hover:text-[#27231E] hover:bg-[#EFE9DF]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Dynamic Section Navigation / Sub-tabs (Touch-friendly & easily scrollable with buttons & mouse wheel on PC) */}
+        <div className="relative group">
+          {/* PC Left Scroll Arrow Button */}
+          <button
+            type="button"
+            onClick={() => scrollSubTabs('left')}
+            className="hidden sm:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-[#FAF7F2] hover:bg-white text-[#342E28] border border-[#D5CDBC] shadow-md items-center justify-center transition-all opacity-85 hover:opacity-100 hover:scale-110 cursor-pointer"
+            aria-label="Scroll left options"
+            title="Scroll options left"
+          >
+            <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+          </button>
+
+          {/* Sub-tabs horizontal scroll container */}
+          <div
+            ref={subTabsNavRef}
+            onWheel={(e) => {
+              if (e.deltaY !== 0 && subTabsNavRef.current) {
+                // Allows standard PC mouse wheel to scroll horizontally smoothly
+                subTabsNavRef.current.scrollLeft += e.deltaY;
+              }
+            }}
+            className="custom-horizontal-scrollbar bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-1.5 sm:p-2 shadow-xs flex items-center gap-1 sm:gap-1.5"
+          >
+            {subTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                }}
+                className={`touch-friendly-btn px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                  activeTab === tab.id
+                    ? 'bg-[#342E28] text-white shadow-xs font-bold'
+                    : 'text-[#635E56] hover:text-[#27231E] hover:bg-[#EFE9DF]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* PC Right Scroll Arrow Button */}
+          <button
+            type="button"
+            onClick={() => scrollSubTabs('right')}
+            className="hidden sm:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-[#FAF7F2] hover:bg-white text-[#342E28] border border-[#D5CDBC] shadow-md items-center justify-center transition-all opacity-85 hover:opacity-100 hover:scale-110 cursor-pointer"
+            aria-label="Scroll right options"
+            title="Scroll options right"
+          >
+            <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+          </button>
         </div>
 
         {/* View Switcher Container */}
@@ -224,20 +262,6 @@ function MainApp() {
             <AppointmentScheduler
               initialSymptoms={appointmentPrefill?.symptoms}
               initialDiseaseContext={appointmentPrefill?.condition}
-            />
-          )}
-          {activeTab === 'patient-portal' && <PatientPortal />}
-          {activeTab === 'remote-monitoring' && <RemoteMonitoring />}
-          {activeTab === 'case-studies' && <CaseStudyDatabase />}
-          {activeTab === 'staff-payroll' && <StaffPayroll />}
-          {activeTab === 'opd-admin' && (
-            <OpdAdminPortalModal
-              isEmbedded={true}
-              initialTab="fee"
-              onClose={() => {
-                setActiveTab('appointments');
-                window.scrollTo({ top: 380, behavior: 'smooth' });
-              }}
             />
           )}
           {activeTab === 'reviews' && <GoogleReviews />}

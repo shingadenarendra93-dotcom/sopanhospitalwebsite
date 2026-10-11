@@ -76,18 +76,8 @@ export const Footer: React.FC<FooterProps> = ({
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('patient-portal')} className="hover:text-[#8E5B3E] transition-colors text-left">
-                  Patient Health Records & 32-Slice CT Reports
-                </button>
-              </li>
-              <li>
                 <button onClick={() => onNavigate('news')} className="hover:text-[#221B14] text-[#456254] transition-colors font-semibold flex items-center gap-1">
                   <span>📰</span> Latest Neurology News & Research
-                </button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('remote-monitoring')} className="hover:text-[#8E5B3E] transition-colors text-left">
-                  Remote Monitoring & Triage
                 </button>
               </li>
               <li>
@@ -98,18 +88,18 @@ export const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
 
-          {/* Col 4: Institutional & Academic */}
+          {/* Col 4: Patient Community & Reviews */}
           <div className="space-y-3">
-            <h4 className="text-[#221B14] font-serif font-bold uppercase text-[11px] tracking-wider">Institutional & HR</h4>
+            <h4 className="text-[#221B14] font-serif font-bold uppercase text-[11px] tracking-wider">Patient Community & Care</h4>
             <ul className="space-y-2">
               <li>
-                <button onClick={() => onNavigate('case-studies')} className="hover:text-[#8E5B3E] transition-colors text-left">
-                  Clinical Case Study Database
+                <button onClick={() => onNavigate('gallery')} className="hover:text-[#8E5B3E] transition-colors text-left">
+                  Hospital Occasion & Events Gallery
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('staff-payroll')} className="hover:text-[#8E5B3E] transition-colors text-left">
-                  Staff Roster & Payroll System
+                <button onClick={() => onNavigate('patient-feedback')} className="hover:text-[#8E5B3E] transition-colors text-left">
+                  Patient Experience & Feedback
                 </button>
               </li>
               <li>

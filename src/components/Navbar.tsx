@@ -66,7 +66,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'news', label: t('nav.news'), icon: <Newspaper className="w-4 h-4 text-[#456254]" /> },
     { id: 'reviews', label: t('nav.reviews'), icon: <Star className="w-4 h-4 fill-amber-500 text-amber-500" /> },
     { id: 'patient-feedback', label: t('nav.feedback'), icon: <MessageSquare className="w-4 h-4 text-[#8E5B3E]" /> },
-    { id: 'patient-portal', label: t('nav.portal'), icon: <User className="w-4 h-4" /> },
     { id: 'vr-brain', label: t('nav.vr_brain'), icon: <Glasses className="w-4 h-4" /> },
   ];
 

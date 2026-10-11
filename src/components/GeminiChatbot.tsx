@@ -49,14 +49,14 @@ export const GeminiChatbot: React.FC = () => {
       content: language === 'mr'
         ? `नमस्कार! मी सोपान हॉस्पिटल न्यूरोलॉजी इन्स्टिट्यूटचा अधिकृत एआय सहाय्यक आहे. डॉ. संजय सोपान वराडे (MD, DM Neuro) यांच्या मार्गदर्शनाखाली मी रुग्णांना मेंदू व मज्जारज्जूच्या आजारांविषयी, ओपीडी वेळ व उपचारांबद्दल माहिती देतो.\n\nमी तुम्हाला कशी मदत करू शकेन?\n- पक्षाघात (स्ट्रोक), डोकेदुखी, फिट्स (मिरगी), चक्कर येणे यांसारखी लक्षणे\n- ओपीडी वेळ आणि अपॉइंटमेंट बुकिंग प्रक्रिया (फी: ₹१,५००)\n- मुंबई नाका नाशिक येथील पत्ता आणि मार्ग (गुगल मॅप्स)\n- नवीनतम वैद्यकीय संशोधन (गुगल सर्च)\n- किंवा मायक्रोफोन बटण दाबून थेट बोलून विचारू शकता!`
         : `Hello! I am the **Sopan Hospital AI Neurology & Patient Navigator**, specialized in clinical guidance for Dr. Sanjay Sopan Varade (MD, DM Neuro) at Mumbai Naka, Nashik.\n\nHow may I assist you today? You can ask about:\n- Common symptoms (headaches, seizures, dizziness, nerve pain)\n- OPD timings & scheduling guidelines\n- Directions & hospital amenities via **Google Maps**\n- Latest neurological breakthroughs via **Google Search**\n- Or click the **Microphone** to speak your symptoms, or switch to **Live Voice Mode**!`,
-      model: 'gemini-3.5-flash',
+      model: 'gemini-3.8-flash',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
 
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [selectedModel, setSelectedModel] = useState<'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite'>('gemini-3.5-flash');
+  const [selectedModel, setSelectedModel] = useState<'gemini-3.8-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite'>('gemini-3.8-flash');
   const [groundingMode, setGroundingMode] = useState<'standard' | 'search' | 'maps'>('standard');
   
   // Audio Recording & Transcription State
@@ -116,7 +116,7 @@ export const GeminiChatbot: React.FC = () => {
           id: 'model-' + Date.now(),
           role: 'model',
           content: data.text || 'No response returned from search grounding.',
-          model: 'gemini-3.5-flash (Google Search Grounded)',
+          model: 'gemini-3.8-flash (Google Search Grounded)',
           sources: data.sources || [],
           searchQueries: data.searchQueries || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -128,7 +128,7 @@ export const GeminiChatbot: React.FC = () => {
           saveChatMessageToFirestore(user.uid, {
             role: 'model',
             content: modelMsg.content,
-            model: 'gemini-3.5-flash (Search)',
+            model: 'gemini-3.8-flash (Search)',
             groundingType: 'search',
             sources: data.sources
           });
@@ -167,7 +167,7 @@ export const GeminiChatbot: React.FC = () => {
           id: 'model-' + Date.now(),
           role: 'model',
           content: data.text || 'No location details returned.',
-          model: 'gemini-3.5-flash (Google Maps Grounded)',
+          model: 'gemini-3.8-flash (Google Maps Grounded)',
           places: data.places || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
@@ -178,7 +178,7 @@ export const GeminiChatbot: React.FC = () => {
           saveChatMessageToFirestore(user.uid, {
             role: 'model',
             content: modelMsg.content,
-            model: 'gemini-3.5-flash (Maps)',
+            model: 'gemini-3.8-flash (Maps)',
             groundingType: 'maps',
             sources: data.places
           });
@@ -411,7 +411,7 @@ export const GeminiChatbot: React.FC = () => {
             className="h-9 bg-[#FAF7F2] border border-[#D8CFC2] text-[#27231E] rounded-xl px-3 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#8E5B3E]"
             title="Select Gemini Intelligence Engine"
           >
-            <option value="gemini-3.5-flash">Gemini 3.5 Flash (Balanced)</option>
+            <option value="gemini-3.8-flash">Gemini 3.8 Flash (Balanced)</option>
             <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Complex Reasoning)</option>
             <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Ultra-fast)</option>
           </select>

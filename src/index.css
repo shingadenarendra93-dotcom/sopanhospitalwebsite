@@ -44,6 +44,34 @@
   background: linear-gradient(180deg, #FFFFFF 0%, #F9F7F3 100%);
 }
 
+/* Elegant slim scrollbar for PC / Desktop horizontal navigation */
+.custom-horizontal-scrollbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #C8BFB0 transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.custom-horizontal-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.custom-horizontal-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #D3CABF;
+  border-radius: 9999px;
+}
+
+.custom-horizontal-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: #A89F93;
+}
+
 @keyframes subtle-pulse {
   0%, 100% {
     transform: scale(1);
