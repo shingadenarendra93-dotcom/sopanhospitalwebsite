@@ -11,6 +11,8 @@ import {
   Activity, 
   AlertTriangle,
   ChevronRight,
+  ChevronLeft,
+  Tag,
   Maximize2,
   Volume2
 } from 'lucide-react';
@@ -38,12 +40,41 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
   const [mriSliceIndex, setMriSliceIndex] = useState<number>(50);
   const [showWireframe, setShowWireframe] = useState<boolean>(true);
   const [contrastLevel, setContrastLevel] = useState<number>(100);
+  const [showAnatomyLabels, setShowAnatomyLabels] = useState<boolean>(true);
+  const [ctDisplayMode, setCtDisplayMode] = useState<'split' | 'single'>('split');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasVRLeftRef = useRef<HTMLCanvasElement | null>(null);
   const canvasVRRightRef = useRef<HTMLCanvasElement | null>(null);
   const isDraggingRef = useRef<boolean>(false);
   const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Mouse wheel scroll handler for 32-slice CT axial navigation (1 to 100)
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (viewMode === 'mri-axial') {
+      const delta = e.deltaY > 0 ? 1 : -1;
+      setMriSliceIndex(prev => Math.max(1, Math.min(100, prev + delta)));
+    }
+  };
+
+  // Native non-passive wheel listener to prevent parent page scroll while scrolling CT slices
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onNativeWheel = (e: WheelEvent) => {
+      if (viewMode === 'mri-axial') {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 1 : -1;
+        setMriSliceIndex(prev => Math.max(1, Math.min(100, prev + delta)));
+      }
+    };
+
+    canvas.addEventListener('wheel', onNativeWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', onNativeWheel);
+    };
+  }, [viewMode]);
 
   // Synchronize incoming selectedHotspotId
   useEffect(() => {
@@ -313,115 +344,733 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
     }
   };
 
-  // Render MRI slice simulation
+  // Render real grayscale 32-Slice CT Axial Head Scan with reference video split layout & dynamic labels
   const renderMRISlice = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     ctx.clearRect(0, 0, width, height);
 
-    // Deep black medical diagnostic backdrop
+    // Deep black medical diagnostic backdrop (DICOM standard)
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, width, height);
 
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const size = Math.min(width, height) * 0.75;
-    const sliceFactor = mriSliceIndex / 100; // 0 to 1
+    const s = Math.max(1, Math.min(100, mriSliceIndex));
+    const t = (s - 1) / 99; // 0 (Skull Base) to 1 (Vertex)
+    const contrast = Math.max(0.5, Math.min(1.5, contrastLevel / 100));
 
-    // Draw simulated 32-Slice CT Brain Tomography slice
-    // Outer skull cortical contour
-    ctx.save();
-    ctx.translate(centerX, centerY);
+    // Dynamic anatomical taxonomy matching clinical neuro-radiology & reference video
+    const getSliceAnatomy = (slice: number) => {
+      if (slice <= 7) {
+        return {
+          levelName: 'Maxillofacial, Sinuses & C1 Canal',
+          zPos: `-${(45 - (slice - 1) * 0.9).toFixed(1)} mm`,
+          structures: ['Globe', 'Turbinate', 'Maxillary Sinus', 'Nasal Cavity', 'C1 dense / Spinal cord', 'Mastoid Air Cells', 'Occipital Bone'],
+          pointers: [
+            { name: 'Globe', rx: -0.48, ry: -0.66, side: 'left' as const, color: '#38bdf8' },
+            { name: 'Globe', rx: 0.48, ry: -0.66, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Turbinate', rx: 0.16, ry: -0.60, side: 'right' as const, color: '#f59e0b' },
+            { name: 'Maxillary Sinus', rx: -0.38, ry: -0.42, side: 'left' as const, color: '#06b6d4' },
+            { name: 'Nasal Cavity', rx: 0.0, ry: -0.52, side: 'right' as const, color: '#10b981' },
+            { name: 'C1 dense / Spinal cord', rx: 0.0, ry: 0.15, side: 'left' as const, color: '#e2e8f0' },
+            { name: 'Mastoid Air Cells', rx: 0.64, ry: 0.20, side: 'right' as const, color: '#a855f7' },
+            { name: 'Occipital Bone', rx: 0.0, ry: 0.74, side: 'right' as const, color: '#f97316' }
+          ]
+        };
+      } else if (slice <= 14) {
+        return {
+          levelName: 'Orbits, Skull Base & Medulla',
+          zPos: `-${(38 - (slice - 8) * 0.9).toFixed(1)} mm`,
+          structures: ['Globe', 'Orbit', 'Optic Nerve', 'Ethmoid Sinus', 'Sphenoid Sinus', 'Temporal Lobe', 'Medulla Oblongata', 'Cerebellum'],
+          pointers: [
+            { name: 'Globe', rx: -0.46, ry: -0.66, side: 'left' as const, color: '#38bdf8' },
+            { name: 'Orbit', rx: -0.58, ry: -0.58, side: 'left' as const, color: '#f97316' },
+            { name: 'Optic Nerve', rx: 0.44, ry: -0.58, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Ethmoid Sinus', rx: 0.0, ry: -0.62, side: 'right' as const, color: '#06b6d4' },
+            { name: 'Sphenoid Sinus', rx: 0.0, ry: -0.30, side: 'left' as const, color: '#10b981' },
+            { name: 'Temporal Lobe', rx: -0.60, ry: -0.06, side: 'left' as const, color: '#f59e0b' },
+            { name: 'Medulla Oblongata', rx: 0.0, ry: 0.12, side: 'right' as const, color: '#e2e8f0' },
+            { name: 'Cerebellum', rx: -0.38, ry: 0.42, side: 'left' as const, color: '#14b8a6' },
+            { name: 'Foramen Magnum', rx: 0.0, ry: 0.38, side: 'right' as const, color: '#f97316' },
+            { name: 'Mastoid Air Cells', rx: 0.65, ry: 0.18, side: 'right' as const, color: '#a855f7' }
+          ]
+        };
+      } else if (slice <= 35) {
+        return {
+          levelName: 'Midbrain, Suprasellar & Posterior Fossa',
+          zPos: `-${(32 - (slice - 15) * 0.85).toFixed(1)} mm`,
+          structures: ['Frontal Bone', 'Frontal Lobe', 'Sella', 'Suprasellar Cistern', 'Sylvian Fissure', 'Temporal Lobe', 'Midbrain', 'Fourth Ventricle', 'Cerebellum'],
+          pointers: [
+            { name: 'Frontal Bone', rx: 0.0, ry: -0.80, side: 'left' as const, color: '#f97316' },
+            { name: 'Frontal Lobe', rx: -0.32, ry: -0.52, side: 'left' as const, color: '#f59e0b' },
+            { name: 'Sella', rx: 0.0, ry: -0.32, side: 'left' as const, color: '#06b6d4' },
+            { name: 'Suprasellar Cistern', rx: 0.35, ry: -0.22, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Sylvian Fissure', rx: -0.66, ry: -0.20, side: 'left' as const, color: '#06b6d4' },
+            { name: 'Temporal Bone', rx: -0.72, ry: 0.02, side: 'left' as const, color: '#f97316' },
+            { name: 'Temporal Lobe', rx: 0.62, ry: -0.05, side: 'right' as const, color: '#f59e0b' },
+            { name: 'Midbrain', rx: 0.0, ry: 0.02, side: 'right' as const, color: '#a855f7' },
+            { name: 'Fourth Ventricle', rx: 0.35, ry: 0.22, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Cerebellum', rx: -0.35, ry: 0.44, side: 'left' as const, color: '#14b8a6' },
+            { name: 'Occipital Bone', rx: 0.0, ry: 0.78, side: 'right' as const, color: '#f97316' }
+          ]
+        };
+      } else if (slice <= 62) {
+        return {
+          levelName: 'Basal Ganglia, 3rd Ventricle & Sylvian Fissures',
+          zPos: `${(-15 + (slice - 36) * 1.1).toFixed(1)} mm`,
+          structures: ['Superior Sagittal Sinus', 'Frontal Lobe', 'Lateral Ventricle (Anterior Horn)', 'Third Ventricle', 'Sylvian Fissure', 'Caudate', 'Internal Capsule', 'Putamen', 'Thalamus', 'Cerebellum'],
+          pointers: [
+            { name: 'Superior Sagittal Sinus', rx: 0.0, ry: -0.80, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Frontal Lobe', rx: -0.36, ry: -0.52, side: 'left' as const, color: '#f59e0b' },
+            { name: 'Lateral Ventricle (Anterior Horn)', rx: 0.22, ry: -0.30, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Third Ventricle', rx: 0.35, ry: 0.04, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Sylvian Fissure', rx: -0.70, ry: -0.16, side: 'left' as const, color: '#06b6d4' },
+            { name: 'Caudate', rx: 0.28, ry: -0.18, side: 'right' as const, color: '#a855f7' },
+            { name: 'Internal Capsule', rx: -0.34, ry: -0.06, side: 'left' as const, color: '#60a5fa' },
+            { name: 'Putamen', rx: 0.44, ry: -0.04, side: 'right' as const, color: '#c084fc' },
+            { name: 'Thalamus', rx: 0.22, ry: 0.16, side: 'right' as const, color: '#a855f7' },
+            { name: 'Temporal Lobe', rx: -0.62, ry: 0.12, side: 'left' as const, color: '#f59e0b' },
+            { name: 'Quadrigeminal Cistern', rx: 0.40, ry: 0.34, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Cerebellum', rx: -0.30, ry: 0.46, side: 'left' as const, color: '#14b8a6' },
+            { name: 'Occipital Bone', rx: 0.0, ry: 0.76, side: 'right' as const, color: '#f97316' }
+          ]
+        };
+      } else if (slice <= 82) {
+        return {
+          levelName: 'Bodies of Lateral Ventricles & Corpus Callosum',
+          zPos: `+${(12 + (slice - 63) * 1.15).toFixed(1)} mm`,
+          structures: ['Superior Sagittal Sinus', 'Frontal Bone', 'Frontal Lobe', 'Corpus Callosum', 'Lateral Ventricle (Body)', 'Choroid Plexus', 'Occipital Lobe'],
+          pointers: [
+            { name: 'Superior Sagittal Sinus', rx: 0.0, ry: -0.80, side: 'left' as const, color: '#38bdf8' },
+            { name: 'Frontal Bone', rx: 0.28, ry: -0.76, side: 'right' as const, color: '#f97316' },
+            { name: 'Frontal Lobe', rx: -0.42, ry: -0.48, side: 'left' as const, color: '#f59e0b' },
+            { name: 'Corpus Callosum', rx: 0.22, ry: -0.38, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Lateral Ventricle (Body)', rx: 0.30, ry: -0.02, side: 'right' as const, color: '#38bdf8' },
+            { name: 'Choroid Plexus', rx: 0.34, ry: 0.22, side: 'right' as const, color: '#ef4444' },
+            { name: 'Occipital Lobe', rx: -0.38, ry: 0.50, side: 'left' as const, color: '#f59e0b' },
+            { name: 'Occipital Bone', rx: 0.0, ry: 0.76, side: 'right' as const, color: '#f97316' }
+          ]
+        };
+      } else {
+        return {
+          levelName: 'Centrum Semiovale & High Convexity Vertex',
+          zPos: `+${(35 + (slice - 83) * 0.95).toFixed(1)} mm`,
+          structures: ['Superior Sagittal Sinus', 'Frontal Bone', 'Frontal Lobe', 'Centrum Semiovale', 'Falx Cerebri', 'Motor Cortex', 'Parietal Lobe'],
+          pointers: [
+            { name: 'Superior Sagittal Sinus', rx: 0.0, ry: -0.78, side: 'left' as const, color: '#38bdf8' },
+            { name: 'Frontal Bone', rx: 0.28, ry: -0.74, side: 'right' as const, color: '#f97316' },
+            { name: 'Frontal Lobe', rx: -0.42, ry: -0.44, side: 'left' as const, color: '#f59e0b' },
+            { name: 'Centrum Semiovale', rx: -0.28, ry: -0.05, side: 'left' as const, color: '#60a5fa' },
+            { name: 'Falx Cerebri', rx: 0.0, ry: -0.24, side: 'right' as const, color: '#e2e8f0' },
+            { name: 'Motor Cortex (Precentral)', rx: -0.52, ry: -0.16, side: 'left' as const, color: '#a855f7' },
+            { name: 'Parietal Lobe', rx: 0.48, ry: 0.16, side: 'right' as const, color: '#f59e0b' },
+            { name: 'Occipital Lobe', rx: 0.34, ry: 0.52, side: 'right' as const, color: '#f59e0b' }
+          ]
+        };
+      }
+    };
 
-    // Brain tissue contour (elliptical with sulcal convolutions)
-    const tissueWidth = (size * 0.42) * (0.8 + Math.sin(sliceFactor * Math.PI) * 0.25);
-    const tissueHeight = (size * 0.48) * (0.8 + Math.sin(sliceFactor * Math.PI) * 0.25);
+    const anatomyInfo = getSliceAnatomy(s);
 
-    // Gradient representing gray-white matter junction
-    const tissueGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, tissueWidth);
-    tissueGrad.addColorStop(0, `rgb(${30 * contrastLevel / 100}, ${35 * contrastLevel / 100}, ${40 * contrastLevel / 100})`);
-    tissueGrad.addColorStop(0.5, `rgb(${80 * contrastLevel / 100}, ${85 * contrastLevel / 100}, ${95 * contrastLevel / 100})`);
-    tissueGrad.addColorStop(0.85, `rgb(${130 * contrastLevel / 100}, ${135 * contrastLevel / 100}, ${145 * contrastLevel / 100})`);
-    tissueGrad.addColorStop(1, '#000000');
+    // 1. Draw Reference Video Header Bar
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Head and spine anatomy', 16, 22);
 
-    ctx.fillStyle = tissueGrad;
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('Axial CT head', 16, 40);
+
+    // Divider line across the top
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.ellipse(0, 0, tissueWidth, tissueHeight, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Ventricles (CSF - dark on T1, bright or dark on FLAIR)
-    const ventWidth = 14 + (sliceFactor > 0.4 && sliceFactor < 0.7 ? 20 : 6);
-    const ventHeight = 35 + (sliceFactor > 0.4 && sliceFactor < 0.7 ? 25 : 8);
-
-    ctx.fillStyle = '#050505';
-    // Left lateral ventricle
-    ctx.beginPath();
-    ctx.ellipse(-ventWidth * 0.9, -5, ventWidth * 0.5, ventHeight * 0.6, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-    // Right lateral ventricle
-    ctx.beginPath();
-    ctx.ellipse(ventWidth * 0.9, -5, ventWidth * 0.5, ventHeight * 0.6, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Interhemispheric fissure line
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, -tissueHeight);
-    ctx.lineTo(0, tissueHeight);
+    ctx.moveTo(16, 48);
+    ctx.lineTo(width - 16, 48);
     ctx.stroke();
 
-    // Simulated Pathology Infarct / Hyperintensity corresponding to active hotspot
-    if (activeHotspot.id === 'hs-mca') {
-      // Acute MCA restricted diffusion / bright signal on DWI
-      const mcaGrad = ctx.createRadialGradient(-tissueWidth * 0.55, -tissueHeight * 0.15, 2, -tissueWidth * 0.55, -tissueHeight * 0.15, 34);
-      mcaGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      mcaGrad.addColorStop(0.6, 'rgba(239, 68, 68, 0.8)');
-      mcaGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
-      ctx.fillStyle = mcaGrad;
-      ctx.beginPath();
-      ctx.arc(-tissueWidth * 0.55, -tissueHeight * 0.15, 32, 0, Math.PI * 2);
-      ctx.fill();
+    // 2. Mini Sagittal Scout CT Locator (Top Center, exactly matching video)
+    const scoutX = width / 2;
+    const scoutY = 26;
+    const scoutW = 46;
+    const scoutH = 42;
 
-      // Clinical pointer
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(-tissueWidth * 0.55, -tissueHeight * 0.15, 36, 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (activeHotspot.id === 'hs-temporal') {
-      // Mesial temporal hyperintensity
-      const tempGrad = ctx.createRadialGradient(-tissueWidth * 0.4, tissueHeight * 0.25, 2, -tissueWidth * 0.4, tissueHeight * 0.25, 24);
-      tempGrad.addColorStop(0, 'rgba(168, 85, 247, 0.9)');
-      tempGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
-      ctx.fillStyle = tempGrad;
-      ctx.beginPath();
-      ctx.arc(-tissueWidth * 0.4, tissueHeight * 0.25, 22, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.save();
+    // Scout bounding box
+    ctx.fillStyle = '#050811';
+    ctx.fillRect(scoutX - scoutW / 2, scoutY - scoutH / 2 + 10, scoutW, scoutH);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(scoutX - scoutW / 2, scoutY - scoutH / 2 + 10, scoutW, scoutH);
+
+    // Silhouette of human sagittal head
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    // Calvarium vault
+    ctx.moveTo(scoutX + 16, scoutY + 28); // cervical spine
+    ctx.lineTo(scoutX + 16, scoutY + 20); // occiput
+    ctx.bezierCurveTo(scoutX + 18, scoutY + 2, scoutX + 14, scoutY - 8, scoutX, scoutY - 9); // vertex
+    ctx.bezierCurveTo(scoutX - 12, scoutY - 8, scoutX - 16, scoutY, scoutX - 16, scoutY + 6); // forehead
+    ctx.lineTo(scoutX - 18, scoutY + 12); // nose bridge
+    ctx.lineTo(scoutX - 14, scoutY + 18); // maxilla
+    ctx.lineTo(scoutX - 10, scoutY + 24); // mandible
+    ctx.lineTo(scoutX - 6, scoutY + 28); // anterior neck
+    ctx.stroke();
+
+    // Horizontal cyan scout cut plane line moving with slice
+    const cutY = scoutY + 24 - t * 30;
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(scoutX - scoutW / 2 + 3, cutY);
+    ctx.lineTo(scoutX + scoutW / 2 - 3, cutY);
+    ctx.stroke();
+
+    // Triangular cut plane markers
+    ctx.fillStyle = '#00e5ff';
+    ctx.beginPath();
+    ctx.moveTo(scoutX - scoutW / 2 + 1, cutY);
+    ctx.lineTo(scoutX - scoutW / 2 + 5, cutY - 2.5);
+    ctx.lineTo(scoutX - scoutW / 2 + 5, cutY + 2.5);
+    ctx.closePath();
+    ctx.fill();
 
     ctx.restore();
 
-    // DICOM Diagnostic Annotation HUD
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = '11px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText('SOPAN NEURO INSTITUTE - 32-SLICE HIGH-RESOLUTION CT SCAN', 16, 24);
-    ctx.fillText(`PLANE: ${viewMode.toUpperCase().replace('MRI-', '').replace('CT-', '')} | SLICE: ${mriSliceIndex}/100`, 16, 40);
-    ctx.fillText('KVp: 120 | mAs: 280 | MATRIX: 512x512', 16, 56);
-    ctx.fillText(`WINDOW / CONTRAST: STROKE PERFUSION (${contrastLevel}%)`, 16, 72);
-
+    // Top Right Info
     ctx.textAlign = 'right';
-    ctx.fillText('MODALITY: 32-SLICE HELICAL CT SCANNER', width - 16, 24);
-    ctx.fillText('COLLIMATION: 32 x 0.6mm | PITCH: 1.2', width - 16, 40);
-    ctx.fillText(`TARGET LOBE: ${activeHotspot.lobe.toUpperCase()}`, width - 16, 56);
-
-    // Anatomical orientation markers
+    ctx.font = '10px "SFMono-Regular", Consolas, monospace';
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillText(`LEVEL: ${anatomyInfo.levelName.toUpperCase()}`, width - 16, 22);
     ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('A (Anterior)', centerX, 24);
-    ctx.fillText('P (Posterior)', centerX, height - 12);
-    ctx.fillText('R', 24, centerY);
-    ctx.fillText('L', width - 24, centerY);
+    ctx.fillText(`AXIAL SLICE: ${s} / 100 | Z: ${anatomyInfo.zPos}`, width - 16, 36);
+
+    // 3. Reusable Head CT Slice Drawer
+    const drawCTSlice = (
+      cx: number,
+      cy: number,
+      radiusScale: number,
+      isAnnotatedView: boolean,
+      labelTitle: string
+    ) => {
+      // Dynamic head dimensions evolving from skull base to vertex
+      const baseRadius = radiusScale;
+      let sliceScale = 0.86;
+      if (t < 0.20) {
+        sliceScale = 0.80 + t * 0.45;
+      } else if (t < 0.75) {
+        sliceScale = 0.89 + (t - 0.20) * 0.12;
+      } else {
+        sliceScale = 0.98 - (t - 0.75) * 0.46;
+      }
+
+      const rx = baseRadius * 0.78 * sliceScale;
+      const ry = baseRadius * 0.95 * sliceScale;
+
+      ctx.save();
+
+      // Scalp soft-tissue subcutaneous rim
+      ctx.fillStyle = '#2a2a2a';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx + 6, ry + 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Calvarium (Dense Skull Bone: Outer table, diploe, inner table)
+      // Outer cortical table (bright hyperdense bone ~1000 HU)
+      ctx.fillStyle = '#f0f0f0';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Diploic cancellous space (marrow cavity)
+      ctx.fillStyle = '#737373';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx - 2.6, ry - 2.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner cortical table (dense white bone)
+      ctx.fillStyle = '#e5e5e5';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx - 5.2, ry - 5.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Subdural / Subarachnoid CSF space (hypodense near-black)
+      ctx.fillStyle = '#0d0d0d';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx - 7.2, ry - 7.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Brain Parenchyma
+      const trx = rx - 8.5;
+      const try_ = ry - 8.5;
+
+      // Gray-White matter differentiation gradient
+      const wmVal = Math.min(255, Math.floor(66 * contrast));
+      const gmVal = Math.min(255, Math.floor(92 * contrast));
+      const brainGrad = ctx.createRadialGradient(cx, cy, 8, cx, cy, trx);
+      brainGrad.addColorStop(0, `rgb(${wmVal}, ${wmVal}, ${wmVal})`);
+      brainGrad.addColorStop(0.68, `rgb(${wmVal}, ${wmVal}, ${wmVal})`);
+      brainGrad.addColorStop(0.88, `rgb(${gmVal}, ${gmVal}, ${gmVal})`);
+      brainGrad.addColorStop(1, `rgb(${Math.floor(gmVal * 0.7)}, ${Math.floor(gmVal * 0.7)}, ${Math.floor(gmVal * 0.7)})`);
+
+      ctx.fillStyle = brainGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, trx, try_, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Internal structures by level
+      if (s <= 14) {
+        // Skull Base & Orbits
+        const orbitRx = trx * 0.22;
+        const orbitRy = try_ * 0.16;
+        const leftOrbitX = cx - trx * 0.46;
+        const rightOrbitX = cx + trx * 0.46;
+        const orbitY = cy - try_ * 0.66;
+
+        // Retrobulbar fat (hypodense)
+        ctx.fillStyle = '#171717';
+        ctx.beginPath();
+        ctx.ellipse(leftOrbitX, orbitY, orbitRx, orbitRy, -0.1, 0, Math.PI * 2);
+        ctx.ellipse(rightOrbitX, orbitY, orbitRx, orbitRy, 0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyeballs (Globes with vitreous humor)
+        ctx.fillStyle = '#080808';
+        ctx.strokeStyle = '#5a5a5a';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(leftOrbitX, orbitY - 4, 10, 0, Math.PI * 2);
+        ctx.arc(rightOrbitX, orbitY - 4, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Optic nerves
+        ctx.strokeStyle = '#4e4e4e';
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+        ctx.moveTo(leftOrbitX, orbitY + 2);
+        ctx.lineTo(cx - 8, cy - try_ * 0.28);
+        ctx.moveTo(rightOrbitX, orbitY + 2);
+        ctx.lineTo(cx + 8, cy - try_ * 0.28);
+        ctx.stroke();
+
+        // Sinuses: Maxillary (at s <= 7) or Ethmoid/Sphenoid (s > 7)
+        if (s <= 7) {
+          // Maxillary Sinuses
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(cx - trx * 0.44, cy - try_ * 0.44, trx * 0.26, try_ * 0.20);
+          ctx.fillRect(cx + trx * 0.18, cy - try_ * 0.44, trx * 0.26, try_ * 0.20);
+          ctx.strokeStyle = '#d4d4d4';
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(cx - trx * 0.44, cy - try_ * 0.44, trx * 0.26, try_ * 0.20);
+          ctx.strokeRect(cx + trx * 0.18, cy - try_ * 0.44, trx * 0.26, try_ * 0.20);
+
+          // Nasal cavity & turbinates in midline
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(cx - 6, cy - try_ * 0.58, 12, try_ * 0.28);
+          ctx.strokeStyle = '#c4c4c4';
+          ctx.strokeRect(cx - 6, cy - try_ * 0.58, 12, try_ * 0.28);
+        } else {
+          // Ethmoid air cells (midline honeycomb)
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(cx - 12, cy - try_ * 0.72, 24, 20);
+          ctx.strokeStyle = '#d4d4d4';
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(cx - 12, cy - try_ * 0.72, 24, 20);
+
+          // Sphenoid sinus
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - try_ * 0.32, 12, 9, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#cccccc';
+          ctx.stroke();
+        }
+
+        // Mastoid air cells & Petrous bones
+        const mastoidY = cy + try_ * 0.18;
+        ctx.fillStyle = '#dedede';
+        ctx.beginPath();
+        ctx.moveTo(cx - trx * 0.80, mastoidY - 12);
+        ctx.lineTo(cx - trx * 0.35, mastoidY + 6);
+        ctx.lineTo(cx - trx * 0.75, mastoidY + 24);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(cx + trx * 0.80, mastoidY - 12);
+        ctx.lineTo(cx + trx * 0.35, mastoidY + 6);
+        ctx.lineTo(cx + trx * 0.75, mastoidY + 24);
+        ctx.closePath();
+        ctx.fill();
+
+        // Mastoid dark spongy cells
+        ctx.fillStyle = '#080808';
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.arc(cx - trx * 0.65 + (i % 2) * 7, mastoidY + i * 6, 2.5, 0, Math.PI * 2);
+          ctx.arc(cx + trx * 0.65 - (i % 2) * 7, mastoidY + i * 6, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Brainstem (Pons / Medulla / C1)
+        ctx.fillStyle = `rgb(${Math.floor(74 * contrast)}, ${Math.floor(74 * contrast)}, ${Math.floor(74 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + try_ * 0.08, 15, 13, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cerebellum
+        ctx.fillStyle = `rgb(${Math.floor(82 * contrast)}, ${Math.floor(82 * contrast)}, ${Math.floor(82 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx - trx * 0.38, cy + try_ * 0.40, trx * 0.32, try_ * 0.30, -0.15, 0, Math.PI * 2);
+        ctx.ellipse(cx + trx * 0.38, cy + try_ * 0.40, trx * 0.32, try_ * 0.30, 0.15, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (s <= 35) {
+        // Midbrain & Suprasellar
+        // Suprasellar Cistern (star-shaped)
+        ctx.fillStyle = '#050505';
+        ctx.beginPath();
+        const cY = cy - try_ * 0.22;
+        ctx.moveTo(cx, cY - 12);
+        ctx.lineTo(cx + 12, cY - 3);
+        ctx.lineTo(cx + 8, cY + 10);
+        ctx.lineTo(cx - 8, cY + 10);
+        ctx.lineTo(cx - 12, cY - 3);
+        ctx.closePath();
+        ctx.fill();
+
+        // Midbrain
+        ctx.fillStyle = `rgb(${Math.floor(75 * contrast)}, ${Math.floor(75 * contrast)}, ${Math.floor(75 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + 2, 20, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 4th Ventricle
+        ctx.fillStyle = '#040404';
+        const v4Y = cy + try_ * 0.16;
+        ctx.beginPath();
+        ctx.moveTo(cx, v4Y - 10);
+        ctx.lineTo(cx + 10, v4Y);
+        ctx.lineTo(cx, v4Y + 9);
+        ctx.lineTo(cx - 10, v4Y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cerebellum & folia
+        ctx.fillStyle = `rgb(${Math.floor(85 * contrast)}, ${Math.floor(85 * contrast)}, ${Math.floor(85 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx - trx * 0.36, cy + try_ * 0.44, trx * 0.36, try_ * 0.28, -0.1, 0, Math.PI * 2);
+        ctx.ellipse(cx + trx * 0.36, cy + try_ * 0.44, trx * 0.36, try_ * 0.28, 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (s <= 62) {
+        // Basal Ganglia & 3rd Ventricle
+        // Frontal Horns of Lateral Ventricles
+        ctx.fillStyle = '#040404';
+        // Left Frontal Horn
+        ctx.beginPath();
+        ctx.moveTo(cx - 3, cy - try_ * 0.16);
+        ctx.bezierCurveTo(cx - 16, cy - try_ * 0.22, cx - 22, cy - try_ * 0.36, cx - 10, cy - try_ * 0.44);
+        ctx.bezierCurveTo(cx - 6, cy - try_ * 0.38, cx - 3, cy - try_ * 0.26, cx - 2, cy - try_ * 0.16);
+        ctx.fill();
+        // Right Frontal Horn
+        ctx.beginPath();
+        ctx.moveTo(cx + 3, cy - try_ * 0.16);
+        ctx.bezierCurveTo(cx + 16, cy - try_ * 0.22, cx + 22, cy - try_ * 0.36, cx + 10, cy - try_ * 0.44);
+        ctx.bezierCurveTo(cx + 6, cy - try_ * 0.38, cx + 3, cy - try_ * 0.26, cx + 2, cy - try_ * 0.16);
+        ctx.fill();
+
+        // Septum Pellucidum
+        ctx.strokeStyle = '#5a5a5a';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - try_ * 0.44);
+        ctx.lineTo(cx, cy - try_ * 0.14);
+        ctx.stroke();
+
+        // 3rd Ventricle
+        ctx.fillStyle = '#040404';
+        ctx.fillRect(cx - 2, cy - try_ * 0.08, 4, try_ * 0.22);
+
+        // Caudate Heads
+        ctx.fillStyle = `rgb(${Math.floor(82 * contrast)}, ${Math.floor(82 * contrast)}, ${Math.floor(82 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx - trx * 0.25, cy - try_ * 0.22, 9, 13, 0.25, 0, Math.PI * 2);
+        ctx.ellipse(cx + trx * 0.25, cy - try_ * 0.22, 9, 13, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Internal Capsules
+        ctx.strokeStyle = `rgb(${Math.floor(48 * contrast)}, ${Math.floor(48 * contrast)}, ${Math.floor(48 * contrast)})`;
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(cx - trx * 0.22, cy - try_ * 0.24);
+        ctx.lineTo(cx - trx * 0.30, cy - try_ * 0.06);
+        ctx.lineTo(cx - trx * 0.22, cy + try_ * 0.15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + trx * 0.22, cy - try_ * 0.24);
+        ctx.lineTo(cx + trx * 0.30, cy - try_ * 0.06);
+        ctx.lineTo(cx + trx * 0.22, cy + try_ * 0.15);
+        ctx.stroke();
+
+        // Lentiform Nuclei (Putamen)
+        ctx.fillStyle = `rgb(${Math.floor(78 * contrast)}, ${Math.floor(78 * contrast)}, ${Math.floor(78 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx - trx * 0.42, cy - try_ * 0.04, 10, 17, -0.15, 0, Math.PI * 2);
+        ctx.ellipse(cx + trx * 0.42, cy - try_ * 0.04, 10, 17, 0.15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Thalami
+        ctx.fillStyle = `rgb(${Math.floor(80 * contrast)}, ${Math.floor(80 * contrast)}, ${Math.floor(80 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx - trx * 0.18, cy + try_ * 0.06, 11, 16, 0.15, 0, Math.PI * 2);
+        ctx.ellipse(cx + trx * 0.18, cy + try_ * 0.06, 11, 16, -0.15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sylvian Fissures
+        ctx.strokeStyle = '#050505';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx - trx * 0.88, cy - try_ * 0.08);
+        ctx.lineTo(cx - trx * 0.58, cy - try_ * 0.06);
+        ctx.moveTo(cx + trx * 0.88, cy - try_ * 0.08);
+        ctx.lineTo(cx + trx * 0.58, cy - try_ * 0.06);
+        ctx.stroke();
+      } else if (s <= 82) {
+        // Bodies of Lateral Ventricles & Corpus Callosum
+        ctx.fillStyle = '#040404';
+        ctx.beginPath();
+        ctx.ellipse(cx - trx * 0.18, cy, 12, try_ * 0.40, -0.12, 0, Math.PI * 2);
+        ctx.ellipse(cx + trx * 0.18, cy, 12, try_ * 0.40, 0.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Corpus Callosum
+        ctx.fillStyle = `rgb(${Math.floor(60 * contrast)}, ${Math.floor(60 * contrast)}, ${Math.floor(60 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - try_ * 0.40, 20, 9, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy + try_ * 0.35, 22, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Choroid Plexus Calcifications in Trigone
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cx - trx * 0.20, cy + try_ * 0.22, 3, 0, Math.PI * 2);
+        ctx.arc(cx + trx * 0.20, cy + try_ * 0.22, 3, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Centrum Semiovale & Vertex
+        ctx.fillStyle = `rgb(${Math.floor(66 * contrast)}, ${Math.floor(66 * contrast)}, ${Math.floor(66 * contrast)})`;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, trx * 0.82, try_ * 0.84, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Falx Cerebri
+        ctx.strokeStyle = '#a3a3a3';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - try_ * 0.88);
+        ctx.lineTo(cx, cy + try_ * 0.88);
+        ctx.stroke();
+      }
+
+      // Interhemispheric fissure
+      ctx.strokeStyle = '#080808';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - try_);
+      ctx.lineTo(cx, cy + try_);
+      ctx.stroke();
+
+      // Annotated Overlays & Segmentations (if isAnnotatedView === true)
+      if (isAnnotatedView) {
+        // 1. Color-coded anatomical region tinting matching reference video!
+        if (s <= 14) {
+          // Orbits & Globus
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+          ctx.beginPath();
+          ctx.arc(cx - trx * 0.46, cy - try_ * 0.66 - 4, 11, 0, Math.PI * 2);
+          ctx.arc(cx + trx * 0.46, cy - try_ * 0.66 - 4, 11, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Cerebellar hemispheres tint
+          ctx.fillStyle = 'rgba(20, 184, 166, 0.35)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + try_ * 0.42, trx * 0.70, try_ * 0.32, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (s <= 35) {
+          // 4th Ventricle & Suprasellar Cistern (sky-blue)
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + try_ * 0.16, 12, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Midbrain (lavender/purple)
+          ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + 2, 22, 16, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Cerebellum (teal)
+          ctx.fillStyle = 'rgba(20, 184, 166, 0.35)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + try_ * 0.44, trx * 0.72, try_ * 0.30, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (s <= 62) {
+          // Frontal Horns & 3rd Ventricle (cyan/blue)
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+          ctx.beginPath();
+          ctx.ellipse(cx - 10, cy - try_ * 0.28, 9, 16, -0.25, 0, Math.PI * 2);
+          ctx.ellipse(cx + 10, cy - try_ * 0.28, 9, 16, 0.25, 0, Math.PI * 2);
+          ctx.fillRect(cx - 3, cy - try_ * 0.08, 6, try_ * 0.22);
+          ctx.fill();
+
+          // Deep Gray Matter: Caudate, Putamen, Thalamus (lavender/purple)
+          ctx.fillStyle = 'rgba(168, 85, 247, 0.45)';
+          // Caudate
+          ctx.beginPath();
+          ctx.ellipse(cx - trx * 0.25, cy - try_ * 0.22, 10, 14, 0.25, 0, Math.PI * 2);
+          ctx.ellipse(cx + trx * 0.25, cy - try_ * 0.22, 10, 14, -0.25, 0, Math.PI * 2);
+          // Putamen
+          ctx.ellipse(cx - trx * 0.42, cy - try_ * 0.04, 11, 18, -0.15, 0, Math.PI * 2);
+          ctx.ellipse(cx + trx * 0.42, cy - try_ * 0.04, 11, 18, 0.15, 0, Math.PI * 2);
+          // Thalamus
+          ctx.ellipse(cx - trx * 0.18, cy + try_ * 0.06, 12, 17, 0.15, 0, Math.PI * 2);
+          ctx.ellipse(cx + trx * 0.18, cy + try_ * 0.06, 12, 17, -0.15, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Internal Capsule highlight (blue-white)
+          ctx.strokeStyle = 'rgba(96, 165, 250, 0.7)';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(cx - trx * 0.22, cy - try_ * 0.24);
+          ctx.lineTo(cx - trx * 0.30, cy - try_ * 0.06);
+          ctx.lineTo(cx - trx * 0.22, cy + try_ * 0.15);
+          ctx.stroke();
+        } else if (s <= 82) {
+          // Bodies of Lateral Ventricles (sky blue)
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+          ctx.beginPath();
+          ctx.ellipse(cx - trx * 0.18, cy, 14, try_ * 0.42, -0.12, 0, Math.PI * 2);
+          ctx.ellipse(cx + trx * 0.18, cy, 14, try_ * 0.42, 0.12, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Corpus Callosum (blue arc)
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - try_ * 0.40, 22, 10, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx, cy + try_ * 0.35, 24, 11, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Choroid Plexus (red/coral highlight)
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+          ctx.beginPath();
+          ctx.arc(cx - trx * 0.20, cy + try_ * 0.22, 4.5, 0, Math.PI * 2);
+          ctx.arc(cx + trx * 0.20, cy + try_ * 0.22, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 2. Dynamic Anatomical Labels with Leader Lines (exact format from reference video)
+        if (showAnatomyLabels) {
+          anatomyInfo.pointers.forEach(ptr => {
+            const targetX = cx + ptr.rx * trx;
+            const targetY = cy + ptr.ry * try_;
+            const isLeft = ptr.side === 'left';
+            const offsetDist = 18;
+            const labelX = isLeft ? targetX - offsetDist : targetX + offsetDist;
+            const labelY = targetY;
+
+            // Anchor point dot
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Caliper / leader line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(targetX, targetY);
+            ctx.lineTo(labelX, labelY);
+            ctx.stroke();
+
+            // Label text badge
+            ctx.font = 'bold 9.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const textMetrics = ctx.measureText(ptr.name);
+            const badgeW = textMetrics.width + 8;
+            const badgeH = 15;
+            const badgeX = isLeft ? labelX - badgeW : labelX;
+            const badgeY = labelY - badgeH / 2;
+
+            // Dark rounded badge with colored border matching region
+            ctx.fillStyle = 'rgba(10, 15, 25, 0.88)';
+            ctx.strokeStyle = ptr.color || '#38bdf8';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
+            } else {
+              ctx.rect(badgeX, badgeY, badgeW, badgeH);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            // White crisp label text
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(ptr.name, badgeX + 4, labelY);
+          });
+        }
+      }
+
+      ctx.restore();
+
+      // Scan subtitle at bottom
+      ctx.fillStyle = isAnnotatedView ? '#38bdf8' : '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(labelTitle, cx, cy + ry + 20);
+
+      // Orientation markers
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('A', cx, cy - ry - 4);
+      ctx.fillText('P', cx, cy + ry + 8);
+      ctx.fillText('R', cx - rx - 10, cy);
+      ctx.fillText('L', cx + rx + 10, cy);
+    };
+
+    // 4. Render Split Comparison View (as in Video) OR Single View
+    if (ctDisplayMode === 'split') {
+      const leftCenterX = 188;
+      const rightCenterX = 532;
+      const scanCenterY = 248;
+      const scanRadius = 142;
+
+      // Divider line between the two scans
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(width / 2, 72);
+      ctx.lineTo(width / 2, height - 16);
+      ctx.stroke();
+
+      // Left: Pure Grayscale CT Scan
+      drawCTSlice(leftCenterX, scanCenterY, scanRadius, false, 'Axial CT head (Unenhanced)');
+
+      // Right: Anatomy Atlas with colored segmentations & labels
+      drawCTSlice(rightCenterX, scanCenterY, scanRadius, true, 'Anatomy Atlas (Segmented & Labeled)');
+    } else {
+      // Single Large CT View
+      const singleCenterX = width / 2;
+      const singleCenterY = 250;
+      const singleRadius = 175;
+
+      drawCTSlice(
+        singleCenterX,
+        singleCenterY,
+        singleRadius,
+        showAnatomyLabels,
+        showAnatomyLabels ? '32-Slice CT Head (Atlas & Labeled)' : '32-Slice CT Head (Pure Diagnostic)'
+      );
+    }
   };
 
   // Render loop triggers
@@ -453,7 +1102,7 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
         }
       }
     }
-  }, [rotationX, rotationY, zoom, activeHotspot, isVRMode, viewMode, mriSliceIndex, showWireframe, contrastLevel]);
+  }, [rotationX, rotationY, zoom, activeHotspot, isVRMode, viewMode, mriSliceIndex, showWireframe, contrastLevel, showAnatomyLabels, ctDisplayMode]);
 
   // Handle mouse drag interaction
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -625,6 +1274,7 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onWheel={handleWheel}
             />
           )}
 
@@ -674,19 +1324,72 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
               </>
             ) : (
               /* CT Slice controls */
-              <div className="flex items-center gap-3 py-0.5">
+              <div className="flex items-center gap-2 py-0.5">
                 <span className="text-[11px] text-[#6B6254] font-mono font-semibold">32-SLICE CT:</span>
+                
+                {/* Previous slice step button */}
+                <button
+                  onClick={() => setMriSliceIndex(prev => Math.max(1, prev - 1))}
+                  disabled={mriSliceIndex <= 1}
+                  className="w-5 h-5 rounded flex items-center justify-center bg-[#FAF0DE] hover:bg-[#ECD3B9] text-[#8E5B3E] disabled:opacity-40 transition-colors shadow-2xs"
+                  title="Previous Slice (or scroll wheel up)"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+
                 <input
                   type="range"
                   min={1}
                   max={100}
                   value={mriSliceIndex}
                   onChange={e => setMriSliceIndex(Number(e.target.value))}
-                  className="w-32 h-1.5 bg-[#DACFBF] rounded-lg appearance-none cursor-pointer accent-[#8E5B3E]"
+                  className="w-24 h-1.5 bg-[#DACFBF] rounded-lg appearance-none cursor-pointer accent-[#8E5B3E]"
                 />
-                <span className="text-[11px] text-[#8E5B3E] font-mono font-bold w-6">{mriSliceIndex}</span>
 
-                <div className="h-4 w-[1px] bg-[#DACFBF] mx-1" />
+                {/* Next slice step button */}
+                <button
+                  onClick={() => setMriSliceIndex(prev => Math.min(100, prev + 1))}
+                  disabled={mriSliceIndex >= 100}
+                  className="w-5 h-5 rounded flex items-center justify-center bg-[#FAF0DE] hover:bg-[#ECD3B9] text-[#8E5B3E] disabled:opacity-40 transition-colors shadow-2xs"
+                  title="Next Slice (or scroll wheel down)"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="text-[11px] text-[#8E5B3E] font-mono font-bold w-12 text-center">
+                  {mriSliceIndex}/100
+                </span>
+
+                <div className="h-4 w-[1px] bg-[#DACFBF] mx-0.5" />
+
+                {/* Split vs Single View Mode Toggle */}
+                <button
+                  onClick={() => setCtDisplayMode(prev => prev === 'split' ? 'single' : 'split')}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+                    ctDisplayMode === 'split'
+                      ? 'bg-[#8E5B3E] text-white shadow-2xs'
+                      : 'bg-white hover:bg-[#FAF6F0] text-[#5C5346] border border-[#DACFBF]'
+                  }`}
+                  title="Toggle Split Dual Scan / Single Scan Layout"
+                >
+                  {ctDisplayMode === 'split' ? 'Split View' : 'Single View'}
+                </button>
+
+                {/* Toggle Anatomy Labels */}
+                <button
+                  onClick={() => setShowAnatomyLabels(prev => !prev)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+                    showAnatomyLabels
+                      ? 'bg-[#FAF0DE] text-[#8E5B3E] border border-[#ECD3B9]'
+                      : 'text-[#6B6254] hover:text-[#221B14] border border-transparent'
+                  }`}
+                  title="Toggle Dynamic Anatomical Labels"
+                >
+                  <Tag className="w-3 h-3" />
+                  {showAnatomyLabels ? 'Labels ON' : 'Labels OFF'}
+                </button>
+
+                <div className="h-4 w-[1px] bg-[#DACFBF] mx-0.5" />
 
                 <span className="text-[11px] text-[#6B6254] font-mono font-semibold">WINDOW:</span>
                 <input
@@ -695,7 +1398,8 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
                   max={150}
                   value={contrastLevel}
                   onChange={e => setContrastLevel(Number(e.target.value))}
-                  className="w-24 h-1.5 bg-[#DACFBF] rounded-lg appearance-none cursor-pointer accent-[#8E5B3E]"
+                  className="w-16 h-1.5 bg-[#DACFBF] rounded-lg appearance-none cursor-pointer accent-[#8E5B3E]"
+                  title="Adjust CT Contrast Window"
                 />
               </div>
             )}
@@ -707,7 +1411,7 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
               ? 'VR Headset Active: Use cardboard goggles or drag for stereo orbit'
               : viewMode === '3d-volume'
               ? 'Click & drag to rotate 3D brain • Select anatomical hotspots on right'
-              : '32-Slice High-Resolution CT cross-section active'}
+              : `32-Slice CT Axial • Slice ${mriSliceIndex}/100 • Scroll wheel or drag slider to scrub`}
           </div>
         </div>
 
