@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useConsultationFee } from '../hooks/useConsultationFee';
 import { useHospitalContent } from '../hooks/useHospitalContent';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   APIProvider, 
   Map, 
@@ -49,6 +50,7 @@ export const HospitalMapLocation: React.FC<HospitalMapLocationProps> = ({
 }) => {
   const consultationFee = useConsultationFee();
   const { content } = useHospitalContent();
+  const { t, language } = useLanguage();
   const [infoWindowOpen, setInfoWindowOpen] = useState<boolean>(true);
   const [copiedAddress, setCopiedAddress] = useState<boolean>(false);
   const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -65,8 +67,8 @@ export const HospitalMapLocation: React.FC<HospitalMapLocationProps> = ({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Sopan Hospital & Neurology Institute, Nashik',
-          text: 'Location of Sopan Hospital & Neurology Institute (Dr. Sanjay Sopan Varade) at Mumbai Naka, Nashik',
+          title: language === 'mr' ? 'सोपान हॉस्पिटल आणि न्यूरोलॉजी इन्स्टिट्यूट, नाशिक' : 'Sopan Hospital & Neurology Institute, Nashik',
+          text: language === 'mr' ? 'सोपान हॉस्पिटल (डॉ. संजय सोपान वराडे) मुंबई नाका, नाशिक येथील स्थान' : 'Location of Sopan Hospital & Neurology Institute (Dr. Sanjay Sopan Varade) at Mumbai Naka, Nashik',
           url: SOPAN_HOSPITAL_GOOGLE_MAPS_URL
         });
       } catch {
@@ -87,17 +89,18 @@ export const HospitalMapLocation: React.FC<HospitalMapLocationProps> = ({
           <div className="max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-amber-200 text-xs font-semibold backdrop-blur-xs">
               <MapPin className="w-3.5 h-3.5 text-rose-400" />
-              <span>Official Google Maps Location & Navigation</span>
+              <span>{language === 'mr' ? 'अधिकृत गुगल मॅप्स स्थान व नेव्हिगेशन' : 'Official Google Maps Location & Navigation'}</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-1" />
             </div>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-black tracking-tight text-white">
-              Locate Sopan Hospital & Neurology Institute
+              {language === 'mr' ? 'सोपान हॉस्पिटल आणि न्यूरोलॉजी इन्स्टिट्यूट स्थान' : 'Locate Sopan Hospital & Neurology Institute'}
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-              Conveniently located at <strong>Mumbai Naka, Nashik</strong> adjacent to Sandip Hotel along the Mumbai-Agra Highway. 
-              Equipped with a barrier-free 24/7 emergency stroke ambulance port, dedicated neuro-critical care bays, and verified on Google Maps with a <strong>4.9 ★ rating</strong>.
+              {language === 'mr' 
+                ? 'मुंबई नाका, नाशिक येथे संदीप हॉटेल जवळ, मुंबई-आग्रा महामार्गावर सुसज्ज केंद्र. २४/७ आपत्कालीन स्ट्रोक रुग्णवाहिका प्रवेशद्वार आणि न्यूरो-आयसीयू सुविधा उपलब्ध. गुगल मॅप्सवर ४.९★ प्रमाणित.'
+                : 'Conveniently located at Mumbai Naka, Nashik adjacent to Sandip Hotel along the Mumbai-Agra Highway. Equipped with a barrier-free 24/7 emergency stroke ambulance port, dedicated neuro-critical care bays, and verified on Google Maps with a 4.9 ★ rating.'}
             </p>
           </div>
 
@@ -110,7 +113,7 @@ export const HospitalMapLocation: React.FC<HospitalMapLocationProps> = ({
               className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-600 to-[#8E5B3E] hover:from-amber-500 hover:to-[#7A4B30] text-white font-bold text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02]"
             >
               <Navigation className="w-4 h-4" />
-              <span>Get Turn-by-Turn Directions</span>
+              <span>{language === 'mr' ? 'मार्गदर्शन (Directions) मिळवा' : 'Get Turn-by-Turn Directions'}</span>
             </a>
 
             <a
@@ -120,7 +123,7 @@ export const HospitalMapLocation: React.FC<HospitalMapLocationProps> = ({
               className="px-5 py-3 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all"
             >
               <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span>Review on Google Maps (4.9★)</span>
+              <span>{language === 'mr' ? 'गुगल मॅप्सवर अभिप्राय द्या (४.९★)' : 'Review on Google Maps (4.9★)'}</span>
             </a>
           </div>
         </div>

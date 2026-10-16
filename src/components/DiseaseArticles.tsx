@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { DiseaseArticle, BrainAnatomyHotspot } from '../types';
 import { DISEASE_ARTICLES, BRAIN_HOTSPOTS } from '../data/mockData';
+import { useLanguage } from '../context/LanguageContext';
 
 interface DiseaseArticlesProps {
   onOpenVRForArticle?: (hotspotId: string) => void;
@@ -29,6 +30,8 @@ export const DiseaseArticles: React.FC<DiseaseArticlesProps> = ({
   onOpenVRForArticle,
   onBookConsultationForDisease
 }) => {
+  const { language } = useLanguage();
+  const isMr = language === 'mr';
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedArticle, setSelectedArticle] = useState<DiseaseArticle>(DISEASE_ARTICLES[0]);
@@ -68,21 +71,24 @@ export const DiseaseArticles: React.FC<DiseaseArticlesProps> = ({
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-semibold mb-3 border border-cyan-500/30">
             <BookOpen className="w-3.5 h-3.5" />
-            Patient & Caregiver Neurological Encyclopedia
+            {isMr ? 'रुग्ण आणि काळजीवाहू न्यूरोलॉजिकल ज्ञानकोश' : 'Patient & Caregiver Neurological Encyclopedia'}
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-3">
-            Neurological Diseases, Advanced Treatments & Care Protocols
+            {isMr ? 'मेंदूचे विकार, प्रगत उपचार आणि काळजी मार्गदर्शक' : 'Neurological Diseases, Advanced Treatments & Care Protocols'}
           </h2>
           <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-            Written and reviewed by our senior neurologists and neurosurgeons. Understand brain conditions, 
-            explore 3D VR anatomical models, and access practical home care guides for patients and family caregivers.
+            {isMr ? (
+              <>सोपान हॉस्पिटलच्या तज्ज्ञ न्यूरोलॉजिस्ट्सद्वारे प्रमाणित माहिती. मेंदूचे विकार समजून घ्या, ३डी व्हीआर मॉडेल एक्सप्लोर करा आणि रुग्णांसाठी व्यावहारिक काळजी मार्गदर्शक जाणून घ्या.</>
+            ) : (
+              <>Written and reviewed by our senior neurologists and neurosurgeons. Understand brain conditions, explore 3D VR anatomical models, and access practical home care guides for patients and family caregivers.</>
+            )}
           </p>
         </div>
 
         {/* Global Patient / Specialist Audience Switcher */}
         <div className="mt-6 pt-5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 bg-slate-950/80 p-1 rounded-xl border border-slate-700/60 text-xs">
-            <span className="text-slate-400 px-2 font-medium">Audience Lens:</span>
+            <span className="text-slate-400 px-2 font-medium">{isMr ? 'माहिती स्वरूप:' : 'Audience Lens:'}</span>
             <button
               id="btn-lens-patient"
               onClick={() => setViewMode('patient-caregiver')}
@@ -93,7 +99,7 @@ export const DiseaseArticles: React.FC<DiseaseArticlesProps> = ({
               }`}
             >
               <HeartHandshake className="w-3.5 h-3.5" />
-              Patient & Caregiver Mode (Clear, Empathetic)
+              {isMr ? 'रुग्ण व काळजीवाहू (सोपी भाषा)' : 'Patient & Caregiver Mode (Clear, Empathetic)'}
             </button>
             <button
               id="btn-lens-clinical"
@@ -105,7 +111,7 @@ export const DiseaseArticles: React.FC<DiseaseArticlesProps> = ({
               }`}
             >
               <Stethoscope className="w-3.5 h-3.5" />
-              Clinical / Specialist Mode (Medical Detail)
+              {isMr ? 'क्लिनिकल / तज्ज्ञ मोड (सविस्तर)' : 'Clinical / Specialist Mode (Medical Detail)'}
             </button>
           </div>
 

@@ -120,22 +120,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Hospital Brand & Logo - Clean, prominent, never squeezed or truncated */}
           <div 
             onClick={() => handleNavClick('appointments')}
-            className="flex items-center gap-2.5 sm:gap-3.5 cursor-pointer select-none group shrink-0"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group min-w-0 mr-1 sm:mr-2"
             title="Sopan Hospital & Neurology Institute - Director: Dr. Sanjay Sopan Varade"
           >
             <div className="p-1 sm:p-1.5 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
               <SopanLogo size="md" />
             </div>
             <div className="flex flex-col justify-center min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-base sm:text-xl lg:text-2xl font-serif font-black tracking-tight text-[#27231E] whitespace-nowrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <span className="text-sm sm:text-lg md:text-xl lg:text-2xl font-serif font-black tracking-tight text-[#27231E] truncate sm:whitespace-nowrap">
                   {t('hospital.name')}
                 </span>
-                <span className="text-[9px] sm:text-[11px] bg-[#EFE9DF] text-[#7A5338] font-bold px-2 sm:px-2.5 py-0.5 rounded-full border border-[#DFD6C8] whitespace-nowrap hidden xs:inline-block">
+                <span className="text-[9px] sm:text-[11px] bg-[#EFE9DF] text-[#7A5338] font-bold px-2 sm:px-2.5 py-0.5 rounded-full border border-[#DFD6C8] whitespace-nowrap hidden md:inline-block shrink-0">
                   {t('hospital.tagline')}
                 </span>
               </div>
-              <p className="text-[10px] sm:text-xs font-semibold text-[#7A5338] tracking-wide whitespace-nowrap mt-0.5">
+              <p className="text-[10px] sm:text-xs font-semibold text-[#7A5338] tracking-wide truncate sm:whitespace-nowrap mt-0.5">
                 {language === 'mr' ? 'वरिष्ठ न्यूरोलॉजिस्ट: डॉ. संजय सोपान वराडे (MD, DM Neuro)' : 'Chief Neurologist: Dr. Sanjay Sopan Varade (MD, DM Neuro)'}
               </p>
             </div>
@@ -144,19 +144,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* ======================================================== */}
           {/* RIGHT SIDE ACTIONS: DESKTOP & TABLET VIEW (CLEAN & BALANCED) */}
           {/* ======================================================== */}
-          <div className="hidden sm:flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
+          <div className="hidden sm:flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
             {/* Language Switcher */}
-            <LanguageSwitcher />
+            <LanguageSwitcher variant="responsive" />
 
             {/* OPTION 1: OPD ADMIN BUTTON */}
             <button
               id="btn-nav-opd-admin"
               onClick={() => setAdminModalOpen(true)}
-              className="h-9 px-2.5 sm:px-3 rounded-xl bg-[#27231E] hover:bg-[#3E3832] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+              className="h-8.5 sm:h-9 px-2 sm:px-2.5 md:px-3 rounded-xl bg-[#27231E] hover:bg-[#3E3832] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               title="Hospital OPD Administration: Authenticate to manage appointments, quotas, and consultation settings"
             >
-              <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
-              <span className="whitespace-nowrap">{adminActive ? 'Admin Desk' : 'OPD Admin'}</span>
+              <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400 shrink-0" />
+              <span className="whitespace-nowrap hidden lg:inline">{adminActive ? 'Admin Desk' : 'OPD Admin'}</span>
+              <span className="whitespace-nowrap lg:hidden">Admin</span>
               {adminActive && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
               )}
@@ -165,32 +166,35 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* OPTION 2: WHATSAPP BUTTON */}
             <button
               onClick={onOpenWhatsApp}
-              className="h-9 px-2.5 sm:px-3 rounded-xl bg-[#456254] hover:bg-[#374E43] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+              className="h-8.5 sm:h-9 px-2 sm:px-2.5 md:px-3 rounded-xl bg-[#456254] hover:bg-[#374E43] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               title="Chat directly on WhatsApp (9405545521)"
             >
-              <MessageCircle className="w-4 h-4 shrink-0" />
-              <span className="whitespace-nowrap">{t('whatsapp.btn')}</span>
+              <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="whitespace-nowrap hidden md:inline">{t('whatsapp.btn')}</span>
             </button>
 
             {/* OPTION 3: BOOK OPD BUTTON */}
             <button
               onClick={() => handleNavClick('appointments')}
-              className="h-9 px-3 sm:px-3.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+              className="h-8.5 sm:h-9 px-2.5 sm:px-3 md:px-3.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] active:scale-95 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               title={`Book OPD Consultation with Dr. Sanjay Sopan Varade (₹${content.consultationFee.toLocaleString('en-IN')})`}
             >
-              <Calendar className="w-4 h-4 shrink-0" />
-              <span className="whitespace-nowrap">
+              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="whitespace-nowrap hidden lg:inline">
                 {language === 'mr' ? `ओपीडी (₹${content.consultationFee.toLocaleString('en-IN')})` : `Book OPD (₹${content.consultationFee.toLocaleString('en-IN')})`}
+              </span>
+              <span className="whitespace-nowrap lg:hidden">
+                {language === 'mr' ? 'ओपीडी नोंदवा' : 'Book OPD'}
               </span>
             </button>
 
             {/* Tablet Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="xl:hidden h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] flex items-center justify-center shrink-0 cursor-pointer ml-1"
+              className="xl:hidden h-8.5 w-8.5 sm:h-9 sm:w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] active:scale-95 flex items-center justify-center shrink-0 cursor-pointer ml-0.5 sm:ml-1 transition-all"
               title="All Sections Menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4 sm:w-5 sm:h-5" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
 
@@ -202,10 +206,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="h-9 w-9 rounded-xl bg-[#EFE9DF] text-[#27231E] flex items-center justify-center shrink-0 cursor-pointer"
+              className="h-8.5 w-8.5 rounded-xl bg-[#EFE9DF] text-[#27231E] hover:bg-[#E4DCCE] active:scale-95 flex items-center justify-center shrink-0 cursor-pointer transition-all shadow-2xs"
               title="Toggle Menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
@@ -249,9 +253,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="xl:hidden border-t border-[#E6E0D4] bg-[#FAF8F5] px-4 pt-3 pb-6 space-y-3 shadow-xl">
-          <div className="flex items-center justify-between px-1 pb-2 border-b border-[#E6E0D4]">
-            <span className="text-xs font-bold text-[#7A5338]">भाषा / Language:</span>
-            <LanguageSwitcher variant="compact" />
+          <div className="pb-3 border-b border-[#E6E0D4]">
+            <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-[#7A5338]">
+              <Globe className="w-4 h-4 text-[#8E5B3E]" />
+              <span>भाषा निवडा / Select Language:</span>
+            </div>
+            <LanguageSwitcher variant="full" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">

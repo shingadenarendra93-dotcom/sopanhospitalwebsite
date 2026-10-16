@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 function MainApp() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<string>('appointments');
   const [appointmentPrefill, setAppointmentPrefill] = useState<{
     symptoms?: string;
@@ -86,7 +86,7 @@ function MainApp() {
     { id: 'symptom-checker', label: t('nav.symptom_checker') },
     { id: 'location', label: t('nav.location') },
     { id: 'stories', label: t('nav.stories') },
-    { id: 'gallery', label: 'Hospital Occasion Photos' },
+    { id: 'gallery', label: t('nav.gallery') },
     { id: 'news', label: t('nav.news') },
     { id: 'reviews', label: t('nav.reviews') },
     { id: 'patient-feedback', label: t('nav.feedback') },

@@ -38,6 +38,7 @@ import {
   PresetScenario 
 } from '../data/symptomCheckerData';
 import { useConsultationFee } from '../hooks/useConsultationFee';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SymptomCheckerProps {
   onBookAppointment: (symptomsSummary: string, suspectedCondition?: string) => void;
@@ -50,6 +51,8 @@ export const SymptomChecker: React.FC<SymptomCheckerProps> = ({
   onOpenWhatsApp,
   onExploreVR
 }) => {
+  const { t, language } = useLanguage();
+  const isMr = language === 'mr';
   const consultationFee = useConsultationFee();
   // Symptom state
   const [selectedSymptomIds, setSelectedSymptomIds] = useState<string[]>([
@@ -163,33 +166,39 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
         <div className="relative z-10 space-y-4 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#8E5B3E]/30 text-[#EBD4C0] border border-[#8E5B3E]/40 text-xs font-semibold">
             <Activity className="w-3.5 h-3.5 text-[#DDA277]" />
-            Clinical Triage & Patient Screening Assistant
+            {isMr ? 'क्लिनिकल ट्रायज आणि रुग्ण तपासणी सहाय्यक' : 'Clinical Triage & Patient Screening Assistant'}
           </div>
 
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold tracking-tight text-white">
-            Interactive Neurological <span className="text-[#E2A676]">Symptom Checker</span>
+            {isMr ? (
+              <>परस्परसंवादी न्यूरोलॉजिकल <span className="text-[#E2A676]">लक्षण तपासणी (Symptom Checker)</span></>
+            ) : (
+              <>Interactive Neurological <span className="text-[#E2A676]">Symptom Checker</span></>
+            )}
           </h2>
 
           <p className="text-xs sm:text-sm text-[#D1C7BA] leading-relaxed">
-            Select your current signs, onset speed, and severity to receive an automated screening analysis 
-            aligned with protocols from <strong className="text-white">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> at 
-            Sopan Hospital & Institute, Mumbai Naka, Nashik.
+            {isMr ? (
+              <>आपली लक्षणे, सुरुवात आणि तीव्रता निवडून तात्काळ प्राथमिक क्लिनिकल विश्लेषण मिळवा. हे विश्लेषण <strong className="text-white">डॉ. संजय सोपान वराडे (MD, DM Neuro, ३५+ वर्षे अनुभव)</strong> यांच्या वैद्यकीय मार्गदर्शक तत्त्वांवर आधारित आहे.</>
+            ) : (
+              <>Select your current signs, onset speed, and severity to receive an automated screening analysis aligned with protocols from <strong className="text-white">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> at Sopan Hospital & Institute, Mumbai Naka, Nashik.</>
+            )}
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-[#B8ACA0]">
             <span className="flex items-center gap-1">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              Evidence-based algorithms
+              {isMr ? 'पुराव्यावर आधारित अल्गोरिदम' : 'Evidence-based algorithms'}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">
               <Zap className="w-4 h-4 text-amber-400" />
-              F.A.S.T. Stroke Emergency Screener
+              {isMr ? 'F.A.S.T. आपत्कालीन स्ट्रोक तपासणी' : 'F.A.S.T. Stroke Emergency Screener'}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4 text-[#E2A676]" />
-              Direct OPD Booking (₹{consultationFee.toLocaleString('en-IN')})
+              {isMr ? `थेट ओपीडी नोंदणी (₹${consultationFee.toLocaleString('en-IN')})` : `Direct OPD Booking (₹${consultationFee.toLocaleString('en-IN')})`}
             </span>
           </div>
         </div>
@@ -203,9 +212,11 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#736A5E]">
             <Sparkles className="w-4 h-4 text-[#8E5B3E]" />
-            <span>Common Clinical Scenarios (1-Click Presets)</span>
+            <span>{isMr ? 'सामान्य क्लिनिकल परिस्थिती (१-क्लिक पूर्वतयारी)' : 'Common Clinical Scenarios (1-Click Presets)'}</span>
           </div>
-          <span className="text-[11px] text-[#8C8375] hidden sm:inline">Click any scenario to pre-populate inputs</span>
+          <span className="text-[11px] text-[#8C8375] hidden sm:inline">
+            {isMr ? 'कोणत्याही पर्यायावर क्लिक करून पूर्व-माहिती भरा' : 'Click any scenario to pre-populate inputs'}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
@@ -241,14 +252,14 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
           <div className="bg-white border border-[#E8E0D2] rounded-3xl p-5 space-y-4 shadow-xs">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#695F52] flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-[#8E5B3E]" />
-              <span>Step 1: Clinical Context & Timeline</span>
+              <span>{isMr ? 'पायरी १: क्लिनिकल पार्श्वभूमी आणि वेळ' : 'Step 1: Clinical Context & Timeline'}</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               {/* Onset */}
               <div>
                 <label className="block text-[11px] font-bold text-[#4F463B] mb-1.5">
-                  Onset Speed
+                  {isMr ? 'लक्षणे सुरू होण्याचा वेग' : 'Onset Speed'}
                 </label>
                 <select
                   id="select-symptom-onset"
@@ -256,17 +267,17 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                   onChange={(e) => setOnset(e.target.value as SymptomOnset)}
                   className="w-full bg-[#FAF8F5] border border-[#DDD3C2] rounded-xl px-3 py-2 text-xs text-[#27231E] font-medium focus:ring-2 focus:ring-[#8E5B3E] focus:outline-none"
                 >
-                  <option value="Sudden (< 1 hour)">Sudden (&lt; 1 hour) [Emergency]</option>
-                  <option value="Rapid (< 24 hours)">Rapid (&lt; 24 hours)</option>
-                  <option value="Gradual (Days to Weeks)">Gradual (Days to Weeks)</option>
-                  <option value="Chronic / Recurrent (> 3 Months)">Chronic / Recurrent (&gt; 3 Months)</option>
+                  <option value="Sudden (< 1 hour)">{isMr ? 'अचानक (< १ तास) [अति-तातडीचे]' : 'Sudden (< 1 hour) [Emergency]'}</option>
+                  <option value="Rapid (< 24 hours)">{isMr ? 'जलद (< २४ तास)' : 'Rapid (< 24 hours)'}</option>
+                  <option value="Gradual (Days to Weeks)">{isMr ? 'हळूहळू (काही दिवस ते आठवडे)' : 'Gradual (Days to Weeks)'}</option>
+                  <option value="Chronic / Recurrent (> 3 Months)">{isMr ? 'जुनाट / वारंवार (> ३ महिने)' : 'Chronic / Recurrent (> 3 Months)'}</option>
                 </select>
               </div>
 
               {/* Severity */}
               <div>
                 <label className="block text-[11px] font-bold text-[#4F463B] mb-1.5">
-                  Severity Level
+                  {isMr ? 'तीव्रता पातळी' : 'Severity Level'}
                 </label>
                 <div className="grid grid-cols-3 gap-1 bg-[#FAF8F5] p-1 rounded-xl border border-[#DDD3C2]">
                   {(['Mild', 'Moderate', 'Severe'] as SymptomSeverity[]).map((lvl) => (
@@ -280,7 +291,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                           : 'text-[#6E6557] hover:text-[#27231E]'
                       }`}
                     >
-                      {lvl}
+                      {isMr ? (lvl === 'Mild' ? 'कमी' : lvl === 'Moderate' ? 'मध्यम' : 'तीव्र') : lvl}
                     </button>
                   ))}
                 </div>
@@ -289,7 +300,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
               {/* Patient Age */}
               <div>
                 <label className="block text-[11px] font-bold text-[#4F463B] mb-1.5">
-                  Patient Age (Years)
+                  {isMr ? 'रुग्णाचे वय (वर्षे)' : 'Patient Age (Years)'}
                 </label>
                 <input
                   type="number"
@@ -308,10 +319,13 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm sm:text-base font-serif font-bold text-[#27231E]">
-                  Step 2: Select Patient Signs & Symptoms
+                  {isMr ? 'पायरी २: रुग्णाची लक्षणे व चिन्हे निवडा' : 'Step 2: Select Patient Signs & Symptoms'}
                 </h3>
                 <p className="text-[11px] text-[#786E61]">
-                  Currently selected: <span className="font-bold text-[#8E5B3E]">{selectedSymptomIds.length} symptoms</span>
+                  {isMr ? 'सध्या निवडलेली: ' : 'Currently selected: '}
+                  <span className="font-bold text-[#8E5B3E]">
+                    {selectedSymptomIds.length} {isMr ? 'लक्षणे' : 'symptoms'}
+                  </span>
                 </p>
               </div>
 
@@ -322,7 +336,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                     onClick={clearAllSymptoms}
                     className="text-[11px] text-rose-700 hover:text-rose-900 font-bold px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                   >
-                    Clear All
+                    {isMr ? 'सर्व हटवा' : 'Clear All'}
                   </button>
                 )}
               </div>
@@ -334,7 +348,7 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
               <input
                 id="input-search-symptoms"
                 type="text"
-                placeholder="Search symptom (e.g. 'tremor', 'headache', 'dizzy', 'pins and needles', 'vision')..."
+                placeholder={isMr ? "लक्षण शोधा (उदा. 'थरथरणे', 'डोकेदुखी', 'चक्कर', 'मुंग्या', 'दृष्टी')..." : "Search symptom (e.g. 'tremor', 'headache', 'dizzy', 'pins and needles', 'vision')..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-[#FAF8F5] border border-[#DDD3C2] rounded-2xl text-xs text-[#27231E] placeholder:text-[#998F80] focus:ring-2 focus:ring-[#8E5B3E] focus:outline-none"
@@ -725,7 +739,11 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                   className="w-full py-3 px-4 bg-[#8E5B3E] hover:bg-[#784A31] text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>Book OPD Consultation with Dr. Varade (₹{consultationFee.toLocaleString('en-IN')})</span>
+                  <span>
+                    {isMr
+                      ? `डॉ. वराडे यांच्यासोबत ओपीडी सल्लामसलत नोंदवा (₹${consultationFee.toLocaleString('en-IN')})`
+                      : `Book OPD Consultation with Dr. Varade (₹${consultationFee.toLocaleString('en-IN')})`}
+                  </span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
 
@@ -737,7 +755,11 @@ I would like to consult Chief Neurologist Dr. Sanjay Sopan Varade (MD, DM Neuro)
                   className="w-full py-2.5 px-4 bg-white hover:bg-[#F9F5EE] text-[#456254] border border-[#CBD8CE] rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4 text-[#456254]" />
-                  <span>Share Triage Summary via WhatsApp (9405545521)</span>
+                  <span>
+                    {isMr
+                      ? 'ट्रायज सारांश व्हॉट्सअ‍ॅपवर शेअर करा (९४०५५४५५२१)'
+                      : 'Share Triage Summary via WhatsApp (9405545521)'}
+                  </span>
                 </button>
               </div>
             )}

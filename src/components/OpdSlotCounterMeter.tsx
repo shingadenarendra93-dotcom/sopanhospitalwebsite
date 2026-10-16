@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { OpdSlotStats, isAdminLoggedIn, formatFriendlyDate } from '../utils/opdSlotUtils';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
+import { useLanguage } from '../context/LanguageContext';
 
 interface OpdSlotCounterMeterProps {
   stats: OpdSlotStats;
@@ -39,6 +40,7 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
   onBookNextDay,
   compact = false
 }) => {
+  const { t, language } = useLanguage();
   const [showSimControls, setShowSimControls] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
   const [adminTab, setAdminTab] = useState<'fee' | 'counter'>('fee');
@@ -88,18 +90,18 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
             <Users className="w-4 h-4 text-[#8E5B3E] shrink-0" />
             <div>
               <div className="font-bold text-[#27231E] flex items-center gap-1.5 flex-wrap">
-                <span>OPD Quota:</span>
+                <span>{language === 'mr' ? 'ओपीडी कोटा:' : 'OPD Quota:'}</span>
                 <span className={stats.isFull ? 'text-rose-700 font-extrabold' : 'text-emerald-700 font-extrabold'}>
-                  {stats.remainingSlots} / {stats.totalSlots} Slots Available
+                  {stats.remainingSlots} / {stats.totalSlots} {language === 'mr' ? 'स्लॉट उपलब्ध' : 'Slots Available'}
                 </span>
                 <span className="text-[11px] font-normal text-[#6E675D]">
-                  (-{stats.bookedCount} booked, +{stats.rejectedCount} restored)
+                  (-{stats.bookedCount} {language === 'mr' ? 'नोंदणी' : 'booked'}, +{stats.rejectedCount} {language === 'mr' ? 'पुनर्प्राप्त' : 'restored'})
                 </span>
               </div>
               <div className="text-[11px] text-[#6E675D]">
                 {stats.isFull 
-                  ? 'Daily capacity full (0 slots left for today) • Next Day OPD booking available' 
-                  : `Total limit: ${stats.totalSlots} | Booked: -${stats.bookedCount} | Restored: +${stats.rejectedCount}`}
+                  ? (language === 'mr' ? 'आजचा ओपीडी कोटा पूर्ण भरला आहे • दुसऱ्या दिवसाची नोंदणी उपलब्ध' : 'Daily capacity full (0 slots left for today) • Next Day OPD booking available')
+                  : (language === 'mr' ? `एकूण मर्यादा: ${stats.totalSlots} | नोंदणी: -${stats.bookedCount} | शिल्लक: ${stats.remainingSlots}` : `Total limit: ${stats.totalSlots} | Booked: -${stats.bookedCount} | Restored: +${stats.rejectedCount}`)}
               </div>
             </div>
           </div>
@@ -108,10 +110,10 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
               <button
                 type="button"
                 onClick={() => onBookNextDay(stats.nextDayDate)}
-                className="px-2.5 py-1 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-[11px] font-bold shadow-2xs flex items-center gap-1 transition-colors"
+                className="px-2.5 py-1 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-[11px] font-bold shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <Calendar className="w-3 h-3 text-amber-200" />
-                <span>Book Next Day ({formatFriendlyDate(stats.nextDayDate)})</span>
+                <span>{language === 'mr' ? `दुसऱ्या दिवसासाठी बुक करा (${formatFriendlyDate(stats.nextDayDate)})` : `Book Next Day (${formatFriendlyDate(stats.nextDayDate)})`}</span>
               </button>
             )}
             <button
@@ -150,13 +152,15 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-[#7A5338] text-xs font-bold border border-[#E6E0D4] mb-1.5 shadow-2xs">
             <TrendingDown className="w-3.5 h-3.5 text-[#8E5B3E]" />
-            Live Descending OPD Slot System ({stats.totalSlots} → 0)
+            {language === 'mr' ? `थेट उतरता ओपीडी स्लॉट कोटा (${stats.totalSlots} → ०)` : `Live Descending OPD Slot System (${stats.totalSlots} → 0)`}
           </div>
           <h3 className="text-lg sm:text-xl font-serif font-bold text-[#27231E]">
-            Daily OPD Patient Appointment Quota
+            {language === 'mr' ? 'दैनंदिन ओपीडी रुग्ण अपॉइंटमेंट कोटा' : 'Daily OPD Patient Appointment Quota'}
           </h3>
           <p className="text-xs text-[#635E56] mt-0.5">
-            Strict cap of {stats.totalSlots} outpatients per day to guarantee unhurried, exhaustive neurological consultations with Dr. Sanjay Sopan Varade.
+            {language === 'mr' 
+              ? `डॉ. संजय सोपान वराडे यांच्या सविस्तर व काळजीपूर्वक तपासणीसाठी दररोज जास्तीत जास्त ${stats.totalSlots} रुग्णांची मर्यादा.`
+              : `Strict cap of ${stats.totalSlots} outpatients per day to guarantee unhurried, exhaustive neurological consultations with Dr. Sanjay Sopan Varade.`}
           </p>
         </div>
 
@@ -173,7 +177,7 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
             title="Open OPD Desk Administration to reset counter, extend capacity, or accept/reject appointments"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-            <span>OPD Admin Desk</span>
+            <span>{language === 'mr' ? 'ओपीडी प्रशासन' : 'OPD Admin Desk'}</span>
             {adminActive && (
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
             )}
@@ -195,21 +199,25 @@ export const OpdSlotCounterMeter: React.FC<OpdSlotCounterMeterProps> = ({
         {/* Counter Number Hero */}
         <div className="md:col-span-4 bg-white/90 rounded-2xl p-4 border border-[#E8E2D8] flex items-center justify-between sm:justify-start gap-4 shadow-2xs">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#8E5B3E] to-[#704229] text-white flex flex-col items-center justify-center font-bold shrink-0 shadow-xs">
-            <span className="text-[10px] uppercase font-mono tracking-wider text-amber-200">REMAINING</span>
+            <span className="text-[10px] uppercase font-mono tracking-wider text-amber-200">
+              {language === 'mr' ? 'शिल्लक' : 'REMAINING'}
+            </span>
             <span className="text-2xl font-black font-mono leading-none">{stats.remainingSlots}</span>
-            <span className="text-[9px] text-amber-100/80">OF {stats.totalSlots}</span>
+            <span className="text-[9px] text-amber-100/80">
+              {language === 'mr' ? `पैकी ${stats.totalSlots}` : `OF ${stats.totalSlots}`}
+            </span>
           </div>
 
           <div>
             <div className="text-[11px] uppercase tracking-wider text-[#8A8173] font-semibold">
-              Live Descending Count
+              {language === 'mr' ? 'थेट स्लॉट मोजणी' : 'Live Descending Count'}
             </div>
             <div className="text-lg font-serif font-black text-[#27231E]">
-              {stats.remainingSlots} <span className="text-xs font-normal text-[#635E56]">/ {stats.totalSlots} Slots Left</span>
+              {stats.remainingSlots} <span className="text-xs font-normal text-[#635E56]">/ {stats.totalSlots} {language === 'mr' ? 'स्लॉट शिल्लक' : 'Slots Left'}</span>
             </div>
             <div className="text-[11px] text-[#7A746B] mt-0.5 flex items-center gap-1">
-              <Clock className="w-3 h-3 text-[#8E5B3E]" />
-              {stats.bookedCount} booked so far
+              <Clock className="w-3 dot h-3 text-[#8E5B3E]" />
+              {stats.bookedCount} {language === 'mr' ? 'नोंदणी झाली' : 'booked so far'}
             </div>
           </div>
         </div>

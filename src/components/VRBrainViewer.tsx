@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { BrainAnatomyHotspot } from '../types';
 import { BRAIN_HOTSPOTS } from '../data/mockData';
+import { useLanguage } from '../context/LanguageContext';
 
 interface VRBrainViewerProps {
   selectedHotspotId?: string;
@@ -28,6 +29,8 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
   selectedHotspotId,
   onSelectHotspot
 }) => {
+  const { language } = useLanguage();
+  const isMr = language === 'mr';
   const [activeHotspot, setActiveHotspot] = useState<BrainAnatomyHotspot>(
     BRAIN_HOTSPOTS.find(h => h.id === selectedHotspotId) || BRAIN_HOTSPOTS[0]
   );
@@ -1162,13 +1165,17 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-serif font-bold text-lg text-[#221B14]">Interactive 3D / VR Neuro-Radiology Explorer</h3>
+              <h3 className="font-serif font-bold text-lg text-[#221B14]">
+                {isMr ? 'परस्परसंवादी ३डी / व्हीआर न्यूरो-रेडिओलॉजी एक्सप्लोरर' : 'Interactive 3D / VR Neuro-Radiology Explorer'}
+              </h3>
               <span className="bg-[#FAF0DE] text-[#8E5B3E] text-xs px-2.5 py-0.5 rounded-full font-semibold border border-[#ECD3B9]">
-                32-Slice CT & 3D Volume Suite
+                {isMr ? '३२-स्लाईस सीटी आणि ३डी व्हॉल्यूम' : '32-Slice CT & 3D Volume Suite'}
               </span>
             </div>
             <p className="text-xs text-[#6B6254]">
-              High-resolution helical 32-slice CT cross-sections, acute stroke perfusion mapping & stereoscopic view
+              {isMr
+                ? 'हाय-रिझोल्युशन हेलिकल ३२-स्लाईस सीटी क्रॉस-सेक्शन्स, स्ट्रोक मॅपिंग आणि स्टिरिओस्कोपिक व्ह्यू'
+                : 'High-resolution helical 32-slice CT cross-sections, acute stroke perfusion mapping & stereoscopic view'}
             </p>
           </div>
         </div>
@@ -1185,7 +1192,7 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
             }`}
           >
             <RotateCw className="w-3.5 h-3.5" />
-            3D Volume Model
+            {isMr ? '३डी मॉडेल' : '3D Volume Model'}
           </button>
 
           <button
@@ -1198,7 +1205,7 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            32-Slice CT Axial
+            {isMr ? '३२-स्लाईस सीटी अ‍ॅक्सिअल' : '32-Slice CT Axial'}
           </button>
 
           <button
@@ -1214,7 +1221,9 @@ export const VRBrainViewer: React.FC<VRBrainViewerProps> = ({
             }`}
           >
             <Glasses className="w-3.5 h-3.5" />
-            {isVRMode ? 'Exit VR Headset Mode' : 'Stereoscopic VR Mode'}
+            {isVRMode
+              ? (isMr ? 'व्हीआर मोडमधून बाहेर पडा' : 'Exit VR Headset Mode')
+              : (isMr ? 'स्टिरिओस्कोपिक व्हीआर मोड' : 'Stereoscopic VR Mode')}
           </button>
         </div>
       </div>

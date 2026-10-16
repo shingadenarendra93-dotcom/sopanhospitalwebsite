@@ -23,12 +23,15 @@ import {
   SOPAN_HOSPITAL_DIRECTIONS_URL, 
   SOPAN_HOSPITAL_REVIEWS_URL 
 } from './HospitalMapLocation';
+import { useLanguage } from '../context/LanguageContext';
 
 interface GoogleReviewsProps {
   onOpenSuccessStories?: () => void;
 }
 
 export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStories }) => {
+  const { language } = useLanguage();
+  const isMr = language === 'mr';
   const [reviews, setReviews] = useState<GoogleReview[]>(() => loadStoredReviews());
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('All');
   const [sourceFilter, setSourceFilter] = useState<'All' | 'Google' | 'AnonymousFeedback'>('All');
@@ -139,13 +142,19 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
                   <Star key={s} className="w-5 h-5 fill-current" />
                 ))}
               </div>
-              <span className="text-xs text-[#7A746B] font-semibold">(1,420+ Verified Reviews & Feedback)</span>
+              <span className="text-xs text-[#7A746B] font-semibold">
+                {isMr ? '(१,४२०+ प्रमाणित अभिप्राय व पुनरावलोकने)' : '(1,420+ Verified Reviews & Feedback)'}
+              </span>
             </div>
             <h2 className="text-lg sm:text-xl font-serif font-bold text-[#27231E]">
-              Google Verified Patient & Experience Testimonials
+              {isMr ? 'गुगल प्रमाणित रुग्ण अभिप्राय व अनुभव (४.९★)' : 'Google Verified Patient & Experience Testimonials'}
             </h2>
             <p className="text-[#635E56] text-xs sm:text-sm mt-0.5">
-              Authentic reviews and anonymous post-consultation feedback from outpatients and families treated under Chief Neurologist <strong className="text-[#27231E]">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> at Mumbai Naka, Nashik.
+              {isMr ? (
+                <>प्रमुख न्यूरोलॉजिस्ट <strong className="text-[#27231E]">डॉ. संजय सोपान वराडे (MD, DM Neuro)</strong> यांच्या मार्गदर्शनाखाली सोपान हॉस्पिटल, मुंबई नाका, नाशिक येथे उपचार घेतलेल्या रुग्णांचे व कुटुंबियांचे खरे अनुभव.</>
+              ) : (
+                <>Authentic reviews and anonymous post-consultation feedback from outpatients and families treated under Chief Neurologist <strong className="text-[#27231E]">Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> at Mumbai Naka, Nashik.</>
+              )}
             </p>
           </div>
         </div>
@@ -160,7 +169,7 @@ export const GoogleReviews: React.FC<GoogleReviewsProps> = ({ onOpenSuccessStori
             title="Write a review directly on Sopan Hospital's Google Maps profile"
           >
             <Star className="w-4 h-4 fill-white text-white" />
-            <span>Write on Google Maps</span>
+            <span>{isMr ? 'गुगल मॅप्सवर रिव्ह्यू लिहा' : 'Write on Google Maps'}</span>
             <ExternalLink className="w-3.5 h-3.5 text-amber-200" />
           </a>
 

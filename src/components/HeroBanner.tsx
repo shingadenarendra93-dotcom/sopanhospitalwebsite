@@ -21,6 +21,7 @@ import {
 import { calculateOpdSlotStats, loadOpdAppointments } from '../utils/opdSlotUtils';
 import { subscribeToAppointments } from '../lib/firebase';
 import { useHospitalContent } from '../hooks/useHospitalContent';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HeroBannerProps {
   onNavigate: (tabId: string) => void;
@@ -32,6 +33,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onOpenWhatsApp
 }) => {
   const { content } = useHospitalContent();
+  const { t, language } = useLanguage();
   const [appointments, setAppointments] = useState(() => loadOpdAppointments());
 
   // Guarantee that the doctor photo stays default (/DSC_0050.png) & listen to live appointments
@@ -87,19 +89,19 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               title="Click to view Sopan Hospital location on Google Maps"
             >
               <ShieldCheck className="w-4 h-4 text-[#C26D38] shrink-0" />
-              <span>{content.heroBadgeText}</span>
+              <span>{language === 'mr' ? t('hero.badge') : (content.heroBadgeText || t('hero.badge'))}</span>
               <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8A86B]/25 text-[#733B14] px-1.5 py-0.5 rounded-full font-bold ml-1 group-hover:bg-[#E8A86B]/40 transition-colors">
                 <MapPin className="w-2.5 h-2.5 text-rose-600" />
-                <span>Map 📍</span>
+                <span>{t('hero.map_btn')}</span>
               </span>
             </button>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold tracking-tight text-[#221B14] leading-tight">
-              {content.heroTitle}
+              {language === 'mr' ? t('hero.title') : (content.heroTitle || t('hero.title'))}
             </h1>
 
             <p className="text-[#52493D] text-sm sm:text-base leading-relaxed max-w-xl">
-              {content.heroSubtitle}
+              {language === 'mr' ? t('hero.subtitle') : (content.heroSubtitle || t('hero.subtitle'))}
             </p>
 
             {/* Live OPD Quota Descending Counter Badge */}
@@ -113,7 +115,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${opdStats.isFull ? 'bg-rose-500' : 'bg-emerald-500'}`} />
               </span>
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-[#6B6153]">Today's OPD Patient Intake:</span>
+                <span className="text-[#6B6153]">{t('hero.intake')}</span>
                 <span className={`font-mono font-bold px-2 py-0.5 rounded-lg border text-xs ${
                   opdStats.isFull 
                     ? 'bg-rose-100 text-rose-900 border-rose-200' 
@@ -121,10 +123,10 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                       ? 'bg-amber-100 text-amber-900 border-amber-200'
                       : 'bg-emerald-100 text-emerald-900 border-emerald-200'
                 }`}>
-                  {opdStats.remainingSlots} / {content.opdCapacity} Slots Available
+                  {opdStats.remainingSlots} / {content.opdCapacity} {t('hero.slots_available')}
                 </span>
                 <span className="text-[11px] text-[#8E5B3E] font-semibold hidden sm:inline">
-                  (Descending Live {content.opdCapacity} → 0)
+                  {t('hero.descending_note')}
                 </span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-[#8E5B3E] group-hover:translate-x-0.5 transition-transform" />
@@ -134,47 +136,47 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 id="hero-btn-book"
                 onClick={() => onNavigate('appointments')}
-                className="px-6 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2 cursor-pointer"
+                className="px-6 py-3 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
               >
                 <Calendar className="w-4 h-4" />
-                Schedule OPD (₹{content.consultationFee.toLocaleString('en-IN')})
+                {language === 'mr' ? `ओपीडी अपॉइंटमेंट घ्या (₹${content.consultationFee.toLocaleString('en-IN')})` : `Schedule OPD (₹${content.consultationFee.toLocaleString('en-IN')})`}
                 <ChevronRight className="w-4 h-4" />
               </button>
 
               <button
                 id="hero-btn-symptom-checker"
                 onClick={() => onNavigate('symptom-checker')}
-                className="px-5 py-3 rounded-2xl bg-[#F5ECE0] hover:bg-[#EBDFD0] text-[#7A492B] border border-[#DFD1BE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
+                className="px-5 py-3 rounded-2xl bg-[#F5ECE0] hover:bg-[#EBDFD0] text-[#7A492B] border border-[#DFD1BE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Activity className="w-4 h-4 text-[#8E5B3E]" />
-                Symptom Checker
+                {t('hero.cta.symptom')}
               </button>
 
               <button
                 id="hero-btn-stories"
                 onClick={() => onNavigate('stories')}
-                className="px-5 py-3 rounded-2xl bg-white hover:bg-[#FAF6F0] text-[#383025] border border-[#DACFBE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
+                className="px-5 py-3 rounded-2xl bg-white hover:bg-[#FAF6F0] text-[#383025] border border-[#DACFBE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-[#8E5B3E]" />
-                Patient Success Stories
+                {t('hero.cta.stories')}
               </button>
 
               <button
                 id="hero-btn-news"
                 onClick={() => onNavigate('news')}
-                className="px-5 py-3 rounded-2xl bg-[#FAF5EC] hover:bg-[#F0E6D5] text-[#8E5B3E] border border-[#DACFBE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
+                className="px-5 py-3 rounded-2xl bg-[#FAF5EC] hover:bg-[#F0E6D5] text-[#8E5B3E] border border-[#DACFBE] font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Newspaper className="w-4 h-4 text-[#8E5B3E]" />
-                Latest Neuro News
+                {t('hero.cta.news')}
               </button>
 
               <button
                 id="hero-btn-whatsapp"
                 onClick={onOpenWhatsApp}
-                className="px-5 py-3 rounded-2xl bg-[#456254] hover:bg-[#374E43] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2"
+                className="px-5 py-3 rounded-2xl bg-[#456254] hover:bg-[#374E43] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>WhatsApp: 9405545521</span>
+                <span>{language === 'mr' ? 'व्हॉट्सॲप: ९४०५५४५५२१' : 'WhatsApp: 9405545521'}</span>
               </button>
             </div>
           </div>
@@ -207,17 +209,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-amber-500 text-xs font-semibold">
                   <Star className="w-3.5 h-3.5 fill-current" />
-                  <span>4.96 Rating</span>
-                  <span className="text-[#8A8173] font-normal">• 740+ Reviews</span>
+                  <span>{t('hero.rating')}</span>
                 </div>
                 <h3 className="text-lg font-serif font-bold text-[#221B14] leading-snug">
-                  {content.directorName}
+                  {language === 'mr' ? 'डॉ. संजय सोपान वराडे' : content.directorName}
                 </h3>
                 <div className="text-xs text-[#8E5B3E] font-semibold">{content.directorTitle}</div>
-                <div className="text-[11px] text-[#6B6254]">Director & Chief Consultant Neurologist</div>
+                <div className="text-[11px] text-[#6B6254]">{t('hero.director_title')}</div>
                 <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 mt-0.5">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                  <span>Default Verified Portrait</span>
+                  <span>{t('hero.default_portrait')}</span>
                 </div>
               </div>
             </div>
@@ -226,21 +227,23 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <div className="flex items-center justify-between text-[#5C5346]">
                 <span className="flex items-center gap-1.5">
                   <Stethoscope className="w-3.5 h-3.5 text-[#8E5B3E]" />
-                  Consultation Fee:
+                  {t('hero.consultation_fee')}
                 </span>
                 <span className="font-bold text-[#221B14] text-sm">₹{content.consultationFee.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex items-center justify-between text-[#5C5346]">
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-[#456254]" />
-                  Experience:
+                  {t('hero.experience')}
                 </span>
-                <span className="font-bold text-[#221B14] bg-[#F3ECE0] px-2 py-0.5 rounded-md text-[11px]">{content.directorExperience}</span>
+                <span className="font-bold text-[#221B14] bg-[#F3ECE0] px-2 py-0.5 rounded-md text-[11px]">
+                  {language === 'mr' ? '३५+ वर्षे क्लिनिकल प्रॅक्टिस' : content.directorExperience}
+                </span>
               </div>
               <div className="flex items-center justify-between text-[#5C5346]">
                 <span className="flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-rose-600" />
-                  Stroke Emergency Hotline:
+                  {t('hero.emergency_hotline')}
                 </span>
                 <a href={`tel:${content.emergencyPhone}`} className="font-bold text-rose-700 hover:underline">
                   {content.emergencyPhoneDisplay}
@@ -250,7 +253,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <div className="flex items-center justify-between pt-1 border-t border-[#E5DAC8]">
                 <span className="flex items-center gap-1.5 text-[#5C5346]">
                   <Users className="w-3.5 h-3.5 text-[#8E5B3E]" />
-                  OPD Intake Cap:
+                  {language === 'mr' ? 'आजचा ओपीडी कोटा:' : 'OPD Intake Cap:'}
                 </span>
                 <span className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-md ${
                   opdStats.isFull 
@@ -259,7 +262,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                       ? 'bg-amber-100 text-amber-900 border border-amber-300'
                       : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                 }`}>
-                  {opdStats.remainingSlots} / {content.opdCapacity} Left Today
+                  {opdStats.remainingSlots} / {content.opdCapacity} {language === 'mr' ? 'शिल्लक' : 'Left Today'}
                 </span>
               </div>
             </div>
@@ -269,28 +272,28 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 id="hero-quick-symptom-checker"
                 onClick={() => onNavigate('symptom-checker')}
-                className="p-2 rounded-xl bg-[#FAF5EE] hover:bg-[#F2E8DC] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="p-2 rounded-xl bg-[#FAF5EE] hover:bg-[#F2E8DC] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
               >
                 <Activity className="w-3.5 h-3.5 text-[#8E5B3E] shrink-0" />
-                <span className="font-medium text-[11px] truncate">Checker</span>
+                <span className="font-medium text-[11px] truncate">{language === 'mr' ? 'लक्षणे' : 'Checker'}</span>
               </button>
 
               <button
                 id="hero-quick-vr"
                 onClick={() => onNavigate('vr-brain')}
-                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
               >
                 <Glasses className="w-3.5 h-3.5 text-[#8E5B3E] shrink-0" />
-                <span className="font-medium text-[11px] truncate">3D Brain</span>
+                <span className="font-medium text-[11px] truncate">{language === 'mr' ? '३D मेंदू' : '3D Brain'}</span>
               </button>
 
               <button
                 id="hero-quick-stories"
                 onClick={() => onNavigate('stories')}
-                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="p-2 rounded-xl bg-white hover:bg-[#FAF6F0] text-[#3C342A] border border-[#E5DAC8] text-left transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#456254] shrink-0" />
-                <span className="font-medium text-[11px] truncate">Stories</span>
+                <span className="font-medium text-[11px] truncate">{language === 'mr' ? 'यशोगाथा' : 'Stories'}</span>
               </button>
             </div>
           </div>
@@ -299,24 +302,24 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         {/* Bottom stats ticker in warm and bright style */}
         <div className="mt-8 pt-6 border-t border-[#E5DAC8] grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
-            <span className="text-[#7A7163] block">Door-to-Needle Time</span>
+            <span className="text-[#7A7163] block">{language === 'mr' ? 'डोर-टू-नीडल वेळ' : 'Door-to-Needle Time'}</span>
             <span className="text-lg font-serif font-bold text-[#8E5B3E]">{content.doorToNeedleTime}</span>
-            <span className="text-[11px] text-[#867E73] block">Hyper-Acute Stroke Rescue</span>
+            <span className="text-[11px] text-[#867E73] block">{language === 'mr' ? 'अति-तातडीचे स्ट्रोक उपचार' : 'Hyper-Acute Stroke Rescue'}</span>
           </div>
           <div>
-            <span className="text-[#7A7163] block">Diagnostic Imaging</span>
+            <span className="text-[#7A7163] block">{language === 'mr' ? 'डायग्नोस्टिक इमेजिंग' : 'Diagnostic Imaging'}</span>
             <span className="text-lg font-serif font-bold text-[#221B14]">{content.ctScanTechnology}</span>
-            <span className="text-[11px] text-[#867E73] block">High-Speed Helical & Angiography</span>
+            <span className="text-[11px] text-[#867E73] block">{language === 'mr' ? 'हाय-स्पीड ३२-स्लाइस सीटी' : 'High-Speed Helical & Angiography'}</span>
           </div>
           <div>
-            <span className="text-[#7A7163] block">Seizure Control Rate</span>
+            <span className="text-[#7A7163] block">{language === 'mr' ? 'झटके (फिट्स) नियंत्रण दर' : 'Seizure Control Rate'}</span>
             <span className="text-lg font-serif font-bold text-[#456254]">{content.seizureControlRate}</span>
-            <span className="text-[11px] text-[#867E73] block">Continuous 24-hr Video-EEG</span>
+            <span className="text-[11px] text-[#867E73] block">{language === 'mr' ? '२४-तास सतत व्हिडिओ-ईईजी' : 'Continuous 24-hr Video-EEG'}</span>
           </div>
           <div>
-            <span className="text-[#7A7163] block">Consultation OPD Fee</span>
+            <span className="text-[#7A7163] block">{language === 'mr' ? 'ओपीडी तपासणी फी' : 'Consultation OPD Fee'}</span>
             <span className="text-lg font-serif font-bold text-[#221B14]">₹{content.consultationFee.toLocaleString('en-IN')}</span>
-            <span className="text-[11px] text-[#867E73] block">35+ Years Clinical Practice</span>
+            <span className="text-[11px] text-[#867E73] block">{language === 'mr' ? '३५+ वर्षे क्लिनिकल अनुभव' : '35+ Years Clinical Practice'}</span>
           </div>
         </div>
       </div>

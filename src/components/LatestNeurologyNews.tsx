@@ -45,6 +45,8 @@ export interface GroundingChunk {
   };
 }
 
+import { useLanguage } from '../context/LanguageContext';
+
 interface LatestNeurologyNewsProps {
   onBookConsultation?: () => void;
   onOpenWhatsApp?: () => void;
@@ -54,6 +56,8 @@ export const LatestNeurologyNews: React.FC<LatestNeurologyNewsProps> = ({
   onBookConsultation,
   onOpenWhatsApp
 }) => {
+  const { t, language } = useLanguage();
+  const isMr = language === 'mr';
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [customSearchInput, setCustomSearchInput] = useState<string>('');
   const [newsList, setNewsList] = useState<NeurologyNewsItem[]>([]);
@@ -154,16 +158,20 @@ export const LatestNeurologyNews: React.FC<LatestNeurologyNewsProps> = ({
           <div className="space-y-2.5 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFE9DF] border border-[#DACFBE] text-[#6E4630] text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5 text-[#8E5B3E]" />
-              <span>Worldwide Real-Time Clinical Research • Synced Live</span>
+              <span>{isMr ? 'जागतिक रिअल-टाईम क्लिनिकल संशोधन • थेट अपडेट' : 'Worldwide Real-Time Clinical Research • Synced Live'}</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold font-serif text-[#27231E] tracking-tight">
-              Worldwide Neurology & Health Research Articles
+              {isMr ? 'जागतिक न्यूरोलॉजी आणि आरोग्य संशोधन बातम्या' : 'Worldwide Neurology & Health Research Articles'}
             </h1>
 
             <p className="text-sm text-[#635E56] leading-relaxed">
-              Real-time peer-reviewed clinical research breakthroughs, landmark trial findings, and evidence-based neuro-health articles curated directly from premier international medical journals (The Lancet Neurology, NEJM, JAMA, Nature, Stroke, WHO, AAN).
+              {isMr ? (
+                <>आंतरराष्ट्रीय वैद्यकीय नियतकालिके (The Lancet Neurology, NEJM, JAMA, Nature, Stroke, WHO, AAN) कडून थेट संकलित केलेली पक्षाघात, मिरगी, पार्किन्सन्स आणि न्यूरो-आरोग्यावरील अत्याधुनिक संशोधन निष्कर्षांची माहिती.</>
+              ) : (
+                <>Real-time peer-reviewed clinical research breakthroughs, landmark trial findings, and evidence-based neuro-health articles curated directly from premier international medical journals (The Lancet Neurology, NEJM, JAMA, Nature, Stroke, WHO, AAN).</>
+              )}
             </p>
           </div>
 
@@ -174,11 +182,15 @@ export const LatestNeurologyNews: React.FC<LatestNeurologyNewsProps> = ({
               className="px-4 py-2.5 rounded-2xl bg-[#342E28] hover:bg-[#25201C] text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-all disabled:opacity-60"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>{isLoading ? 'Grounding Live Research...' : 'Refresh Latest News'}</span>
+              <span>
+                {isLoading
+                  ? (isMr ? 'संशोधन अपडेट होत आहे...' : 'Grounding Live Research...')
+                  : (isMr ? 'बातम्या रिफ्रेश करा' : 'Refresh Latest News')}
+              </span>
             </button>
             <div className="text-[11px] text-[#787063] flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-[#8E5B3E]" />
-              <span>Updated: {lastRefreshedTime}</span>
+              <span>{isMr ? 'अपडेट वेळ:' : 'Updated:'} {lastRefreshedTime}</span>
             </div>
           </div>
         </div>

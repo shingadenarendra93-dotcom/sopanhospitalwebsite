@@ -49,6 +49,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 import { useConsultationFee } from '../hooks/useConsultationFee';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   TOTAL_OPD_DAILY_SLOTS, 
   calculateOpdSlotStats, 
@@ -82,6 +83,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   autoOpenBooking,
   onAppointmentBooked
 }) => {
+  const { t, language } = useLanguage();
   const [doctorsList] = useState<Doctor[]>(DOCTORS);
   const [appointments, setAppointments] = useState<Appointment[]>(() => loadOpdAppointments());
   const consultationFee = useConsultationFee();

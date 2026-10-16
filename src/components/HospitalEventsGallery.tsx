@@ -49,6 +49,7 @@ import {
 import { subscribeToHospitalEvents } from '../lib/firebase';
 import { isAdminLoggedIn, getAdminSession } from '../utils/opdSlotUtils';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HospitalEventsGalleryProps {
   onBookConsultation?: () => void;
@@ -59,6 +60,8 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
   onBookConsultation,
   onOpenWhatsApp
 }) => {
+  const { t, language } = useLanguage();
+  const isMr = language === 'mr';
   const [eventsList, setEventsList] = useState<HospitalEvent[]>(() => loadHospitalEvents());
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -308,13 +311,17 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
           <div className="max-w-2xl space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-amber-200 text-xs font-semibold backdrop-blur-xs">
               <Camera className="w-3.5 h-3.5 text-amber-400" />
-              Hospital Occasion Archives & Special Events Gallery
+              {isMr ? 'हॉस्पिटल विशेष कार्यक्रम व ऐतिहासिक क्षण गॅलरी' : 'Hospital Occasion Archives & Special Events Gallery'}
             </div>
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-serif font-black tracking-tight text-white">
-              Sopan Hospital Special Occasion Photographs
+              {isMr ? 'सोपान हॉस्पिटल विशेष कार्यक्रम छायाचित्रे' : 'Sopan Hospital Special Occasion Photographs'}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Curated photographic documentation of 35+ years of milestones, annual World Stroke Day summits, cath lab inaugurations, Parkinson’s community camps, and festival celebrations led by <strong>Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> in Nashik.
+              {isMr ? (
+                <>नाशिकमध्ये <strong className="text-white">डॉ. संजय सोपान वराडे (MD, DM Neuro)</strong> यांच्या नेतृत्वाखाली ३५+ वर्षांचे महत्त्वाचे टप्पे, जागतिक स्ट्रोक दिन, कॅथलॅब उद्घाटन, पार्किन्सन्स शिबिरे आणि विशेष सोहळ्यांची छायाचित्रे.</>
+              ) : (
+                <>Curated photographic documentation of 35+ years of milestones, annual World Stroke Day summits, cath lab inaugurations, Parkinson’s community camps, and festival celebrations led by <strong>Dr. Sanjay Sopan Varade (MD, DM Neuro)</strong> in Nashik.</>
+              )}
             </p>
           </div>
 
@@ -328,7 +335,7 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
                 className="touch-friendly-btn px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 to-[#8E5B3E] hover:from-amber-500 hover:to-[#7A4B30] text-white font-bold text-xs shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer"
               >
                 <Plus className="w-4 h-4 text-amber-200" />
-                <span>+ Add Special Occasion Photo</span>
+                <span>{isMr ? '+ नवीन छायाचित्र जोडा' : '+ Add Special Occasion Photo'}</span>
               </button>
             ) : (
               <button
@@ -338,7 +345,7 @@ export const HospitalEventsGallery: React.FC<HospitalEventsGalleryProps> = ({
                 title="Authenticate as Hospital Administrator to add or remove special occasion photos"
               >
                 <ShieldCheck className="w-4 h-4 text-cyan-300" />
-                <span>Admin Login: Manage Photos</span>
+                <span>{isMr ? 'प्रशासक लॉगिन: फोटो व्यवस्थापन' : 'Admin Login: Manage Photos'}</span>
               </button>
             )}
           </div>

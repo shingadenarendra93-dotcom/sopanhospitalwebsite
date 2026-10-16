@@ -23,6 +23,7 @@ import {
 import { PatientSuccessStory } from '../types';
 import { INITIAL_SUCCESS_STORIES } from '../data/mockData';
 import { useConsultationFee } from '../hooks/useConsultationFee';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PatientSuccessStoriesProps {
   onBookAppointment?: () => void;
@@ -35,6 +36,8 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
   onOpenReviews,
   onOpenWhatsApp
 }) => {
+  const { t, language } = useLanguage();
+  const isMr = language === 'mr';
   const consultationFee = useConsultationFee();
   const [stories, setStories] = useState<PatientSuccessStory[]>(INITIAL_SUCCESS_STORIES);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -140,17 +143,19 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
           <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EFE9DF] text-[#7A5338] text-xs font-semibold border border-[#DFD6C8]">
               <ShieldCheck className="w-3.5 h-3.5 text-[#8E5B3E]" />
-              Verified Sopan Hospital Clinical Journeys • Nashik
+              {isMr ? 'प्रमाणित सोपान हॉस्पिटल क्लिनिकल रिकव्हरी • नाशिक' : 'Verified Sopan Hospital Clinical Journeys • Nashik'}
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-serif font-bold text-[#27231E] tracking-tight">
-              Patient Success Stories
+              {isMr ? 'रुग्ण यशोगाथा आणि अनुभव' : 'Patient Success Stories'}
             </h2>
 
             <p className="text-sm text-[#635E56] leading-relaxed">
-              Every recovery is a testament to timely neurological intervention, precision neuro-diagnostics, 
-              and unwavering compassionate care by <strong className="text-[#27231E] font-semibold">Dr. Sanjay Sopan Varade (MD, DM Neuro • 35+ Years Experience)</strong>. 
-              Read verified accounts from stroke survivors, seizure-free individuals, and families whose lives have been restored.
+              {isMr ? (
+                <>प्रत्येक यशोगाथा ही वेळेवर मिळालेले न्यूरोलॉजिकल उपचार, अचूक निदान आणि <strong className="text-[#27231E] font-semibold">डॉ. संजय सोपान वराडे (MD, DM Neuro • ३५+ वर्षे अनुभव)</strong> यांच्या समर्पित सेवेचे प्रतीक आहे. पक्षाघात (स्ट्रोक), मिरगी आणि इतर न्यूरो विकारांमधून बरे झालेल्या रुग्णांचे अनुभव वाचा.</>
+              ) : (
+                <>Every recovery is a testament to timely neurological intervention, precision neuro-diagnostics, and unwavering compassionate care by <strong className="text-[#27231E] font-semibold">Dr. Sanjay Sopan Varade (MD, DM Neuro • 35+ Years Experience)</strong>. Read verified accounts from stroke survivors, seizure-free individuals, and families whose lives have been restored.</>
+              )}
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-[#635E56]">
@@ -160,17 +165,17 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
                     <Star key={s} className="w-3.5 h-3.5 fill-current" />
                   ))}
                 </div>
-                <span className="font-bold text-[#27231E]">5.0 / 5.0 Rating</span>
+                <span className="font-bold text-[#27231E]">5.0 / 5.0 {isMr ? 'रेटिंग' : 'Rating'}</span>
               </div>
               <span className="text-[#D3CABE]">•</span>
               <div className="flex items-center gap-1 text-[#456254] font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>100% Verified Hospital Cases</span>
+                <span>{isMr ? '१००% पडताळणी झालेले रुग्ण' : '100% Verified Hospital Cases'}</span>
               </div>
               <span className="text-[#D3CABE]">•</span>
               <div className="flex items-center gap-1 text-[#7A5338] font-medium">
                 <Award className="w-3.5 h-3.5" />
-                <span>Shrihari Kute Marg, Mumbai Naka, Nashik</span>
+                <span>{isMr ? 'श्रीहरी कुटे मार्ग, मुंबई नाका, नाशिक' : 'Shrihari Kute Marg, Mumbai Naka, Nashik'}</span>
               </div>
             </div>
           </div>
@@ -182,7 +187,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
               className="px-5 py-3 rounded-2xl bg-[#342E28] hover:bg-[#201D1A] text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              Share Your Recovery Story
+              {isMr ? 'आपला अनुभव शेअर करा' : 'Share Your Recovery Story'}
             </button>
 
             {onOpenReviews && (
@@ -191,7 +196,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
                 className="px-5 py-2.5 rounded-2xl bg-white hover:bg-[#F5F1E9] text-[#27231E] border border-[#DDD6C9] text-xs font-semibold transition-all flex items-center justify-center gap-2"
               >
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                View Google Reviews (4.9★)
+                {isMr ? 'गुगल रिव्ह्यू पहा (४.९★)' : 'View Google Reviews (4.9★)'}
               </button>
             )}
 
@@ -201,7 +206,7 @@ export const PatientSuccessStories: React.FC<PatientSuccessStoriesProps> = ({
                 className="px-5 py-2.5 rounded-2xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2"
               >
                 <Calendar className="w-3.5 h-3.5" />
-                Book OPD Consultation (₹{consultationFee.toLocaleString('en-IN')})
+                {isMr ? `ओपीडी नोंदणी करा (₹${consultationFee.toLocaleString('en-IN')})` : `Book OPD Consultation (₹${consultationFee.toLocaleString('en-IN')})`}
               </button>
             )}
           </div>
