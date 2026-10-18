@@ -34,7 +34,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
   };
 
   // ========================================================
-  // VARIANT: FULL (Optimal for Drawer Menus, Mobile Menu & Settings)
+  // VARIANT: FULL (For Drawer Menus, Settings, and Large Modals)
   // ========================================================
   if (variant === 'full') {
     return (
@@ -57,7 +57,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
           title="Select English (EN)"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-bold tracking-tight">English</span>
+            <span className="text-xs sm:text-sm font-bold tracking-tight">English</span>
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
               language === 'en' ? 'bg-white/20 text-white' : 'bg-[#EFE9DF] text-[#7A5338]'
             }`}>
@@ -82,7 +82,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
           title="मराठी निवडा (Select Marathi)"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-bold tracking-tight">मराठी</span>
+            <span className="text-xs sm:text-sm font-bold tracking-tight">मराठी</span>
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
               language === 'mr' ? 'bg-white/20 text-white' : 'bg-[#EFE9DF] text-[#7A5338]'
             }`}>
@@ -99,8 +99,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
 
   // ========================================================
   // VARIANT: COMPACT (Optimal for Mobile Header Bar < 640px)
-  // Height: 34px (h-8.5), perfectly matching mobile header buttons
-  // Width: Ultra-efficient (~88px), zero clipping, touch-ready
+  // Clean pill with globe icon, EN and मराठी pills, exact fit
   // ========================================================
   if (variant === 'compact') {
     return (
@@ -110,7 +109,6 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
         onKeyDown={handleKeyDown}
         className={`inline-flex items-center h-8.5 bg-white/95 backdrop-blur-xs border border-[#D8CFC2] hover:border-[#8E5B3E]/40 rounded-full p-0.5 shadow-2xs shrink-0 select-none transition-colors ${className}`}
       >
-        {/* Clickable Globe Icon: Quick toggle */}
         <button
           type="button"
           onClick={handleToggle}
@@ -121,7 +119,6 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
           <Globe className="w-3.5 h-3.5" />
         </button>
 
-        {/* Segmented Dual Switch */}
         <div className="flex items-center gap-0.5">
           <button
             type="button"
@@ -158,8 +155,9 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
   }
 
   // ========================================================
-  // VARIANT: RESPONSIVE (Optimal for Desktop & Tablet Navbar)
-  // Seamlessly scales between Tablet (sm, md) and Desktop (lg, xl)
+  // VARIANT: RESPONSIVE (Matches the exact Screenshot 154459)
+  // Pill: [ 🌐  English (EN)   मराठी (MR) ]
+  // Seamlessly fits tablet and desktop with active dark pill background
   // ========================================================
   return (
     <div 
@@ -179,8 +177,8 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
         <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       </button>
 
-      {/* Segmented Dual Switch */}
-      <div className="flex items-center gap-0.5">
+      {/* Segmented Dual Switch: English (EN) and मराठी (MR) */}
+      <div className="flex items-center gap-0.5 sm:gap-1">
         <button
           type="button"
           role="radio"
@@ -193,8 +191,8 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
           }`}
           title="Switch to English"
         >
-          <span className="hidden xl:inline">English (EN)</span>
-          <span className="xl:hidden">EN</span>
+          <span className="hidden sm:inline">English (EN)</span>
+          <span className="sm:hidden">EN</span>
         </button>
 
         <button
@@ -209,8 +207,8 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
           }`}
           title="मराठीमध्ये बदला (Switch to Marathi)"
         >
-          <span className="hidden xl:inline">मराठी (MR)</span>
-          <span className="xl:hidden">मराठी</span>
+          <span className="hidden sm:inline">मराठी (MR)</span>
+          <span className="sm:hidden">मराठी</span>
         </button>
       </div>
     </div>

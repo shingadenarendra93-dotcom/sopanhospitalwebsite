@@ -22,6 +22,7 @@ import { calculateOpdSlotStats, loadOpdAppointments } from '../utils/opdSlotUtil
 import { subscribeToAppointments } from '../lib/firebase';
 import { useHospitalContent } from '../hooks/useHospitalContent';
 import { useLanguage } from '../context/LanguageContext';
+import { YouTubeIcon, FacebookIcon, openSocialPlatform } from './SocialMediaModal';
 
 interface HeroBannerProps {
   onNavigate: (tabId: string) => void;
@@ -295,6 +296,37 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-[#456254] shrink-0" />
                 <span className="font-medium text-[11px] truncate">{language === 'mr' ? 'यशोगाथा' : 'Stories'}</span>
               </button>
+            </div>
+
+            {/* Social Media Channels Direct Links */}
+            <div className="flex items-center justify-between pt-2.5 border-t border-[#EAE3D6] text-xs">
+              <span className="text-[11px] font-bold text-[#6B6254] flex items-center gap-1">
+                <span>{language === 'mr' ? 'सोशल मीडियावर जोडा:' : 'Follow & Watch:'}</span>
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  id="hero-social-yt"
+                  onClick={() => openSocialPlatform('youtube')}
+                  className="px-2.5 py-1 rounded-xl bg-red-50 hover:bg-red-100/90 text-red-700 border border-red-200 text-[11px] font-bold flex items-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                  title="Dr. Sanjay Varade YouTube Channel (@dr.sanjayvarade5339) - Direct to YouTube App"
+                >
+                  <YouTubeIcon className="w-3.5 h-3.5" />
+                  <span>YouTube</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="hero-social-fb"
+                  onClick={() => openSocialPlatform('facebook')}
+                  className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100/90 text-[#1877F2] border border-blue-200 text-[11px] font-bold flex items-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                  title="Sopan Hospital Facebook Page (/sopanhospitalnashik) - Direct to Facebook App"
+                >
+                  <FacebookIcon className="w-3.5 h-3.5" />
+                  <span>Facebook</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

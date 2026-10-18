@@ -19,6 +19,12 @@ import {
 } from './HospitalMapLocation';
 import { useHospitalContent } from '../hooks/useHospitalContent';
 import { useLanguage } from '../context/LanguageContext';
+import { 
+  YouTubeIcon, 
+  FacebookIcon, 
+  InstagramIcon, 
+  openSocialPlatform 
+} from './SocialMediaModal';
 
 interface FooterProps {
   onNavigate: (tabId: string) => void;
@@ -64,6 +70,53 @@ export const Footer: React.FC<FooterProps> = ({
                 <Award className="w-3.5 h-3.5 text-[#3F5E4D]" />
                 {language === 'mr' ? 'एनएबीएच मान्यताप्राप्त न्यूरोसायन्स सेंटर' : 'NABH Accredited Super-Speciality Neuroscience Center'}
               </span>
+            </div>
+
+            {/* Social Media Channels Section */}
+            <div className="pt-2 border-t border-[#EAE3D6] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-serif font-bold uppercase tracking-wider text-[#221B14]">
+                  {language === 'mr' ? 'सोशल मीडिया व व्हिडिओ व्याख्याने:' : 'Official Social Channels:'}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* YouTube Link */}
+                <button
+                  type="button"
+                  onClick={() => openSocialPlatform('youtube')}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-red-50 border border-red-200 text-red-600 text-xs font-semibold flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer group"
+                  title="Dr. Sanjay Varade YouTube Channel (@dr.sanjayvarade5339) - Direct to YouTube App"
+                >
+                  <YouTubeIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span className="text-[#27231E] font-medium text-[11px]">YouTube</span>
+                  <ExternalLink className="w-2.5 h-2.5 text-red-400" />
+                </button>
+
+                {/* Facebook Link */}
+                <button
+                  type="button"
+                  onClick={() => openSocialPlatform('facebook')}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-blue-50 border border-blue-200 text-[#1877F2] text-xs font-semibold flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer group"
+                  title="Sopan Hospital Facebook Page (/sopanhospitalnashik) - Direct to Facebook App"
+                >
+                  <FacebookIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span className="text-[#27231E] font-medium text-[11px]">Facebook</span>
+                  <ExternalLink className="w-2.5 h-2.5 text-blue-400" />
+                </button>
+
+                {/* Instagram Link */}
+                <button
+                  type="button"
+                  onClick={() => openSocialPlatform('instagram')}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-pink-50 border border-pink-200 text-pink-600 text-xs font-semibold flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer group"
+                  title="Sopan Hospital Instagram (@sopanhospitalnashik) - Direct to Instagram App"
+                >
+                  <InstagramIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span className="text-[#27231E] font-medium text-[11px]">Instagram</span>
+                  <ExternalLink className="w-2.5 h-2.5 text-pink-400" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -121,6 +174,26 @@ export const Footer: React.FC<FooterProps> = ({
                 <button onClick={onOpenWhatsApp} className="hover:text-[#324B3E] transition-colors text-[#3F5E4D] font-semibold flex items-center gap-1 cursor-pointer">
                   <MessageCircle className="w-3.5 h-3.5" />
                   {language === 'mr' ? 'व्हॉट्सॲप हेल्प डेस्क (९४०५५४५५२१)' : (content.whatsappDisplay || 'WhatsApp Desk (9405545521)')}
+                </button>
+              </li>
+              <li>
+                <button 
+                  type="button"
+                  onClick={() => openSocialPlatform('youtube')} 
+                  className="hover:text-red-700 transition-colors text-red-600 font-semibold flex items-center gap-1.5 cursor-pointer text-left"
+                >
+                  <YouTubeIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{language === 'mr' ? 'यूट्यूब: डॉ. संजय वराडे व्याख्याने' : 'YouTube: Dr. Sanjay Varade Channel'}</span>
+                </button>
+              </li>
+              <li>
+                <button 
+                  type="button"
+                  onClick={() => openSocialPlatform('facebook')} 
+                  className="hover:text-blue-700 transition-colors text-[#1877F2] font-semibold flex items-center gap-1.5 cursor-pointer text-left"
+                >
+                  <FacebookIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{language === 'mr' ? 'फेसबुक: सोपान हॉस्पिटल नाशिक' : 'Facebook: Sopan Hospital Nashik'}</span>
                 </button>
               </li>
             </ul>

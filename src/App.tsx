@@ -16,6 +16,11 @@ import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { WhatsAppContactModal } from './components/WhatsAppContactModal';
 import { Footer } from './components/Footer';
+import { 
+  YouTubeIcon, 
+  FacebookIcon, 
+  openSocialPlatform 
+} from './components/SocialMediaModal';
 import { playSubtleClickSound } from './utils/audioFeedback';
 import { 
   MessageCircle, 
@@ -283,15 +288,52 @@ function MainApp() {
         onClose={() => setIsAdminModalOpen(false)}
       />
 
-      {/* Persistent Floating WhatsApp Help Desk Button */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
+      {/* Persistent Floating Quick Dock (Social Media & WhatsApp) */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2.5">
+        {/* Floating Social Media Buttons Pill - Direct to App, No Header Clutter */}
+        <div 
+          className="flex items-center gap-2 p-1.5 rounded-full bg-[#27231E]/95 hover:bg-[#27231E] backdrop-blur-md shadow-2xl border border-white/20 transition-all select-none"
+          title="Official Social Media: Dr. Sanjay Varade & Sopan Hospital"
+        >
+          {/* YouTube Floating Logo */}
+          <button
+            type="button"
+            id="floating-btn-youtube"
+            onClick={() => {
+              playSubtleClickSound();
+              openSocialPlatform('youtube');
+            }}
+            className="w-8.5 h-8.5 rounded-full bg-white hover:bg-red-50 text-red-600 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 shadow-xs cursor-pointer group"
+            title="Open Dr. Sanjay Varade YouTube Channel (@dr.sanjayvarade5339) in YouTube App"
+            aria-label="YouTube Channel"
+          >
+            <YouTubeIcon className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
+          </button>
+
+          {/* Facebook Floating Logo */}
+          <button
+            type="button"
+            id="floating-btn-facebook"
+            onClick={() => {
+              playSubtleClickSound();
+              openSocialPlatform('facebook');
+            }}
+            className="w-8.5 h-8.5 rounded-full bg-white hover:bg-blue-50 text-[#1877F2] flex items-center justify-center transition-transform hover:scale-110 active:scale-95 shadow-xs cursor-pointer group"
+            title="Open Sopan Hospital Facebook Page (/sopanhospitalnashik) in Facebook App"
+            aria-label="Facebook Page"
+          >
+            <FacebookIcon className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
+          </button>
+        </div>
+
+        {/* Floating WhatsApp Help Desk Button */}
         <button
           id="btn-floating-whatsapp"
           onClick={() => {
             playSubtleClickSound();
             handleOpenWhatsApp('stroke-emergency');
           }}
-          className="group relative px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-2xl shadow-emerald-700/40 flex items-center gap-2.5 transition-all transform hover:scale-105 active:scale-95 animate-subtle-pulse"
+          className="group relative px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-2xl shadow-emerald-700/40 flex items-center gap-2.5 transition-all transform hover:scale-105 active:scale-95 animate-subtle-pulse cursor-pointer"
         >
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-white rounded-full animate-ping" />
           <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 border-2 border-white rounded-full" />

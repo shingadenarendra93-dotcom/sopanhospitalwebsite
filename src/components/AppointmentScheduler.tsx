@@ -84,6 +84,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   onAppointmentBooked
 }) => {
   const { t, language } = useLanguage();
+  const isMr = language === 'mr';
   const [doctorsList] = useState<Doctor[]>(DOCTORS);
   const [appointments, setAppointments] = useState<Appointment[]>(() => loadOpdAppointments());
   const consultationFee = useConsultationFee();

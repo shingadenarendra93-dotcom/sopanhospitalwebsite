@@ -31,6 +31,12 @@ import {
   Camera,
   MapPin
 } from 'lucide-react';
+import { 
+  YouTubeIcon, 
+  FacebookIcon, 
+  InstagramIcon, 
+  openSocialPlatform 
+} from './SocialMediaModal';
 
 interface NavbarProps {
   activeTab: string;
@@ -50,6 +56,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
   const [adminActive, setAdminActive] = useState<boolean>(() => isAdminLoggedIn());
   const { content } = useHospitalContent();
+
+  const handleSocialClick = (platform: 'youtube' | 'facebook' | 'instagram') => {
+    openSocialPlatform(platform);
+  };
 
   useEffect(() => {
     const checkAdmin = () => setAdminActive(isAdminLoggedIn());
@@ -89,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0 text-xs font-semibold">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 text-xs font-semibold">
           <a
             href={`tel:${content.emergencyPhone}`}
             className="hover:underline flex items-center gap-1.5 text-white cursor-pointer"
@@ -111,6 +121,31 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden sm:inline">{content.whatsappDisplay}</span>
             <span className="sm:hidden">WhatsApp</span>
           </button>
+
+          <span className="text-white/40">|</span>
+
+          {/* High-visibility YouTube & Facebook badges in Top Hotline Bar */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleSocialClick('youtube')}
+              className="hover:scale-105 active:scale-95 transition-transform flex items-center gap-1 text-white bg-black/30 hover:bg-black/50 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold cursor-pointer border border-white/25 shadow-xs"
+              title="Dr. Sanjay Varade YouTube Channel (@dr.sanjayvarade5339) - Direct to YouTube App"
+            >
+              <YouTubeIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xs:inline">YouTube</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSocialClick('facebook')}
+              className="hover:scale-105 active:scale-95 transition-transform flex items-center gap-1 text-white bg-black/30 hover:bg-black/50 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold cursor-pointer border border-white/25 shadow-xs"
+              title="Sopan Hospital Facebook Page (/sopanhospitalnashik) - Direct to Facebook App"
+            >
+              <FacebookIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xs:inline">Facebook</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -120,22 +155,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Hospital Brand & Logo - Clean, prominent, never squeezed or truncated */}
           <div 
             onClick={() => handleNavClick('appointments')}
-            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group min-w-0 mr-1 sm:mr-2"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group min-w-0"
             title="Sopan Hospital & Neurology Institute - Director: Dr. Sanjay Sopan Varade"
           >
             <div className="p-1 sm:p-1.5 rounded-2xl bg-white border border-[#E6E0D4] shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
               <SopanLogo size="md" />
             </div>
             <div className="flex flex-col justify-center min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <span className="text-sm sm:text-lg md:text-xl lg:text-2xl font-serif font-black tracking-tight text-[#27231E] truncate sm:whitespace-nowrap">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-base sm:text-lg md:text-xl lg:text-2xl font-serif font-black tracking-tight text-[#27231E] whitespace-nowrap">
                   {t('hospital.name')}
                 </span>
-                <span className="text-[9px] sm:text-[11px] bg-[#EFE9DF] text-[#7A5338] font-bold px-2 sm:px-2.5 py-0.5 rounded-full border border-[#DFD6C8] whitespace-nowrap hidden md:inline-block shrink-0">
+                <span className="hidden xs:inline-block text-[10px] sm:text-[11px] bg-[#EFE9DF] text-[#7A5338] font-bold px-2 sm:px-2.5 py-0.5 rounded-full border border-[#DFD6C8] whitespace-nowrap shrink-0">
                   {t('hospital.tagline')}
                 </span>
               </div>
-              <p className="text-[10px] sm:text-xs font-semibold text-[#7A5338] tracking-wide truncate sm:whitespace-nowrap mt-0.5">
+              <p className="text-[10px] sm:text-xs font-semibold text-[#7A5338] tracking-wide mt-0.5 truncate max-w-[220px] xs:max-w-xs sm:max-w-none">
                 {language === 'mr' ? 'वरिष्ठ न्यूरोलॉजिस्ट: डॉ. संजय सोपान वराडे (MD, DM Neuro)' : 'Chief Neurologist: Dr. Sanjay Sopan Varade (MD, DM Neuro)'}
               </p>
             </div>
@@ -145,7 +180,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* RIGHT SIDE ACTIONS: DESKTOP & TABLET VIEW (CLEAN & BALANCED) */}
           {/* ======================================================== */}
           <div className="hidden sm:flex items-center gap-1.5 md:gap-2 lg:gap-2.5 shrink-0 ml-auto">
-            {/* Language Switcher */}
+            {/* Language Switcher - Exact fit layout on tablet and desktop */}
             <LanguageSwitcher variant="responsive" />
 
             {/* OPTION 1: OPD ADMIN BUTTON */}
@@ -163,14 +198,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* OPTION 2: WHATSAPP BUTTON */}
+            {/* OPTION 2: WHATSAPP BUTTON (Visible on md+ so it leaves full room for hospital name on tablet sm screens) */}
             <button
               onClick={onOpenWhatsApp}
-              className="h-8.5 sm:h-9 px-2 sm:px-2.5 md:px-3 rounded-xl bg-[#456254] hover:bg-[#374E43] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+              className="hidden md:flex h-8.5 sm:h-9 px-2 sm:px-2.5 md:px-3 rounded-xl bg-[#456254] hover:bg-[#374E43] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all items-center gap-1.5 shrink-0 cursor-pointer"
               title="Chat directly on WhatsApp (9405545521)"
             >
               <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span className="whitespace-nowrap hidden md:inline">{t('whatsapp.btn')}</span>
+              <span className="whitespace-nowrap hidden lg:inline">{t('whatsapp.btn')}</span>
             </button>
 
             {/* OPTION 3: BOOK OPD BUTTON */}
@@ -309,20 +344,65 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
+          {/* Mobile Social Media Direct Launcher Cards */}
+          <div className="pt-2 border-t border-[#E6E0D4] space-y-2">
+            <div className="text-xs font-bold text-[#7A5338]">
+              <span>{language === 'mr' ? 'अधिकृत सोशल मीडिया प्लॅटफॉर्म:' : 'Official Social Channels:'}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleSocialClick('youtube');
+                }}
+                className="p-2.5 rounded-xl bg-white hover:bg-red-50 border border-red-200 text-left flex items-center gap-2 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                title="Open YouTube App"
+              >
+                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                  <YouTubeIcon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold text-[#27231E] truncate">YouTube</div>
+                  <div className="text-[9px] text-red-600 font-semibold truncate">@dr.sanjayvarade</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleSocialClick('facebook');
+                }}
+                className="p-2.5 rounded-xl bg-white hover:bg-blue-50 border border-blue-200 text-left flex items-center gap-2 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                title="Open Facebook App"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                  <FacebookIcon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold text-[#27231E] truncate">Facebook</div>
+                  <div className="text-[9px] text-[#1877F2] font-semibold truncate">sopanhospital</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="pt-2 border-t border-[#E6E0D4] flex gap-2">
             <button
               onClick={() => {
                 onOpenWhatsApp();
                 setMobileMenuOpen(false);
               }}
-              className="flex-1 py-2.5 rounded-xl bg-[#456254] text-white text-xs font-semibold flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-[#456254] text-white text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
             >
               <MessageCircle className="w-4 h-4" />
               {t('whatsapp.btn')} (9405545521)
             </button>
             <button
               onClick={() => handleNavClick('appointments')}
-              className="flex-1 py-2.5 rounded-xl bg-[#8E5B3E] text-white text-xs font-semibold flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-[#8E5B3E] text-white text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
             >
               <Calendar className="w-4 h-4" />
               {t('book.opd')}
