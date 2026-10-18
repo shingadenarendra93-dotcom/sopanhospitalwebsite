@@ -12,7 +12,7 @@ dotenv.config();
 let aiClient: GoogleGenAI | null = null;
 
 function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = "AQ.Ab8RN6KlsEUlXEmhO2y1OoqZI42SSQH8WiGIuVwKbw8hXYFWqg";
   if (!apiKey) {
     return null;
   }
