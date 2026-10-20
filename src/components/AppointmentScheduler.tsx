@@ -76,6 +76,14 @@ interface AppointmentSchedulerProps {
   onAppointmentBooked?: (newApt: Appointment) => void;
 }
 
+const getTodayDateString = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   initialDoctorId,
   initialDiseaseContext,
@@ -85,6 +93,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const isMr = language === 'mr';
+  const todayStr = useMemo(() => getTodayDateString(), []);
   const [doctorsList] = useState<Doctor[]>(DOCTORS);
   const [appointments, setAppointments] = useState<Appointment[]>(() => loadOpdAppointments());
   const consultationFee = useConsultationFee();
@@ -99,7 +108,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   // Form Fields
   const [visitType, setVisitType] = useState<'In-Person Hospital OPD' | 'Tele-Neurology Video Consultation'>('In-Person Hospital OPD');
-  const [selectedDate, setSelectedDate] = useState<string>('2026-09-25');
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateString());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [patientName, setPatientName] = useState<string>('');
   const [patientAge, setPatientAge] = useState<number>(45);
@@ -248,6 +257,8 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       setSelectedDate(targetDate);
     } else if (todayOpdStats.isFull) {
       setSelectedDate(todayOpdStats.nextDayDate);
+    } else if (selectedDate < todayStr) {
+      setSelectedDate(todayStr);
     }
     setBookingStep(1);
     setIsBookingModalOpen(true);
@@ -954,8 +965,13 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     <input
                       type="date"
                       value={selectedDate}
-                      min="2026-09-20"
-                      onChange={e => setSelectedDate(e.target.value)}
+                      min={todayStr}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (!val || val >= todayStr) {
+                          setSelectedDate(val);
+                        }
+                      }}
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-cyan-500"
                     />
 
@@ -963,14 +979,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     <div className="flex items-center gap-2 mt-2 text-xs">
                       <button
                         type="button"
-                        onClick={() => setSelectedDate('2026-09-25')}
+                        onClick={() => setSelectedDate(todayStr)}
                         className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
-                          selectedDate === '2026-09-25' 
+                          selectedDate === todayStr 
                             ? 'bg-slate-900 text-white border-slate-900' 
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
-                        Today's OPD (25 Sep)
+                        Today's OPD ({formatFriendlyDate(todayStr)})
                       </button>
                       <button
                         type="button"

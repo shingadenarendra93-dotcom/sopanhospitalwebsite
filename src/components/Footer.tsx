@@ -22,7 +22,6 @@ import { useLanguage } from '../context/LanguageContext';
 import { 
   YouTubeIcon, 
   FacebookIcon, 
-  InstagramIcon, 
   openSocialPlatform 
 } from './SocialMediaModal';
 
@@ -103,18 +102,6 @@ export const Footer: React.FC<FooterProps> = ({
                   <FacebookIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
                   <span className="text-[#27231E] font-medium text-[11px]">Facebook</span>
                   <ExternalLink className="w-2.5 h-2.5 text-blue-400" />
-                </button>
-
-                {/* Instagram Link */}
-                <button
-                  type="button"
-                  onClick={() => openSocialPlatform('instagram')}
-                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-pink-50 border border-pink-200 text-pink-600 text-xs font-semibold flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer group"
-                  title="Sopan Hospital Instagram (@sopanhospitalnashik) - Direct to Instagram App"
-                >
-                  <InstagramIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  <span className="text-[#27231E] font-medium text-[11px]">Instagram</span>
-                  <ExternalLink className="w-2.5 h-2.5 text-pink-400" />
                 </button>
               </div>
             </div>
