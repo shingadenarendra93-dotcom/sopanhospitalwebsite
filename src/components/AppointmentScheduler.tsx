@@ -111,7 +111,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateString());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [patientName, setPatientName] = useState<string>('');
-  const [patientAge, setPatientAge] = useState<number>(45);
+  const [patientAge, setPatientAge] = useState<number | string>('');
   const [patientGender, setPatientGender] = useState<'Male' | 'Female' | 'Other'>('Male');
   const [patientPhone, setPatientPhone] = useState<string>('');
   const [patientEmail, setPatientEmail] = useState<string>('');
@@ -1213,7 +1213,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                           min={1}
                           max={110}
                           value={patientAge}
-                          onChange={e => setPatientAge(Number(e.target.value))}
+                          onChange={e => setPatientAge(e.target.value === '' ? '' : Number(e.target.value))}
                           className="w-20 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-cyan-500"
                         />
                         <select
