@@ -31,7 +31,8 @@ import {
   HeartHandshake,
   LogOut,
   RotateCcw,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 import { Doctor, Appointment, DepartmentType, ReminderSettings } from '../types';
 import { DOCTORS, INITIAL_APPOINTMENTS } from '../data/mockData';
@@ -44,7 +45,8 @@ import {
   saveAppointmentToFirestore, 
   savePatientToWebsiteData, 
   subscribeToAppointments, 
-  updateAppointmentStatusInFirestore 
+  updateAppointmentStatusInFirestore,
+  deleteAppointmentFromFirestore
 } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
@@ -268,6 +270,24 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     e.preventDefault();
     if (!selectedDoctor) return;
 
+    // Strict validation: ONLY Name, Age, Gender, and Mobile Phone are mandatory
+    if (!patientName || !patientName.trim()) {
+      setReminderToast('Please enter patient full name.');
+      return;
+    }
+    if (patientAge === '' || isNaN(Number(patientAge)) || Number(patientAge) <= 0) {
+      setReminderToast('Please enter patient age.');
+      return;
+    }
+    if (!patientGender) {
+      setReminderToast('Please select patient gender.');
+      return;
+    }
+    if (!patientPhone || !patientPhone.trim()) {
+      setReminderToast('Please enter mobile phone number.');
+      return;
+    }
+
     let finalBookingDate = selectedDate;
     let effectiveStats = dateOpdStats;
 
@@ -304,29 +324,29 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
     const reminderSettings: ReminderSettings = {
       whatsapp: optInWhatsappReminder,
-      email: optInEmailReminder,
+      email: Boolean(optInEmailReminder && patientEmail.trim()),
       leadTimeHours: reminderLeadTime,
-      whatsappNumber: patientPhone || '+91 98000 00000',
-      emailAddress: patientEmail || 'patient@example.com',
-      status: (optInWhatsappReminder || optInEmailReminder) ? 'Active' : 'Scheduled',
+      whatsappNumber: patientPhone.trim(),
+      emailAddress: patientEmail.trim() || '',
+      status: (optInWhatsappReminder || (optInEmailReminder && Boolean(patientEmail.trim()))) ? 'Active' : 'Scheduled',
       scheduledTimeText,
       confirmedAt: new Date().toISOString().split('T')[0]
     };
 
     const newAppointment: Appointment = {
       id: `apt-${Date.now()}`,
-      patientName: patientName || 'Patient',
+      patientName: patientName.trim(),
       patientAge: Number(patientAge),
       patientGender,
-      patientPhone: patientPhone || '+91 98000 00000',
-      patientEmail: patientEmail || 'patient@example.com',
+      patientPhone: patientPhone.trim(),
+      patientEmail: patientEmail.trim() || '',
       doctorId: selectedDoctor.id,
       doctorName: selectedDoctor.name,
       department: selectedDoctor.department,
       date: finalBookingDate,
       timeSlot: selectedTimeSlot,
       visitType,
-      symptoms: symptoms || 'Routine neurological follow-up',
+      symptoms: symptoms.trim() || 'General OPD Consultation',
       status: 'Confirmed',
       tokenNumber: token,
       slotNumber: assignedSlotNumber,
@@ -872,6 +892,23 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                   <Printer className="w-3.5 h-3.5" />
                   View Slip
                 </button>
+                {(apt.status === 'Cancelled' || apt.status === 'Completed') && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await deleteAppointmentFromFirestore(apt.id);
+                      const updated = appointments.filter(a => a.id !== apt.id);
+                      setAppointments(updated);
+                      saveOpdAppointments(updated);
+                      setReminderToast(`Appointment for ${apt.patientName} permanently deleted from database.`);
+                    }}
+                    className="text-xs text-rose-600 hover:text-rose-700 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    title="Permanently delete this appointment record from database"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Delete</span>
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -1246,13 +1283,13 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Email Address
+                        Email Address (Optional)
                       </label>
                       <input
                         type="email"
                         value={patientEmail}
                         onChange={e => setPatientEmail(e.target.value)}
-                        placeholder="patient@example.com"
+                        placeholder="patient@example.com (optional)"
                         className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-cyan-500"
                       />
                     </div>
@@ -1260,13 +1297,13 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Primary Neurological Symptoms / Reason for Visit
+                      Primary Neurological Symptoms / Reason for Visit (Optional)
                     </label>
                     <textarea
                       rows={3}
                       value={symptoms}
                       onChange={e => setSymptoms(e.target.value)}
-                      placeholder="Describe tremors, seizures, headache frequency, post-stroke recovery status, etc."
+                      placeholder="Describe tremors, seizures, headache frequency, post-stroke recovery status, etc. (optional)"
                       className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-cyan-500"
                     />
                   </div>

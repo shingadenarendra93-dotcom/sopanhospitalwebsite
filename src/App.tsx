@@ -139,7 +139,7 @@ function MainApp() {
         />
 
         {/* Dynamic Section Navigation / Sub-tabs (Touch-friendly & easily scrollable with buttons & mouse wheel on PC) */}
-        <div className="relative group">
+        <div className="relative group w-full min-w-0">
           {/* PC Left Scroll Arrow Button */}
           <button
             type="button"
@@ -160,7 +160,7 @@ function MainApp() {
                 subTabsNavRef.current.scrollLeft += e.deltaY;
               }
             }}
-            className="custom-horizontal-scrollbar bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-1.5 sm:p-2 shadow-xs flex items-center gap-1 sm:gap-1.5"
+            className="custom-horizontal-scrollbar overflow-x-auto flex-nowrap whitespace-nowrap scroll-smooth bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-1.5 sm:p-2 shadow-xs flex items-center gap-1 sm:gap-1.5 w-full min-w-0"
           >
             {subTabs.map((tab) => (
               <button

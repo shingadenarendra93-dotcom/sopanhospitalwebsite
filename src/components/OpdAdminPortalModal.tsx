@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   ShieldCheck, 
@@ -38,7 +38,9 @@ import {
   Minimize2,
   Globe,
   Edit3,
-  RefreshCcw
+  RefreshCcw,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Appointment, OpdAuditLog, HospitalEvent } from '../types';
 import { 
@@ -108,6 +110,17 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
 
   // Active Admin View Tab
   const [activeAdminTab, setActiveAdminTab] = useState<'fee' | 'content' | 'counter' | 'appointments' | 'logs' | 'gallery'>(initialTab);
+  const adminTabsNavRef = useRef<HTMLDivElement>(null);
+
+  const scrollAdminTabs = (direction: 'left' | 'right') => {
+    if (adminTabsNavRef.current) {
+      const scrollAmount = 280;
+      adminTabsNavRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   // Home Page Content & Hospital Settings (Live Firestore Sync)
   const [contentFormData, setContentFormData] = useState<HospitalContentSettings>(DEFAULT_HOSPITAL_CONTENT);
@@ -118,6 +131,15 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
       setActiveAdminTab(initialTab);
     }
   }, [initialTab]);
+
+  useEffect(() => {
+    if (adminTabsNavRef.current) {
+      const activeBtn = adminTabsNavRef.current.querySelector('[data-active="true"]') as HTMLElement | null;
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    }
+  }, [activeAdminTab]);
 
   // Real-time onSnapshot subscription to appointments, hospital content & occasion gallery photos
   useEffect(() => {
@@ -169,7 +191,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   const [customCapacityInput, setCustomCapacityInput] = useState<number>(() => getOpdCapacity());
   const [consultationFeeState, setConsultationFeeState] = useState<number>(() => getConsultationFee());
   const [customFeeInput, setCustomFeeInput] = useState<number>(() => getConsultationFee());
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Confirmed' | 'Pending' | 'Cancelled'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed'>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Audit Logs State
@@ -434,11 +456,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
   };
 
   const handleDeleteAppointment = async (apt: Appointment) => {
-    if (!isAdminLoggedIn()) {
-      triggerToast('Security alert: Admin authentication required.', 'warning');
-      return;
-    }
-    if (window.confirm(`Permanently remove appointment record for "${apt.patientName}" (Token: ${apt.tokenNumber})?`)) {
+    try {
       await deleteAppointmentFromFirestore(apt.id);
       const updated = appointments.filter(a => a.id !== apt.id);
       saveOpdAppointments(updated);
@@ -446,11 +464,24 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
       addAdminAuditLog({
         action: 'APPOINTMENT_REJECTED',
         adminName: adminUser?.username || 'OPD Desk Admin',
-        details: `Deleted/removed appointment record for "${apt.patientName}" (Token: ${apt.tokenNumber}).`
+        details: `Permanently deleted appointment record for "${apt.patientName}" (Token: ${apt.tokenNumber}).`
       });
-      triggerToast(`Appointment record for "${apt.patientName}" permanently removed.`, 'info');
+      triggerToast(`Appointment for "${apt.patientName}" permanently deleted from database.`, 'info');
       onAppointmentsUpdated?.();
+    } catch (err) {
+      console.error('Failed to delete appointment from database:', err);
+      triggerToast('Failed to delete appointment from database.', 'warning');
     }
+  };
+
+  const handleCompleteAppointment = async (apt: Appointment) => {
+    const adminName = adminUser?.username || 'OPD Desk Admin';
+    await updateAppointmentStatusInFirestore(apt.id, 'Completed', undefined, adminName);
+    const updated = appointments.map(a => a.id === apt.id ? { ...a, status: 'Completed' as const } : a);
+    saveOpdAppointments(updated);
+    setAppointments(updated);
+    triggerToast(`Appointment for "${apt.patientName}" marked as Completed.`, 'success');
+    onAppointmentsUpdated?.();
   };
 
   const handleClearAllAppointments = async () => {
@@ -842,87 +873,126 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
             </div>
 
             {/* Admin Navigation Tabs (Responsive & Touch-Friendly across mobile and tablet) */}
-            <div className="flex items-center border-b border-slate-200 bg-white px-3 sm:px-5 pt-2 gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
+            <div className="relative flex items-center border-b border-slate-200 bg-white px-2 sm:px-3 pt-1.5 w-full min-w-0">
+              {/* Left Scroll Button */}
               <button
-                id="admin-tab-fee"
-                onClick={() => setActiveAdminTab('fee')}
-                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
-                  activeAdminTab === 'fee'
-                    ? 'border-[#8E5B3E] text-[#8E5B3E]'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                }`}
+                type="button"
+                onClick={() => scrollAdminTabs('left')}
+                className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 border border-slate-300 mr-1.5 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                title="Scroll tabs left"
+                aria-label="Scroll tabs left"
               >
-                <div className="w-4 h-4 rounded-full bg-[#8E5B3E] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                  ₹
-                </div>
-                <span className="whitespace-nowrap">Home Consultation Fee (₹{consultationFeeState.toLocaleString('en-IN')})</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
-                  Live
-                </span>
+                <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
               </button>
 
-              <button
-                id="admin-tab-content"
-                onClick={() => setActiveAdminTab('content')}
-                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
-                  activeAdminTab === 'content'
-                    ? 'border-[#8E5B3E] text-[#8E5B3E]'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                }`}
+              {/* Tabs Scroll Container */}
+              <div
+                ref={adminTabsNavRef}
+                onWheel={(e) => {
+                  if (e.deltaY !== 0 && adminTabsNavRef.current) {
+                    adminTabsNavRef.current.scrollLeft += e.deltaY;
+                  }
+                }}
+                className="custom-horizontal-scrollbar flex-1 flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-nowrap whitespace-nowrap scroll-smooth pb-2 pt-0.5 min-w-0"
               >
-                <Globe className="w-4 h-4 shrink-0 text-[#8E5B3E]" />
-                <span className="whitespace-nowrap">Home Page Content & Banners</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
-                  Firestore Live
-                </span>
-              </button>
+                <button
+                  id="admin-tab-fee"
+                  data-active={activeAdminTab === 'fee' ? 'true' : 'false'}
+                  onClick={() => setActiveAdminTab('fee')}
+                  className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
+                    activeAdminTab === 'fee'
+                      ? 'border-[#8E5B3E] text-[#8E5B3E]'
+                      : 'border-transparent text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="w-4 h-4 rounded-full bg-[#8E5B3E] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                    ₹
+                  </div>
+                  <span className="whitespace-nowrap">Home Consultation Fee (₹{consultationFeeState.toLocaleString('en-IN')})</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
+                    Live
+                  </span>
+                </button>
 
-              <button
-                onClick={() => setActiveAdminTab('counter')}
-                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
-                  activeAdminTab === 'counter'
-                    ? 'border-cyan-600 text-cyan-800'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <Sliders className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">OPD Counter & Capacity</span>
-              </button>
+                <button
+                  id="admin-tab-content"
+                  data-active={activeAdminTab === 'content' ? 'true' : 'false'}
+                  onClick={() => setActiveAdminTab('content')}
+                  className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
+                    activeAdminTab === 'content'
+                      ? 'border-[#8E5B3E] text-[#8E5B3E]'
+                      : 'border-transparent text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Globe className="w-4 h-4 shrink-0 text-[#8E5B3E]" />
+                  <span className="whitespace-nowrap">Home Page Content & Banners</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
+                    Firestore Live
+                  </span>
+                </button>
 
-              <button
-                onClick={() => setActiveAdminTab('appointments')}
-                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
-                  activeAdminTab === 'appointments'
-                    ? 'border-cyan-600 text-cyan-800'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <Users className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">Appointments ({appointments.length})</span>
-              </button>
+                <button
+                  data-active={activeAdminTab === 'counter' ? 'true' : 'false'}
+                  onClick={() => setActiveAdminTab('counter')}
+                  className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
+                    activeAdminTab === 'counter'
+                      ? 'border-cyan-600 text-cyan-800'
+                      : 'border-transparent text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Sliders className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">OPD Counter & Capacity</span>
+                </button>
 
-              <button
-                onClick={() => setActiveAdminTab('logs')}
-                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
-                  activeAdminTab === 'logs'
-                    ? 'border-cyan-600 text-cyan-800'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">Audit & Action Logs ({auditLogs.length})</span>
-              </button>
+                <button
+                  data-active={activeAdminTab === 'appointments' ? 'true' : 'false'}
+                  onClick={() => setActiveAdminTab('appointments')}
+                  className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
+                    activeAdminTab === 'appointments'
+                      ? 'border-cyan-600 text-cyan-800'
+                      : 'border-transparent text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Appointments ({appointments.length})</span>
+                </button>
 
+                <button
+                  data-active={activeAdminTab === 'logs' ? 'true' : 'false'}
+                  onClick={() => setActiveAdminTab('logs')}
+                  className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
+                    activeAdminTab === 'logs'
+                      ? 'border-cyan-600 text-cyan-800'
+                      : 'border-transparent text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Audit & Action Logs ({auditLogs.length})</span>
+                </button>
+
+                <button
+                  data-active={activeAdminTab === 'gallery' ? 'true' : 'false'}
+                  onClick={() => setActiveAdminTab('gallery')}
+                  className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
+                    activeAdminTab === 'gallery'
+                      ? 'border-cyan-600 text-cyan-800'
+                      : 'border-transparent text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Camera className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Occasion Photos ({hospitalEvents.length})</span>
+                </button>
+              </div>
+
+              {/* Right Scroll Button */}
               <button
-                onClick={() => setActiveAdminTab('gallery')}
-                className={`admin-mobile-tab-btn touch-friendly-btn pb-2.5 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 transition-all shrink-0 cursor-pointer ${
-                  activeAdminTab === 'gallery'
-                    ? 'border-cyan-600 text-cyan-800'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'
-                }`}
+                type="button"
+                onClick={() => scrollAdminTabs('right')}
+                className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 border border-slate-300 ml-1.5 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                title="Scroll tabs right"
+                aria-label="Scroll tabs right"
               >
-                <Camera className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">Occasion Photos ({hospitalEvents.length})</span>
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
 
@@ -1745,7 +1815,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   {/* Status Filters */}
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                    {(['All', 'Confirmed', 'Pending', 'Cancelled'] as const).map(tab => {
+                    {(['All', 'Confirmed', 'Pending', 'Cancelled', 'Completed'] as const).map(tab => {
                       const count = 
                         tab === 'All' ? appointments.length :
                         tab === 'Pending' ? appointments.filter(a => a.status === 'Pending' || a.status === undefined).length :
@@ -1755,7 +1825,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                         <button
                           key={tab}
                           onClick={() => setStatusFilter(tab)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                             statusFilter === tab
                               ? 'bg-slate-900 text-white shadow-xs'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1841,11 +1911,12 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                                 
                                 {/* Status Badge */}
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  apt.status === 'Completed' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                                   isConfirmed ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                                   isCancelled ? 'bg-rose-100 text-rose-800 border border-rose-200' :
                                   'bg-amber-100 text-amber-800 border border-amber-200 animate-pulse'
                                 }`}>
-                                  {isConfirmed ? 'Confirmed OPD' : isCancelled ? 'Rejected / Cancelled' : 'Pending Review'}
+                                  {apt.status === 'Completed' ? 'Completed OPD' : isConfirmed ? 'Confirmed OPD' : isCancelled ? 'Rejected / Cancelled' : 'Pending Review'}
                                 </span>
                               </div>
 
@@ -1910,6 +1981,19 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                                 </button>
                               )}
 
+                              {/* If Confirmed: Show Mark Completed button */}
+                              {apt.status === 'Confirmed' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCompleteAppointment(apt)}
+                                  className="touch-friendly-btn px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                                  title="Mark consultation as completed"
+                                >
+                                  <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                                  <span>Mark Completed</span>
+                                </button>
+                              )}
+
                               {/* Direct WhatsApp Patient Communication */}
                               <button
                                 onClick={() => {
@@ -1924,15 +2008,18 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                                 <MessageCircle className="w-4 h-4 text-emerald-600" />
                               </button>
 
-                              {/* Permanent Remove / Delete Record */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteAppointment(apt)}
-                                className="touch-friendly-btn p-2.5 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                title="Permanently delete this appointment record"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {/* Permanent Remove / Delete Record specifically for Cancelled and Completed appointments */}
+                              {(apt.status === 'Cancelled' || apt.status === 'Completed') && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAppointment(apt)}
+                                  className="touch-friendly-btn px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  title="Permanently delete this appointment record from database"
+                                >
+                                  <Trash2 className="w-4 h-4 text-rose-600" />
+                                  <span>Delete</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

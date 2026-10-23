@@ -406,7 +406,7 @@ export const PatientPortal: React.FC = () => {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto flex-nowrap whitespace-nowrap scroll-smooth pb-1 min-w-0 w-full">
         <button
           id="tab-portal-overview"
           onClick={() => setActiveTab('overview')}

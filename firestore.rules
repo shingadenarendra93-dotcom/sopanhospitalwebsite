@@ -45,6 +45,11 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // OPD daily quotas and date-based overrides
+    match /opd_quotas/{dateId} {
+      allow read, write: if true;
+    }
+
     // Patient data repository for website_data collection
     match /website_data/{docId} {
       allow read: if true;

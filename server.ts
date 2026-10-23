@@ -6,8 +6,115 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { WebSocketServer, WebSocket } from 'ws';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  getDocs 
+} from 'firebase/firestore';
 
 dotenv.config();
+
+// Firebase Configuration for Server-Side OPD Counter & Firestore Sync
+const firebaseConfig = {
+  apiKey: process.env.FIREBASE_API_KEY || "AIzaSyCrh8X94Zm7c6HK8WdnqmBJYC1WhoYb14w",
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "sopanhospital-be933.firebaseapp.com",
+  projectId: process.env.FIREBASE_PROJECT_ID || "sopanhospital-be933",
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "sopanhospital-be933.firebasestorage.app",
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "739498122034",
+  appId: process.env.FIREBASE_APP_ID || "1:739498122034:web:35f5d0cb3f91b17a37152b"
+};
+
+const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(firebaseApp);
+
+const DEFAULT_DAILY_QUOTA = 50;
+
+// Helper: Formats current or offset local date as YYYY-MM-DD
+export function getFormattedDate(offsetDays: number = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Helper: Advances date by 1 day (YYYY-MM-DD)
+export function getNextDateString(dateStr: string): string {
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const nextDate = new Date(year, month, day + 1);
+      const yyyy = nextDate.getFullYear();
+      const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(nextDate.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  } catch {
+    // fallback
+  }
+  const base = new Date();
+  base.setDate(base.getDate() + 1);
+  return base.toISOString().split('T')[0];
+}
+
+// Helper: Calculates remaining slots using formula Remaining_Count = Admin_Total_Quota - Booked_Appointments
+export async function getOpdStatusForDate(dateStr: string) {
+  try {
+    // 1. Fetch Admin Quota for this date (falls back to default 50)
+    const quotaRef = doc(db, 'opd_quotas', dateStr);
+    const quotaSnap = await getDoc(quotaRef);
+    let adminTotalQuota = DEFAULT_DAILY_QUOTA;
+
+    if (quotaSnap.exists()) {
+      const data = quotaSnap.data();
+      if (typeof data.totalQuota === 'number' && data.totalQuota >= 0) {
+        adminTotalQuota = data.totalQuota;
+      }
+    }
+
+    // 2. Count active booked appointments for this date
+    const apptsRef = collection(db, 'appointments');
+    const q = query(
+      apptsRef,
+      where('date', '==', dateStr),
+      where('status', 'in', ['Confirmed', 'Pending', 'Completed'])
+    );
+    const apptsSnap = await getDocs(q);
+    const bookedCount = apptsSnap.size;
+
+    // 3. Formula: Remaining_Count = Admin_Total_Quota - Booked_Appointments_For_That_Date
+    const remainingCount = Math.max(0, adminTotalQuota - bookedCount);
+    const isFull = remainingCount <= 0;
+
+    return {
+      date: dateStr,
+      adminTotalQuota,
+      bookedCount,
+      remainingCount,
+      isFull
+    };
+  } catch (err: any) {
+    console.error(`Error calculating OPD status for date ${dateStr}:`, err);
+    return {
+      date: dateStr,
+      adminTotalQuota: DEFAULT_DAILY_QUOTA,
+      bookedCount: 0,
+      remainingCount: DEFAULT_DAILY_QUOTA,
+      isFull: false
+    };
+  }
+}
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -711,6 +818,128 @@ Remind patients that in acute emergencies (such as sudden weakness, facial drop,
       res.status(500).json({ error: 'Audio transcription failed', details: err?.message });
     }
   });
+
+  // ==========================================
+  // OPD BOOKING ROUTE WITH NEXT-DAY AUTO-SHIFT
+  // ==========================================
+  const handleOpdBooking = async (req: express.Request, res: express.Response) => {
+    try {
+      let targetDate = req.body.date || getFormattedDate(0);
+      let wasShifted = false;
+      const initialRequestedDate = targetDate;
+      let targetSlotNumber = 1;
+
+      // Descending order & auto-shift check:
+      // If requested date's remaining count is 0, iteratively shift to the next day
+      for (let i = 0; i < 30; i++) {
+        const status = await getOpdStatusForDate(targetDate);
+        if (!status.isFull) {
+          targetSlotNumber = status.bookedCount + 1;
+          break;
+        }
+        wasShifted = true;
+        targetDate = getNextDateString(targetDate);
+      }
+
+      // Generate token (e.g., OPD-20261023-01)
+      const tokenNumber = req.body.tokenNumber || `OPD-${targetDate.replace(/-/g, '')}-${String(targetSlotNumber).padStart(2, '0')}`;
+
+      const appointmentData = {
+        patientName: req.body.patientName || 'Patient',
+        patientPhone: req.body.patientPhone || req.body.phone || req.body.contactNumber || '',
+        contactNumber: req.body.contactNumber || req.body.patientPhone || req.body.phone || '',
+        age: req.body.age !== undefined ? String(req.body.age) : '',
+        gender: req.body.gender || 'Not Specified',
+        department: req.body.department || 'Neurology & Brain Spine Care',
+        timeSlot: req.body.timeSlot || 'Morning (10:00 AM - 02:00 PM)',
+        chiefComplaint: req.body.chiefComplaint || req.body.conditionContext || 'General OPD Consultation',
+        conditionContext: req.body.conditionContext || req.body.chiefComplaint || 'General OPD Consultation',
+        date: targetDate, // Assigned date (original or auto-shifted next day)
+        slotNumber: targetSlotNumber,
+        tokenNumber,
+        status: req.body.status || 'Confirmed',
+        doctor: req.body.doctor || 'Dr. Sanjay Sopan Varade (MD, DM Neuro)',
+        createdAt: new Date().toISOString(),
+        bookedAt: new Date().toISOString(),
+        wasAutoShifted: wasShifted,
+        originalRequestedDate: wasShifted ? initialRequestedDate : null
+      };
+
+      const docRef = await addDoc(collection(db, 'appointments'), appointmentData);
+      const updatedStatus = await getOpdStatusForDate(targetDate);
+
+      return res.status(201).json({
+        success: true,
+        appointmentId: docRef.id,
+        assignedDate: targetDate,
+        originalRequestedDate: initialRequestedDate,
+        slotNumber: targetSlotNumber,
+        tokenNumber,
+        autoShifted: wasShifted,
+        message: wasShifted
+          ? `Quota for ${initialRequestedDate} was full. Appointment automatically booked for next day (${targetDate}).`
+          : 'OPD appointment confirmed successfully.',
+        currentStatus: updatedStatus
+      });
+    } catch (error: any) {
+      console.error('Error in OPD booking route:', error);
+      return res.status(500).json({ error: error.message || 'Failed to book OPD appointment' });
+    }
+  };
+
+  app.post('/api/opd/book', handleOpdBooking);
+  app.post('/api/book-appointment', handleOpdBooking);
+
+  // ==========================================
+  // ADMIN DYNAMIC QUOTA UPDATE ROUTE
+  // ==========================================
+  app.post('/api/admin/opd/quota', async (req, res) => {
+    try {
+      const { date, totalQuota } = req.body;
+      if (!date || typeof totalQuota !== 'number' || totalQuota < 0) {
+        return res.status(400).json({ error: 'Valid date (YYYY-MM-DD) and non-negative totalQuota are required.' });
+      }
+
+      const quotaRef = doc(db, 'opd_quotas', date);
+      await setDoc(quotaRef, {
+        date,
+        totalQuota,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // Dynamic calculation: Remaining_Count = Admin_Total_Quota - Booked_Appointments_For_That_Date
+      const status = await getOpdStatusForDate(date);
+
+      return res.json({
+        success: true,
+        date,
+        adminTotalQuota: status.adminTotalQuota,
+        bookedCount: status.bookedCount,
+        remainingCount: status.remainingCount,
+        isFull: status.isFull
+      });
+    } catch (error: any) {
+      console.error('Error in /api/admin/opd/quota:', error);
+      return res.status(500).json({ error: error.message || 'Failed to update OPD quota' });
+    }
+  });
+
+  // ==========================================
+  // DYNAMIC REMAINING COUNTER STATUS ROUTE
+  // ==========================================
+  const handleOpdStatus = async (req: express.Request, res: express.Response) => {
+    try {
+      const dateStr = (req.query.date as string) || getFormattedDate(0);
+      const status = await getOpdStatusForDate(dateStr);
+      return res.json(status);
+    } catch (error: any) {
+      console.error('Error in OPD status route:', error);
+      return res.status(500).json({ error: error.message || 'Failed to fetch OPD status' });
+    }
+  };
+
+  app.get('/api/opd/status', handleOpdStatus);
+  app.get('/api/opd-status', handleOpdStatus);
 
   // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {
