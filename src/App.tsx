@@ -34,7 +34,20 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import { initializeApp } from "firebase/app";
+import { getMessaging, getToken } from "firebase/messaging";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyCrh8X94Zm7c6HK8WdnqmBJYC1WhoYb14w",
+  authDomain: "sopanhospital-be933.firebaseapp.com",
+  projectId: "sopanhospital-be933",
+  storageBucket: "sopanhospital-be933.firebasestorage.app",
+  messagingSenderId: "739498122034",
+  appId: "1:739498122034:web:35f5d0cb3f91b17a37152b"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const messaging = getMessaging(firebaseApp);
 function MainApp() {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<string>('appointments');
@@ -72,6 +85,26 @@ function MainApp() {
     return () => window.removeEventListener('gmp-quota-exceeded', handleQuota);
   }, []);
 
+  React.useEffect(() => {
+    const requestNotificationPermission = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          const token = await getToken(messaging, {
+           
+            vapidKey: "BIDoGB7p-2C1sPNl5hsDIOas3Ku97hK7NQ23L2KX81qHYQJl_B2pfh3Qs4n-ya_Kl1BAOKS2YuV3FD_OzSmaJn4" 
+          });
+          console.log("FCM Push Token:", token);
+        } else {
+          console.log("User denied notification permission");
+        }
+      } catch (error) {
+        console.error("Error getting notification permission:", error);
+      }
+    };
+
+    requestNotificationPermission();
+  }, []);
   const handleOpenWhatsApp = (template = 'stroke-emergency') => {
     setWhatsAppDefaultTemplate(template);
     setIsWhatsAppModalOpen(true);
