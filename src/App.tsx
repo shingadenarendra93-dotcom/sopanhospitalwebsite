@@ -34,7 +34,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getMessaging, getToken } from "firebase/messaging";
 
 const firebaseConfig = {
@@ -46,7 +46,7 @@ const firebaseConfig = {
   appId: "1:739498122034:web:35f5d0cb3f91b17a37152b"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
+const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const messaging = getMessaging(firebaseApp);
 function MainApp() {
   const { t, language } = useLanguage();
