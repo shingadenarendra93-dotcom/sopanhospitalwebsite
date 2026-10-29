@@ -708,13 +708,17 @@ export function subscribeToAppointments(callback: (appointments: Appointment[]) 
       timeSlot: data.timeSlot || '09:00 AM - 01:00 PM',
       visitType: (data.visitType as any) || 'In-Person Hospital OPD',
       symptoms: data.conditionContext || data.symptoms || '',
-      status: (data.status === 'CONFIRMED' || data.status === 'Confirmed' 
-        ? 'Confirmed' 
-        : data.status === 'CANCELLED' || data.status === 'Cancelled' 
-          ? 'Cancelled' 
-          : data.status === 'COMPLETED' || data.status === 'Completed' 
-            ? 'Completed' 
-            : 'Confirmed') as any,
+     status: (
+  data.status === 'CONFIRMED' || data.status === 'Confirmed'
+    ? 'Confirmed'
+    : data.status === 'CANCELLED' || data.status === 'Cancelled'
+      ? 'Cancelled'
+      : data.status === 'COMPLETED' || data.status === 'Completed'
+        ? 'Completed'
+        : data.status === 'PENDING' || data.status === 'Pending'
+          ? 'Pending'
+          : 'Pending'
+) as any,
       tokenNumber: data.tokenNumber || '0',
       slotNumber: Number(data.slotNumber) || 1,
       remainingSlotsAtBooking: Number(data.remainingSlotsAtBooking) || 50,
