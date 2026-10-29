@@ -242,7 +242,7 @@ export async function saveAppointmentToFirestore(appointment: {
       department: appointment.department || 'Neurology',
       conditionContext: appointment.conditionContext || appointment.symptoms || '',
       symptoms: appointment.symptoms || appointment.conditionContext || '',
-      status: appointment.status || 'Confirmed',
+      status: appointment.status || 'Pending',
       visitType: appointment.visitType || 'In-Person Hospital OPD',
       slotNumber: appointment.slotNumber || 1,
       remainingSlotsAtBooking: appointment.remainingSlotsAtBooking ?? 49,
