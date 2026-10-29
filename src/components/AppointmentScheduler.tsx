@@ -379,7 +379,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       department: newAppointment.department,
       conditionContext: newAppointment.symptoms || '',
       symptoms: newAppointment.symptoms || '',
-      status: 'Confirmed',
+      status: 'Pending',
       visitType: newAppointment.visitType,
       slotNumber: newAppointment.slotNumber,
       remainingSlotsAtBooking: newAppointment.remainingSlotsAtBooking,
