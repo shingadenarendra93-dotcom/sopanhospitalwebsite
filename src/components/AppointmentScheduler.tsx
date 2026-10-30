@@ -1421,217 +1421,65 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                 </form>
               )}
 
-              {/* Step 3: Formal Hospital Appointment Slip */}
-              {bookingStep === 3 && lastConfirmedAppointment && (
-                <div className="space-y-5">
-                  <div className="border-2 border-dashed border-cyan-600/40 rounded-2xl p-6 bg-gradient-to-b from-cyan-50/40 to-white relative">
-                    {/* Hospital Watermark Header */}
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-1 rounded-xl bg-white border border-slate-200 shrink-0 shadow-2xs">
-                          <SopanLogo size="sm" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-black tracking-wider text-[#0B3C95] uppercase">
-                            SOPAN HOSPITAL & NEUROLOGY INSTITUTE
-                          </div>
-                          <div className="text-[10px] text-slate-600">
-                            Shrihari Kute Marg, Near Sandip Hotel, Mumbai Naka Nashik - 422001
-                          </div>
-                          <div className="text-[10px] text-rose-600 font-semibold">
-                            24/7 Stroke Hotline: 0253 2317364
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs font-mono font-bold bg-[#0B3C95] text-white px-2.5 py-1 rounded-lg">
-                          TOKEN: {lastConfirmedAppointment.tokenNumber}
-                        </span>
-                      </div>
-                    </div>
+             
+{/* Step 3: Pending Appointment Acknowledgement */}
+{bookingStep === 3 && lastConfirmedAppointment && (
+  <div className="space-y-5">
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+        <Clock className="h-7 w-7 text-amber-700" />
+      </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-xs mb-4">
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">Patient Name</span>
-                        <span className="font-bold text-slate-900 text-sm">{lastConfirmedAppointment.patientName}</span>
-                        <span className="text-slate-500 block text-[11px]">
-                          {lastConfirmedAppointment.patientAge} Yrs • {lastConfirmedAppointment.patientGender}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">Consulting Specialist</span>
-                        <span className="font-bold text-slate-900 text-sm">{lastConfirmedAppointment.doctorName}</span>
-                        <span className="text-cyan-700 block text-[11px] font-medium">{lastConfirmedAppointment.department}</span>
-                      </div>
-                    </div>
+      <h3 className="text-lg font-bold text-amber-900">
+        Booking Pending
+      </h3>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mb-4">
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">Appointment Date</span>
-                        <span className="font-semibold text-slate-800">{lastConfirmedAppointment.date}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">Allocated Slot</span>
-                        <span className="font-semibold text-slate-800">{lastConfirmedAppointment.timeSlot}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">OPD Daily Queue</span>
-                        <span className="font-bold text-[#8E5B3E]">
-                          Slot #{lastConfirmedAppointment.slotNumber || 1} of 50
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">Remaining Quota</span>
-                        <span className="font-bold text-emerald-700">
-                          {lastConfirmedAppointment.remainingSlotsAtBooking ?? (50 - (lastConfirmedAppointment.slotNumber || 1))} Left
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-[11px] text-slate-600 bg-white p-3 rounded-xl border border-slate-100 mb-4">
-                      <span className="font-semibold text-slate-800">Reason for visit:</span> {lastConfirmedAppointment.symptoms}
-                    </div>
-
-                    {/* Barcode representation */}
-                    <div className="flex flex-col items-center justify-center pt-2">
-                      <div className="font-mono text-xl tracking-[0.35em] text-slate-800 select-none">
-                        ||| | |||| || | ||| |||| | ||
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-400 mt-1">
-                        REF: {lastConfirmedAppointment.id.toUpperCase()} • REPORT 15 MIN BEFORE SLOT
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Automated Remind Me Status Card & Instant Actions */}
-                  <div className="bg-[#FAF7F2] border border-[#E6E0D4] rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                          <Bell className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-bold text-[#27231E]">Automated 'Remind Me' Service</h4>
-                            <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                              Active
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-[#6E675D]">
-                            Scheduled alert: {lastConfirmedAppointment.reminderSettings?.scheduledTimeText || '24 Hours Prior'} via {[
-                              lastConfirmedAppointment.reminderSettings?.whatsapp ? 'WhatsApp' : '',
-                              lastConfirmedAppointment.reminderSettings?.email ? 'Email' : ''
-                            ].filter(Boolean).join(' & ') || 'WhatsApp'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenReminderModal(lastConfirmedAppointment)}
-                        className="text-xs text-[#8E5B3E] hover:underline font-semibold"
-                      >
-                        Customize
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const msg = formatAppointmentReminderMessage(lastConfirmedAppointment);
-                          const cleanNumber = (lastConfirmedAppointment.reminderSettings?.whatsappNumber || lastConfirmedAppointment.patientPhone).replace(/[^\d]/g, '');
-                          const url = `https://wa.me/${cleanNumber.length === 10 ? '91' + cleanNumber : cleanNumber || '919422011223'}?text=${encodeURIComponent(msg)}`;
-                          window.open(url, '_blank', 'noopener,noreferrer');
-                        }}
-                        className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        Send Token to WhatsApp
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => downloadIcsFile(lastConfirmedAppointment)}
-                        className="px-3 py-2 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#D8CFC2] text-xs font-semibold text-[#27231E] flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                      >
-                        <Calendar className="w-3.5 h-3.5 text-[#8E5B3E]" />
-                        Add to Calendar (.ics)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Post-Consultation Anonymous Feedback Prompt */}
-                  <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
-                    <div className="flex items-center gap-2">
-                      <HeartHandshake className="w-4 h-4 text-[#8E5B3E] shrink-0" />
-                      <div>
-                        <span className="font-bold block">Patient Experience Feedback Program</span>
-                        <span className="text-[11px] text-amber-800">
-                          Post-consultation? Share your 100% anonymous feedback to help Dr. Varade's team.
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowFeedbackModal(true)}
-                      className="px-3 py-1.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] text-white text-xs font-bold shrink-0 shadow-2xs"
-                    >
-                      Give Feedback
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2">
-                    <button
-                      onClick={() => window.print()}
-                      className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      Print Booking Pass
-                    </button>
-                    <button
-                      onClick={() => setIsBookingModalOpen(false)}
-                      className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold shadow-sm"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Remind Me Configuration Modal */}
-      <AppointmentReminderModal
-        appointment={selectedAppointmentForReminder}
-        isOpen={isReminderModalOpen}
-        onClose={() => {
-          setIsReminderModalOpen(false);
-          setSelectedAppointmentForReminder(null);
-        }}
-        onSaveReminder={handleSaveReminderSettings}
-      />
-
-      {/* Patient Experience Feedback Modal */}
-      {showFeedbackModal && lastConfirmedAppointment && (
-        <PatientExperienceFeedbackModalOrSection
-          isModal={true}
-          initialDepartment={lastConfirmedAppointment.department}
-          initialToken={lastConfirmedAppointment.tokenNumber}
-          onClose={() => setShowFeedbackModal(false)}
-        />
-      )}
-
-      {/* OPD Admin Portal Modal */}
-      <OpdAdminPortalModal
-        isOpen={showAdminModal}
-        onClose={() => setShowAdminModal(false)}
-        onAppointmentsUpdated={() => {
-          setAppointments(loadOpdAppointments());
-        }}
-      />
+      <p className="mt-2 text-sm text-amber-800">
+        Your OPD booking has been received and is awaiting Admin confirmation.
+      </p>
     </div>
-  );
-};
+
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
+      <h4 className="font-bold text-slate-900">
+        Appointment Details
+      </h4>
+
+      <div className="text-sm">
+        <span className="text-slate-500">Patient Name</span>
+        <p className="font-semibold text-slate-900">
+          {lastConfirmedAppointment.patientName}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <span className="text-slate-500">Appointment Date</span>
+          <p className="font-semibold text-slate-900">
+            {lastConfirmedAppointment.date}
+          </p>
+        </div>
+
+        <div>
+          <span className="text-slate-500">Time Slot</span>
+          <p className="font-semibold text-slate-900">
+            {lastConfirmedAppointment.timeSlot}
+          </p>
+        </div>
+      </div>
+
+      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+        Your final Token Slip will be available after the hospital Admin confirms your appointment.
+      </p>
+    </div>
+
+    <div className="flex justify-end pt-2">
+      <button
+        type="button"
+        onClick={() => setIsBookingModalOpen(false)}
+        className="rounded-xl bg-cyan-600 px-5 py-2 text-xs font-bold text-white hover:bg-cyan-700"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+)}
