@@ -347,7 +347,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       timeSlot: selectedTimeSlot,
       visitType,
       symptoms: symptoms.trim() || 'General OPD Consultation',
-      status: 'Confirmed',
+      status: 'Pending',
       tokenNumber: token,
       slotNumber: assignedSlotNumber,
       remainingSlotsAtBooking: remainingSlotsAfter,
@@ -1483,3 +1483,10 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     </div>
   </div>
 )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+};
