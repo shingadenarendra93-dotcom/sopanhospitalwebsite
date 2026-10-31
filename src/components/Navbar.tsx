@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const navItems = [
-    { id: 'appointments', label: t('nav.appointments'), icon: <Calendar className="w-4 h-4 text-[#8E5B3E]" /> },
+    { id: 'patient-portal', label: language === 'mr' ? 'रुग्ण पोर्टल' : 'Patient Portal', icon: <User className="w-4 h-4 text-cyan-600" /> },
     { id: 'symptom-checker', label: t('nav.symptom_checker'), icon: <Stethoscope className="w-4 h-4 text-[#8E5B3E]" /> },
     { id: 'location', label: t('nav.location'), icon: <MapPin className="w-4 h-4 text-rose-600" /> },
     { id: 'stories', label: t('nav.stories'), icon: <Sparkles className="w-4 h-4 text-[#8E5B3E]" /> },
@@ -198,6 +198,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
+            {/* OPTION: PATIENT PORTAL BUTTON */}
+            <button
+              id="btn-nav-patient-portal"
+              onClick={() => handleNavClick('patient-portal')}
+              className={`h-8.5 sm:h-9 px-2 sm:px-2.5 md:px-3 rounded-xl border transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                activeTab === 'patient-portal'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  : 'bg-white hover:bg-[#FAF7F2] text-[#27231E] border-[#E6E0D4]'
+              }`}
+              title="Patient Portal: View appointments, live status, and download confirmed token slips"
+            >
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-600 shrink-0" />
+              <span className="whitespace-nowrap hidden lg:inline">Patient Portal</span>
+              <span className="whitespace-nowrap lg:hidden">Portal</span>
+            </button>
+
             {/* OPTION 2: WHATSAPP BUTTON (Visible on md+ so it leaves full room for hospital name on tablet sm screens) */}
             <button
               onClick={onOpenWhatsApp}
@@ -206,21 +222,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span className="whitespace-nowrap hidden lg:inline">{t('whatsapp.btn')}</span>
-            </button>
-
-            {/* OPTION 3: BOOK OPD BUTTON */}
-            <button
-              onClick={() => handleNavClick('appointments')}
-              className="h-8.5 sm:h-9 px-2.5 sm:px-3 md:px-3.5 rounded-xl bg-[#8E5B3E] hover:bg-[#784A31] active:scale-95 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-              title={`Book OPD Consultation with Dr. Sanjay Sopan Varade (₹${content.consultationFee.toLocaleString('en-IN')})`}
-            >
-              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span className="whitespace-nowrap hidden lg:inline">
-                {language === 'mr' ? `ओपीडी (₹${content.consultationFee.toLocaleString('en-IN')})` : `Book OPD (₹${content.consultationFee.toLocaleString('en-IN')})`}
-              </span>
-              <span className="whitespace-nowrap lg:hidden">
-                {language === 'mr' ? 'ओपीडी नोंदवा' : 'Book OPD'}
-              </span>
             </button>
 
             {/* Tablet Menu Toggle */}
@@ -274,13 +275,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="truncate">WhatsApp</span>
           </button>
 
-          {/* Mobile Option 3: Book OPD */}
+          {/* Mobile Option 3: Patient Portal */}
           <button
-            onClick={() => handleNavClick('appointments')}
-            className="touch-friendly-btn h-10 px-2 rounded-xl bg-[#8E5B3E] text-white text-[11px] font-bold shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+            onClick={() => handleNavClick('patient-portal')}
+            className={`touch-friendly-btn h-10 px-2 rounded-xl text-[11px] font-bold shadow-xs flex items-center justify-center gap-1 cursor-pointer ${
+              activeTab === 'patient-portal'
+                ? 'bg-slate-900 text-white'
+                : 'bg-[#8E5B3E] text-white'
+            }`}
           >
-            <Calendar className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Book OPD</span>
+            <User className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+            <span className="truncate">Patient Portal</span>
           </button>
         </div>
       </div>
@@ -401,7 +406,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               {t('whatsapp.btn')} (9405545521)
             </button>
             <button
-              onClick={() => handleNavClick('appointments')}
+              onClick={() => {
+                handleNavClick('patient-portal');
+                window.dispatchEvent(new CustomEvent('sopan_open_booking'));
+              }}
               className="flex-1 py-2.5 rounded-xl bg-[#8E5B3E] text-white text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
             >
               <Calendar className="w-4 h-4" />

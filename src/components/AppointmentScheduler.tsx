@@ -46,8 +46,17 @@ import {
   savePatientToWebsiteData, 
   subscribeToAppointments, 
   updateAppointmentStatusInFirestore,
-  deleteAppointmentFromFirestore
+  deleteAppointmentFromFirestore,
+  normalizeIndianPhoneNumber,
+  setupRecaptchaVerifier,
+  clearRecaptchaVerifier,
+  extractFirebaseErrorMessage,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  setStoredVerifiedPatientPhone,
+  countMonthlyAppointmentsForPhone
 } from '../lib/firebase';
+import { ConfirmationResult } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import { OpdAdminPortalModal } from './OpdAdminPortalModal';
 import { useConsultationFee } from '../hooks/useConsultationFee';
@@ -76,6 +85,7 @@ interface AppointmentSchedulerProps {
   initialSymptoms?: string;
   autoOpenBooking?: boolean;
   onAppointmentBooked?: (newApt: Appointment) => void;
+  onNavigateToPortal?: () => void;
 }
 
 const getTodayDateString = (): string => {
@@ -91,7 +101,8 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   initialDiseaseContext,
   initialSymptoms,
   autoOpenBooking,
-  onAppointmentBooked
+  onAppointmentBooked,
+  onNavigateToPortal
 }) => {
   const { t, language } = useLanguage();
   const isMr = language === 'mr';
@@ -106,7 +117,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   // Booking Wizard Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [bookingStep, setBookingStep] = useState<number>(1); // 1: Slot & Type, 2: Patient Info, 3: Confirmed Slip
+  const [bookingStep, setBookingStep] = useState<number>(1); // 1: Slot & Type, 2: Patient Info, 3: Pending Acknowledgement
 
   // Form Fields
   const [visitType, setVisitType] = useState<'In-Person Hospital OPD' | 'Tele-Neurology Video Consultation'>('In-Person Hospital OPD');
@@ -122,6 +133,16 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   );
   const [lastConfirmedAppointment, setLastConfirmedAppointment] = useState<Appointment | null>(null);
 
+  // Phone Authentication OTP States
+  const [otpSent, setOtpSent] = useState<boolean>(false);
+  const [otpCode, setOtpCode] = useState<string>('');
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
+  const [otpCountdown, setOtpCountdown] = useState<number>(0);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isSubmittingAppointment, setIsSubmittingAppointment] = useState<boolean>(false);
+
   // Remind Me Feature State
   const [optInWhatsappReminder, setOptInWhatsappReminder] = useState<boolean>(true);
   const [optInEmailReminder, setOptInEmailReminder] = useState<boolean>(true);
@@ -134,6 +155,15 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const [adminActive, setAdminActive] = useState<boolean>(() => isAdminLoggedIn());
   const [adminSession, setAdminSessionState] = useState(() => getAdminSession());
   const { user } = useAuth();
+
+  // OTP Resend Countdown Timer
+  useEffect(() => {
+    let timer: any;
+    if (otpCountdown > 0) {
+      timer = setTimeout(() => setOtpCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [otpCountdown]);
 
   useEffect(() => {
     // Ensure default doctor photo by clearing any custom overrides
@@ -234,6 +264,13 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     }
   }, [initialSymptoms, initialDoctorId, doctorsList]);
 
+  // Clean up reCAPTCHA verifier on unmount
+  useEffect(() => {
+    return () => {
+      clearRecaptchaVerifier('recaptcha-booking-container');
+    };
+  }, []);
+
   const departments: DepartmentType[] = [
     'All',
     'Comprehensive Stroke Center',
@@ -253,6 +290,11 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   });
 
   const startBooking = (doctor: Doctor, targetDate?: string) => {
+    if (onNavigateToPortal) {
+      onNavigateToPortal();
+      window.dispatchEvent(new CustomEvent('sopan_open_booking'));
+      return;
+    }
     setSelectedDoctor(doctor);
     setSelectedTimeSlot(doctor.timeSlots[0] || '10:00 AM');
     if (targetDate) {
@@ -266,10 +308,13 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     setIsBookingModalOpen(true);
   };
 
-  const handleConfirmBooking = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDoctor) return;
-
+  const handleSendBookingOtp = async () => {
+    if (isSendingOtp) return; // Prevent duplicate requests
+    setOtpError(null);
+    if (!selectedDoctor) {
+      setReminderToast('Please select a doctor.');
+      return;
+    }
     // Strict validation: ONLY Name, Age, Gender, and Mobile Phone are mandatory
     if (!patientName || !patientName.trim()) {
       setReminderToast('Please enter patient full name.');
@@ -288,6 +333,80 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       return;
     }
 
+    const phoneInfo = normalizeIndianPhoneNumber(patientPhone);
+    if (!phoneInfo.isValid) {
+      setOtpError('Please enter a valid 10-digit Indian mobile number (+91).');
+      return;
+    }
+
+    // A patient must be able to book at least 5 appointments per month. Prevent spam abuse if > 15
+    const monthlyCount = await countMonthlyAppointmentsForPhone(phoneInfo.e164);
+    if (monthlyCount >= 15) {
+      setOtpError('Monthly booking quota reached for this number (15 appointments). Contact hospital desk: 0253 2317364.');
+      return;
+    }
+
+    setIsSendingOtp(true);
+    try {
+      const verifier = setupRecaptchaVerifier('recaptcha-booking-container');
+      const res = await sendPhoneOtp(phoneInfo.e164, verifier);
+      if (res.success && res.confirmationResult) {
+        setConfirmationResult(res.confirmationResult);
+        setOtpSent(true);
+        setOtpCountdown(30);
+        setReminderToast(`Verification OTP sent to ${phoneInfo.e164}`);
+      } else {
+        clearRecaptchaVerifier('recaptcha-booking-container');
+        setOtpError(res.error || 'Failed to send OTP. Please check mobile number or verify reCAPTCHA.');
+      }
+    } catch (err: any) {
+      console.error('OTP Send Error:', err);
+      clearRecaptchaVerifier('recaptcha-booking-container');
+      setOtpError(extractFirebaseErrorMessage(err));
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtpAndBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmationResult) {
+      setOtpError('Please request OTP verification code first.');
+      return;
+    }
+    if (!otpCode || otpCode.trim().length < 6) {
+      setOtpError('Please enter the complete 6-digit OTP code.');
+      return;
+    }
+    if (isSubmittingAppointment) return;
+
+    setIsVerifyingOtp(true);
+    setIsSubmittingAppointment(true);
+    setOtpError(null);
+
+    try {
+      const phoneInfo = normalizeIndianPhoneNumber(patientPhone);
+      const res = await verifyPhoneOtp(confirmationResult, otpCode.trim());
+      if (res.success) {
+        setStoredVerifiedPatientPhone(phoneInfo.e164);
+        // Successfully verified phone; now complete appointment booking with status: 'Pending'
+        finalizePendingBooking(phoneInfo.e164);
+      } else {
+        setOtpError(res.error || 'Invalid or expired OTP code. Please enter the correct 6 digits.');
+        setIsSubmittingAppointment(false);
+      }
+    } catch (err: any) {
+      console.error('OTP Verification Error:', err);
+      setOtpError(err?.message || 'Invalid or expired OTP code. Please enter the correct 6 digits.');
+      setIsSubmittingAppointment(false);
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const finalizePendingBooking = (verifiedMobile: string) => {
+    if (!selectedDoctor) return;
+
     let finalBookingDate = selectedDate;
     let effectiveStats = dateOpdStats;
 
@@ -296,7 +415,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       finalBookingDate = dateOpdStats.nextDayDate;
       setSelectedDate(finalBookingDate);
       effectiveStats = calculateOpdSlotStats(appointments, finalBookingDate);
-      setReminderToast(`Selected date quota was full. Automatically reserved for Next Day OPD (${formatFriendlyDate(finalBookingDate)})!`);
+      setReminderToast(`Selected date quota was full. Automatically shifted to Next Day OPD (${formatFriendlyDate(finalBookingDate)})!`);
     }
 
     const assignedSlotNumber = effectiveStats.nextSlotNumber;
@@ -314,22 +433,14 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     const prefix = deptPrefixMap[selectedDoctor.department] || 'NEURO';
     const token = `${prefix}-${Math.floor(10 + Math.random() * 90)}`;
 
-    const scheduledTimeText = reminderLeadTime === 48 
-      ? '48 Hours Prior' 
-      : reminderLeadTime === 2 
-        ? '2 Hours Prior' 
-        : reminderLeadTime === 1 
-          ? 'Morning of Visit (8:00 AM)' 
-          : '24 Hours Prior';
-
     const reminderSettings: ReminderSettings = {
       whatsapp: optInWhatsappReminder,
       email: Boolean(optInEmailReminder && patientEmail.trim()),
       leadTimeHours: reminderLeadTime,
-      whatsappNumber: patientPhone.trim(),
+      whatsappNumber: verifiedMobile,
       emailAddress: patientEmail.trim() || '',
       status: (optInWhatsappReminder || (optInEmailReminder && Boolean(patientEmail.trim()))) ? 'Active' : 'Scheduled',
-      scheduledTimeText,
+      scheduledTimeText: '24 Hours Prior',
       confirmedAt: new Date().toISOString().split('T')[0]
     };
 
@@ -338,7 +449,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       patientName: patientName.trim(),
       patientAge: Number(patientAge),
       patientGender,
-      patientPhone: patientPhone.trim(),
+      patientPhone: verifiedMobile,
       patientEmail: patientEmail.trim() || '',
       doctorId: selectedDoctor.id,
       doctorName: selectedDoctor.name,
@@ -347,7 +458,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       timeSlot: selectedTimeSlot,
       visitType,
       symptoms: symptoms.trim() || 'General OPD Consultation',
-      status: 'Pending',
+      status: 'Pending', // CRITICAL REQUIREMENT: Initial appointment status is strictly "Pending"
       tokenNumber: token,
       slotNumber: assignedSlotNumber,
       remainingSlotsAtBooking: remainingSlotsAfter,
@@ -360,7 +471,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     saveOpdAppointments(updated);
     setLastConfirmedAppointment(newAppointment);
 
-    // Persist to Firestore database with document ID matching appointment ID
+    // Persist to Firestore database with document ID matching appointment ID and status: 'Pending'
     saveAppointmentToFirestore({
       id: newAppointment.id,
       patientName: newAppointment.patientName,
@@ -379,7 +490,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       department: newAppointment.department,
       conditionContext: newAppointment.symptoms || '',
       symptoms: newAppointment.symptoms || '',
-      status: 'Pending',
+      status: 'Pending', // STRICT PENDING
       visitType: newAppointment.visitType,
       slotNumber: newAppointment.slotNumber,
       remainingSlotsAtBooking: newAppointment.remainingSlotsAtBooking,
@@ -399,15 +510,16 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
       department: newAppointment.department,
       chiefComplaint: newAppointment.symptoms || '',
       preferredDate: newAppointment.date,
-      notes: `Token: ${newAppointment.tokenNumber} | Time: ${newAppointment.timeSlot} | Doctor: ${newAppointment.doctorName}`,
-      source: 'OPD Appointment Booking Engine',
+      notes: `Status: Pending Review | Token Ref: ${newAppointment.tokenNumber} | Time: ${newAppointment.timeSlot} | Doctor: ${newAppointment.doctorName}`,
+      source: 'OPD Appointment Booking Engine (Phone Auth Verified)',
       userId: user?.uid || 'guest'
     });
 
     if (onAppointmentBooked) {
       onAppointmentBooked(newAppointment);
     }
-    setBookingStep(3); // Show confirmation receipt slip
+    setIsSubmittingAppointment(false);
+    setBookingStep(3); // Advance to Step 3: PENDING Acknowledgement screen
   };
 
   const handleSaveReminderSettings = (appointmentId: string, updatedSettings: ReminderSettings) => {
@@ -918,10 +1030,10 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
       {/* Booking Wizard Modal */}
       {isBookingModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto border border-slate-200 shadow-2xl">
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base text-slate-900">
                   {bookingStep === 3 ? 'Appointment Confirmation Slip' : 'Book Neurological Consultation'}
@@ -941,7 +1053,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {/* Step 1: Mode, Date & Time Slots */}
               {bookingStep === 1 && selectedDoctor && (
                 <div className="space-y-5">
@@ -1213,7 +1325,17 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
               {/* Step 2: Patient Demographics Form */}
               {bookingStep === 2 && (
-                <form onSubmit={handleConfirmBooking} className="space-y-4">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (otpSent) {
+                      handleVerifyOtpAndBook(e);
+                    } else {
+                      handleSendBookingOtp();
+                    }
+                  }}
+                  className="space-y-4"
+                >
                   {/* Quota Allocation Notification with Live Minus Notice */}
                   <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
                     <span className="flex items-center gap-1.5 font-bold">
@@ -1402,91 +1524,274 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
                     <span className="text-base font-bold text-cyan-950">₹{selectedDoctor?.opdFee}</span>
                   </div>
 
-                  <div className="pt-3 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setBookingStep(1)}
-                      className="text-xs text-slate-500 hover:text-slate-800 font-semibold"
-                    >
-                      Back to Time Slots
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Confirm & Generate Booking Pass
-                    </button>
-                  </div>
+                  {/* Recaptcha Container for Phone Auth */}
+                  <div id="recaptcha-booking-container" className="my-2" />
+
+                  {/* Inline OTP Verification Box when OTP is sent */}
+                  {otpSent ? (
+                    <div className="bg-amber-50/90 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 space-y-4 animate-in fade-in duration-200">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
+                            <Phone className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">Verify Mobile Number via OTP</h4>
+                            <p className="text-xs text-slate-600">
+                              6-digit verification code sent to <strong>{normalizeIndianPhoneNumber(patientPhone).e164 || patientPhone}</strong>
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            clearRecaptchaVerifier('recaptcha-booking-container');
+                            setOtpSent(false);
+                            setOtpCode('');
+                            setOtpError(null);
+                          }}
+                          className="text-xs text-[#8E5B3E] hover:underline font-semibold cursor-pointer"
+                        >
+                          Change Number
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                          Enter 6-Digit OTP Code *
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={e => setOtpCode(e.target.value.replace(/[^\d]/g, ''))}
+                          placeholder="123456"
+                          className="w-full text-center tracking-[0.25em] xs:tracking-[0.35em] sm:tracking-[0.4em] font-mono text-xl py-2.5 bg-white border-2 border-slate-300 rounded-xl focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500 text-slate-900 shadow-inner"
+                          autoFocus
+                        />
+                      </div>
+
+                      {otpError && (
+                        <div className="p-2.5 rounded-xl bg-rose-100 border border-rose-300 text-rose-900 text-xs flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>{otpError}</span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1 border-t border-amber-200/60">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            clearRecaptchaVerifier('recaptcha-booking-container');
+                            handleSendBookingOtp();
+                          }}
+                          disabled={otpCountdown > 0 || isSendingOtp}
+                          className={`text-xs font-semibold ${
+                            otpCountdown > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-cyan-700 hover:underline cursor-pointer'
+                          }`}
+                        >
+                          {otpCountdown > 0 ? `Resend OTP in ${otpCountdown}s` : 'Resend OTP via SMS'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleVerifyOtpAndBook}
+                          disabled={isVerifyingOtp || isSubmittingAppointment || otpCode.length < 6}
+                          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {isVerifyingOtp ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>Verifying & Booking...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              <span>Verify OTP & Complete Booking</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setBookingStep(1)}
+                        className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                      >
+                        Back to Time Slots
+                      </button>
+
+                      {otpError && (
+                        <div className="text-xs text-rose-600 font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{otpError}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleSendBookingOtp}
+                        disabled={isSendingOtp}
+                        className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-cyan-700 hover:bg-cyan-800 disabled:opacity-50 text-white text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        {isSendingOtp ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Sending OTP to Phone...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Phone className="w-4 h-4" />
+                            <span>Send OTP & Confirm Mobile (+91)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </form>
               )}
 
-             
-{/* Step 3: Pending Appointment Acknowledgement */}
-{bookingStep === 3 && lastConfirmedAppointment && (
-  <div className="space-y-5">
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
-      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-        <Clock className="h-7 w-7 text-amber-700" />
-      </div>
+              {/* Step 3: PENDING STATUS SCREEN (Strict Requirement: Awaiting Hospital Confirmation) */}
+              {bookingStep === 3 && lastConfirmedAppointment && (
+                <div className="space-y-5 animate-in fade-in duration-200">
+                  {/* Prominent Pending Notification Banner */}
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-6 sm:p-7 shadow-sm">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <Clock className="w-7 h-7" />
+                      </div>
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-3 py-1 rounded-lg">
+                            Status: PENDING
+                          </span>
+                          <span className="text-xs text-amber-800 font-semibold">
+                            • Verified Mobile: {lastConfirmedAppointment.patientPhone}
+                          </span>
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-amber-950 leading-snug">
+                          "Your appointment has been received and is awaiting confirmation from the hospital."
+                        </h3>
+                        <p className="text-xs text-amber-900/90 leading-relaxed">
+                          Thank you, <strong>{lastConfirmedAppointment.patientName}</strong>. Our hospital OPD clinical desk has received your appointment request. The record is saved and awaiting admin confirmation. Once confirmed by the hospital, your official Token Slip will be available for download in your Patient Portal.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-      <h3 className="text-lg font-bold text-amber-900">
-        Booking Pending
-      </h3>
+                  {/* Appointment Registration Details */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <h4 className="font-bold text-slate-800 text-sm">
+                        Booking Registration Summary
+                      </h4>
+                      <span className="text-[11px] font-mono bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-md font-semibold">
+                        Ref: {lastConfirmedAppointment.id}
+                      </span>
+                    </div>
 
-      <p className="mt-2 text-sm text-amber-800">
-        Your OPD booking has been received and is awaiting Admin confirmation.
-      </p>
-    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Patient Name & Age</span>
+                        <span className="font-bold text-slate-900 text-sm">{lastConfirmedAppointment.patientName}</span>
+                        <span className="text-slate-500 block text-[11px]">{lastConfirmedAppointment.patientAge} Yrs • {lastConfirmedAppointment.patientGender}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Consulting Specialist</span>
+                        <span className="font-bold text-slate-900 text-sm">{lastConfirmedAppointment.doctorName}</span>
+                        <span className="text-cyan-700 block text-[11px] font-medium">{lastConfirmedAppointment.department}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Appointment Date & Time</span>
+                        <span className="font-bold text-slate-900">{formatFriendlyDate(lastConfirmedAppointment.date)}</span>
+                        <span className="text-slate-600 block text-[11px]">{lastConfirmedAppointment.timeSlot}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-semibold">Assigned Token Reference</span>
+                        <span className="font-bold font-mono text-[#8E5B3E] text-sm">{lastConfirmedAppointment.tokenNumber}</span>
+                        <span className="text-[10px] text-amber-700 block font-medium">(Pending Hospital Confirmation)</span>
+                      </div>
+                    </div>
 
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
-      <h4 className="font-bold text-slate-900">
-        Appointment Details
-      </h4>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-[11px] text-slate-600">
+                      <span className="font-semibold text-slate-800">Reason for visit:</span> {lastConfirmedAppointment.symptoms}
+                    </div>
+                  </div>
 
-      <div className="text-sm">
-        <span className="text-slate-500">Patient Name</span>
-        <p className="font-semibold text-slate-900">
-          {lastConfirmedAppointment.patientName}
-        </p>
-      </div>
+                  {/* Real-time sync note */}
+                  <div className="p-3.5 rounded-2xl bg-cyan-50/70 border border-cyan-200 text-xs text-cyan-900 flex items-start gap-2.5">
+                    <CheckCircle className="w-4 h-4 text-cyan-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Live Synchronization Active:</span> When hospital admin confirms your appointment, the status will automatically update to <strong>CONFIRMED</strong> in your Patient Portal in real time without refreshing.
+                    </div>
+                  </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <span className="text-slate-500">Appointment Date</span>
-          <p className="font-semibold text-slate-900">
-            {lastConfirmedAppointment.date}
-          </p>
-        </div>
+                  {/* Navigation and Dismiss buttons */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBookingModalOpen(false);
+                        if (onNavigateToPortal) {
+                          onNavigateToPortal();
+                        } else {
+                          window.dispatchEvent(new CustomEvent('sopan_navigate_tab', { detail: 'patient-portal' }));
+                        }
+                      }}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <User className="w-4 h-4 text-cyan-400" />
+                      <span>Track Status in Patient Portal</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
 
-        <div>
-          <span className="text-slate-500">Time Slot</span>
-          <p className="font-semibold text-slate-900">
-            {lastConfirmedAppointment.timeSlot}
-          </p>
-        </div>
-      </div>
-
-      <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-        Your final Token Slip will be available after the hospital Admin confirms your appointment.
-      </p>
-    </div>
-
-    <div className="flex justify-end pt-2">
-      <button
-        type="button"
-        onClick={() => setIsBookingModalOpen(false)}
-        className="rounded-xl bg-cyan-600 px-5 py-2 text-xs font-bold text-white hover:bg-cyan-700"
-      >
-        Done
-      </button>
-    </div>
-  </div>
-)}
-              </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsBookingModalOpen(false)}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold cursor-pointer"
+                    >
+                      Close / Done
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </div>
-    );
+        </div>
+      )}
+
+      {/* Remind Me Configuration Modal */}
+      <AppointmentReminderModal
+        appointment={selectedAppointmentForReminder}
+        isOpen={isReminderModalOpen}
+        onClose={() => {
+          setIsReminderModalOpen(false);
+          setSelectedAppointmentForReminder(null);
+        }}
+        onSaveReminder={handleSaveReminderSettings}
+      />
+
+      {/* Patient Experience Feedback Modal */}
+      {showFeedbackModal && lastConfirmedAppointment && (
+        <PatientExperienceFeedbackModalOrSection
+          isModal={true}
+          initialDepartment={lastConfirmedAppointment.department}
+          initialToken={lastConfirmedAppointment.tokenNumber}
+          onClose={() => setShowFeedbackModal(false)}
+        />
+      )}
+
+      {/* OPD Admin Portal Modal */}
+      <OpdAdminPortalModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        onAppointmentsUpdated={() => {
+          setAppointments(loadOpdAppointments());
+        }}
+      />
+    </div>
+  );
 };

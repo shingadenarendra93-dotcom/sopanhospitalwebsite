@@ -5,6 +5,9 @@ import {
   signInWithPopup, 
   signOut as fbSignOut, 
   onAuthStateChanged,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult,
   User as FirebaseUser 
 } from 'firebase/auth';
 import { 
@@ -242,7 +245,7 @@ export async function saveAppointmentToFirestore(appointment: {
       department: appointment.department || 'Neurology',
       conditionContext: appointment.conditionContext || appointment.symptoms || '',
       symptoms: appointment.symptoms || appointment.conditionContext || '',
-      status: appointment.status || 'Pending',
+      status: appointment.status || 'Confirmed',
       visitType: appointment.visitType || 'In-Person Hospital OPD',
       slotNumber: appointment.slotNumber || 1,
       remainingSlotsAtBooking: appointment.remainingSlotsAtBooking ?? 49,
@@ -708,17 +711,15 @@ export function subscribeToAppointments(callback: (appointments: Appointment[]) 
       timeSlot: data.timeSlot || '09:00 AM - 01:00 PM',
       visitType: (data.visitType as any) || 'In-Person Hospital OPD',
       symptoms: data.conditionContext || data.symptoms || '',
-     status: (
-  data.status === 'CONFIRMED' || data.status === 'Confirmed'
-    ? 'Confirmed'
-    : data.status === 'CANCELLED' || data.status === 'Cancelled'
-      ? 'Cancelled'
-      : data.status === 'COMPLETED' || data.status === 'Completed'
-        ? 'Completed'
-        : data.status === 'PENDING' || data.status === 'Pending'
-          ? 'Pending'
-          : 'Pending'
-) as any,
+      status: (data.status === 'Pending' || data.status === 'PENDING'
+        ? 'Pending'
+        : data.status === 'CONFIRMED' || data.status === 'Confirmed' 
+          ? 'Confirmed' 
+          : data.status === 'CANCELLED' || data.status === 'Cancelled' 
+            ? 'Cancelled' 
+            : data.status === 'COMPLETED' || data.status === 'Completed' 
+              ? 'Completed' 
+              : 'Pending') as any,
       tokenNumber: data.tokenNumber || '0',
       slotNumber: Number(data.slotNumber) || 1,
       remainingSlotsAtBooking: Number(data.remainingSlotsAtBooking) || 50,
@@ -828,5 +829,431 @@ export function subscribeToWebsiteData(callback: (records: PatientWebsiteData[])
   });
 }
 
+// ========================================================
+// PATIENT PHONE AUTHENTICATION & OTP SERVICES
+// ========================================================
+
+const VERIFIED_PHONE_KEY = 'sopan_verified_patient_phone';
+
+/**
+ * Normalizes an Indian phone number into E.164 (+91XXXXXXXXXX) and 10-digit national format.
+ */
+export function normalizeIndianPhoneNumber(raw: string): { e164: string; national: string; isValid: boolean } {
+  if (!raw) return { e164: '', national: '', isValid: false };
+  let digits = raw.trim().replace(/[^\d+]/g, '');
+  if (digits.startsWith('+91')) {
+    digits = digits.substring(3);
+  } else if (digits.startsWith('91') && digits.length > 10) {
+    digits = digits.substring(2);
+  } else if (digits.startsWith('0') && digits.length === 11) {
+    digits = digits.substring(1);
+  } else if (digits.startsWith('+')) {
+    digits = digits.substring(1);
+  }
+  const cleanDigits = digits.replace(/\D/g, '');
+  // Valid Indian mobile numbers are 10 digits starting with 6, 7, 8, or 9
+  const isValid = /^[6-9]\d{9}$/.test(cleanDigits);
+  return {
+    e164: `+91${cleanDigits}`,
+    national: cleanDigits,
+    isValid
+  };
+}
+
+/**
+ * Gets currently verified patient phone from session
+ */
+export const PATIENT_TOKEN_KEY = 'sopan_patient_auth_token';
+
+export function getStoredPatientSessionToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(PATIENT_TOKEN_KEY);
+}
+
+export function setStoredPatientSessionToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    localStorage.setItem(PATIENT_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(PATIENT_TOKEN_KEY);
+  }
+}
+
+export function getStoredVerifiedPatientPhone(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(VERIFIED_PHONE_KEY);
+}
+
+/**
+ * Stores verified patient phone in session
+ */
+export function setStoredVerifiedPatientPhone(phone: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (phone) {
+    localStorage.setItem(VERIFIED_PHONE_KEY, phone);
+    window.dispatchEvent(new CustomEvent('sopan_patient_auth_changed', { detail: { phone } }));
+  } else {
+    localStorage.removeItem(VERIFIED_PHONE_KEY);
+    window.dispatchEvent(new CustomEvent('sopan_patient_auth_changed', { detail: { phone: null } }));
+  }
+}
+
+/**
+ * Formats and clarifies Firebase Phone Auth & SMS errors, preserving the exact underlying
+ * Firebase error code and message so developers and users see the genuine failure reason.
+ */
+export function extractFirebaseErrorMessage(err: any): string {
+  if (!err) return 'Unknown error occurred while processing OTP.';
+  
+  const code: string = err.code || '';
+  const rawMsg: string = (err.message || '').replace(/^Firebase:\s*/i, '').trim();
+
+  if (code === 'auth/sms-region-policy-blocked' || rawMsg.toLowerCase().includes('region enabled')) {
+    return `SMS Region Policy: Please ensure the SMS region for India (+91) is enabled in Firebase Console (Authentication > Settings > SMS Region Policy). ${rawMsg ? `[${rawMsg}]` : ''}`.trim();
+  }
+  if (code === 'auth/invalid-phone-number') {
+    return 'Invalid mobile phone number format. Please enter a valid 10-digit Indian number (+91).';
+  }
+  if (code === 'auth/too-many-requests') {
+    return 'Too many OTP requests sent to this number. Please wait a few minutes or test using demo number (+91 9999999999).';
+  }
+  if (code === 'auth/quota-exceeded') {
+    return 'SMS quota exceeded for today. Please contact hospital desk (0253 2317364) or try again later.';
+  }
+  if (code === 'auth/captcha-check-failed') {
+    return 'reCAPTCHA verification failed or timed out. Please try again.';
+  }
+  if (code === 'auth/app-not-authorized' || code === 'auth/unauthorized-domain') {
+    return `Unauthorized Domain: Please add this domain to Firebase Console > Authentication > Settings > Authorized Domains. ${rawMsg ? `[${rawMsg}]` : ''}`.trim();
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Phone authentication is not enabled in Firebase Console (Authentication > Sign-in method > Phone).';
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'Network connection error. Please check your internet connection and try again.';
+  }
+  
+  // Return the actual raw Firebase message so the genuine reason is never hidden
+  if (rawMsg) {
+    return `${rawMsg}${code ? ` (${code})` : ''}`;
+  }
+  if (code) {
+    return `Firebase Phone Auth Error: ${code}`;
+  }
+  return 'Failed to send OTP. Please check your mobile number and internet connection.';
+}
+
+/**
+ * Safely clears and removes any existing reCAPTCHA verifier for a container.
+ * Clears the grecaptcha widget and resets DOM element contents to prevent
+ * "reCAPTCHA has already been rendered in this element" errors.
+ */
+export function clearRecaptchaVerifier(containerId?: string): void {
+  if (typeof window === 'undefined') return;
+  if (!(window as any)._sopanRecaptchaVerifiers) {
+    (window as any)._sopanRecaptchaVerifiers = {};
+  }
+  const verifiers = (window as any)._sopanRecaptchaVerifiers;
+
+  if (containerId) {
+    const existing = verifiers[containerId];
+    if (existing) {
+      try {
+        existing.clear();
+      } catch (e) {
+        console.warn('Notice clearing recaptcha verifier:', e);
+      }
+      delete verifiers[containerId];
+    }
+    const el = document.getElementById(containerId);
+    if (el) {
+      el.innerHTML = '';
+    }
+  } else {
+    Object.keys(verifiers).forEach(id => {
+      try {
+        verifiers[id]?.clear();
+      } catch {}
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
+    (window as any)._sopanRecaptchaVerifiers = {};
+    if ((window as any).sopanRecaptchaVerifier) {
+      try {
+        (window as any).sopanRecaptchaVerifier.clear();
+      } catch {}
+      delete (window as any).sopanRecaptchaVerifier;
+    }
+  }
+}
+
+/**
+ * Initializes, reuses, or safely resets an invisible reCAPTCHA verifier for Firebase Phone Auth.
+ * Guarantees that:
+ * 1. The container element exists before initialization.
+ * 2. An existing verifier is reused if active, preventing duplicate renders into the same DOM element.
+ * 3. If forceReset=true, the existing widget is completely cleared and DOM innerHTML is wiped first.
+ */
+export function setupRecaptchaVerifier(containerId: string, forceReset = false): RecaptchaVerifier {
+  if (typeof window === 'undefined') {
+    throw new Error('setupRecaptchaVerifier must be called in browser environment');
+  }
+
+  if (!(window as any)._sopanRecaptchaVerifiers) {
+    (window as any)._sopanRecaptchaVerifiers = {};
+  }
+  const verifiers = (window as any)._sopanRecaptchaVerifiers;
+
+  // 1. Ensure the container element exists in DOM before initialization
+  let containerEl = document.getElementById(containerId);
+  if (!containerEl) {
+    containerEl = document.createElement('div');
+    containerEl.id = containerId;
+    containerEl.className = 'recaptcha-auto-container';
+    document.body.appendChild(containerEl);
+  }
+
+  // 2. Reuse existing verifier if already initialized and forceReset is not requested
+  if (!forceReset && verifiers[containerId]) {
+    return verifiers[containerId];
+  }
+
+  // 3. Clear previous verifier and wipe DOM container contents before creating new instance
+  clearRecaptchaVerifier(containerId);
+
+  // Re-verify container DOM node is clean
+  containerEl = document.getElementById(containerId);
+  if (!containerEl) {
+    containerEl = document.createElement('div');
+    containerEl.id = containerId;
+    document.body.appendChild(containerEl);
+  }
+  containerEl.innerHTML = '';
+
+  // 4. Create fresh RecaptchaVerifier instance
+  const verifier = new RecaptchaVerifier(auth, containerId, {
+    size: 'invisible',
+    callback: () => {
+      // reCAPTCHA solved automatically
+    },
+    'expired-callback': () => {
+      console.warn('reCAPTCHA expired. Clearing verifier for next request.');
+      clearRecaptchaVerifier(containerId);
+    }
+  });
+
+  verifiers[containerId] = verifier;
+  (window as any).sopanRecaptchaVerifier = verifier;
+
+  return verifier;
+}
+
+/**
+ * Sends a 6-digit verification OTP to the specified mobile number via Firebase Phone Auth.
+ * Displays the genuine Firebase error message if OTP delivery fails.
+ */
+export async function sendPhoneOtp(
+  rawPhoneNumber: string,
+  appVerifier: RecaptchaVerifier
+): Promise<{ success: boolean; confirmationResult?: ConfirmationResult; error?: string }> {
+  try {
+    const { e164, isValid } = normalizeIndianPhoneNumber(rawPhoneNumber);
+    if (!isValid) {
+      return {
+        success: false,
+        error: 'Please enter a valid 10-digit Indian mobile number (e.g. 98234 56789).'
+      };
+    }
+
+    const confirmationResult = await signInWithPhoneNumber(auth, e164, appVerifier);
+    return {
+      success: true,
+      confirmationResult
+    };
+  } catch (err: any) {
+    console.error('Firebase Phone Auth Error during sendPhoneOtp:', err);
+    const friendlyError = extractFirebaseErrorMessage(err);
+    return {
+      success: false,
+      error: friendlyError
+    };
+  }
+}
+
+/**
+ * Verifies the 6-digit OTP code entered by the patient and completes phone sign-in
+ */
+export async function verifyPhoneOtp(
+  confirmationResult: ConfirmationResult,
+  otpCode: string
+): Promise<{ success: boolean; user?: FirebaseUser; error?: string }> {
+  try {
+    const trimmed = otpCode.trim();
+    if (!trimmed || trimmed.length < 6) {
+      return { success: false, error: 'Please enter the complete 6-digit OTP code.' };
+    }
+
+    const userCredential = await confirmationResult.confirm(trimmed);
+    const user = userCredential.user;
+
+    if (user && user.phoneNumber) {
+      setStoredVerifiedPatientPhone(user.phoneNumber);
+      // Upsert patient profile in Firestore
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, {
+          uid: user.uid,
+          phoneNumber: user.phoneNumber,
+          role: 'patient',
+          lastLoginAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (userErr) {
+        console.warn('Notice saving user document:', userErr);
+      }
+    }
+
+    return { success: true, user };
+  } catch (err: any) {
+    console.error('Firebase Phone Auth Error during verifyPhoneOtp:', err);
+    let msg = 'Incorrect OTP code. Please re-check the 6-digit code received on your phone.';
+    if (err?.code === 'auth/invalid-verification-code') {
+      msg = 'Invalid OTP code. Please enter the correct 6-digit verification code sent to your phone.';
+    } else if (err?.code === 'auth/code-expired') {
+      msg = 'The OTP code has expired. Please request a new OTP.';
+    } else if (err?.message) {
+      msg = `${err.message.replace(/^Firebase:\s*/i, '')} (${err.code || 'auth/error'})`;
+    }
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Logs out the verified patient from their phone session
+ */
+export async function logoutPatient(): Promise<void> {
+  setStoredVerifiedPatientPhone(null);
+  setStoredPatientSessionToken(null);
+  await fbSignOut(auth);
+}
+
+/**
+ * Real-Time onSnapshot Subscription for a verified Patient's own appointments.
+ * Whenever the hospital admin confirms or updates an appointment in Firestore,
+ * this listener immediately updates the patient's portal view live!
+ */
+export function subscribeToPatientAppointments(
+  rawPhoneNumber: string,
+  callback: (appointments: Appointment[]) => void
+): Unsubscribe {
+  const { e164, national } = normalizeIndianPhoneNumber(rawPhoneNumber);
+  const apptsCol = collection(db, 'appointments');
+
+  const mapDoc = (docSnap: any): Appointment => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      patientName: data.patientName || 'Patient',
+      patientAge: Number(data.age) || Number(data.patientAge) || 0,
+      patientGender: (data.gender as any) || (data.patientGender as any) || 'Other',
+      patientPhone: data.contactNumber || data.phone || data.patientPhone || '',
+      patientEmail: data.email || data.patientEmail || '',
+      doctorId: data.doctorId || 'dr-sanjay-varade',
+      doctorName: data.doctor || data.doctorName || 'Dr. Sanjay Sopan Varade',
+      department: (data.department as any) || 'Comprehensive Stroke Center',
+      date: data.date || '',
+      timeSlot: data.timeSlot || '09:00 AM - 01:00 PM',
+      visitType: (data.visitType as any) || 'In-Person Hospital OPD',
+      symptoms: data.conditionContext || data.symptoms || '',
+      status: (data.status === 'Pending' || data.status === 'PENDING'
+        ? 'Pending'
+        : data.status === 'CONFIRMED' || data.status === 'Confirmed' 
+          ? 'Confirmed' 
+          : data.status === 'CANCELLED' || data.status === 'Cancelled' 
+            ? 'Cancelled' 
+            : data.status === 'COMPLETED' || data.status === 'Completed' 
+              ? 'Completed' 
+              : 'Pending') as any,
+      tokenNumber: data.tokenNumber || '0',
+      slotNumber: Number(data.slotNumber) || 1,
+      remainingSlotsAtBooking: Number(data.remainingSlotsAtBooking) || 50,
+      createdAt: data.createdAt || new Date().toISOString(),
+      rejectionReason: data.rejectionReason,
+      adminActionAt: data.adminActionAt,
+      adminActionBy: data.adminActionBy,
+      reminderSettings: data.reminderSettings
+    };
+  };
+
+  // Match both E.164 (+91XXXXXXXXXX) and 10-digit national (XXXXXXXXXX) and user UID
+  const currentUid = auth.currentUser?.uid;
+  const isMatch = (apt: Appointment) => {
+    const cleanPhone = apt.patientPhone.replace(/[^\d+]/g, '');
+    const cleanNational = cleanPhone.replace(/^\+91|^91|^0/, '');
+    const targetNational = national || e164.replace(/^\+91/, '');
+    
+    if (cleanNational && targetNational && cleanNational === targetNational) {
+      return true;
+    }
+    if (cleanPhone === e164 || cleanPhone === national) {
+      return true;
+    }
+    return false;
+  };
+
+  // Base snapshot listener with client-side phone matching for reliable real-time updates
+  return onSnapshot(
+    apptsCol,
+    (snapshot) => {
+      const all = snapshot.docs.map(mapDoc);
+      const patientAppointments = all
+        .filter(isMatch)
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+      callback(patientAppointments);
+    },
+    (err) => {
+      console.warn('Real-time patient appointments listener notice:', err);
+      // Fallback from localStorage
+      try {
+        const raw = localStorage.getItem('sopan_hospital_opd_appointments');
+        if (raw) {
+          const parsed: Appointment[] = JSON.parse(raw);
+          const filtered = parsed.filter(isMatch);
+          callback(filtered);
+        }
+      } catch {}
+    }
+  );
+}
+
+/**
+ * Counts the appointments booked for a specific phone number in the current calendar month
+ * to ensure at least 5 appointments are allowed without restriction.
+ */
+export async function countMonthlyAppointmentsForPhone(rawPhoneNumber: string): Promise<number> {
+  const { national, e164 } = normalizeIndianPhoneNumber(rawPhoneNumber);
+  const now = new Date();
+  const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  try {
+    const snap = await getDocs(collection(db, 'appointments'));
+    let count = 0;
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const phone = (data.contactNumber || data.phone || data.patientPhone || '').replace(/[^\d]/g, '');
+      const dateStr = data.date || data.createdAt || '';
+      const cleanTarget = national || e164.replace(/\D/g, '');
+      if (phone.endsWith(cleanTarget) && dateStr.startsWith(currentMonthPrefix)) {
+        count++;
+      }
+    });
+    return count;
+  } catch (err) {
+    console.warn('Error counting monthly appointments:', err);
+    return 0;
+  }
+}
+
 export { onAuthStateChanged };
 export type { FirebaseUser };
+

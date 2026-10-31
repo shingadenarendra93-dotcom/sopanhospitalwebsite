@@ -145,9 +145,35 @@
         "createdAt": { "type": "string" }
       },
       "required": ["patientName", "phone", "createdAt"]
+    },
+    "PatientAccount": {
+      "title": "PatientAccount",
+      "description": "Patient portal account storing salted PIN hash, rate-limiting lockout state, and admin verification",
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string" },
+        "e164": { "type": "string" },
+        "patientName": { "type": "string" },
+        "pinHash": { "type": "string" },
+        "pinSalt": { "type": "string" },
+        "securityQuestion": { "type": "string" },
+        "securityAnswerHash": { "type": "string" },
+        "answerSalt": { "type": "string" },
+        "isPinSet": { "type": "boolean" },
+        "failedAttempts": { "type": "number" },
+        "failedAnswerAttempts": { "type": "number" },
+        "lockedUntil": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["phone", "createdAt"]
     }
   },
   "firestore": {
+    "/patient_accounts/{phone}": {
+      "schema": { "$ref": "#/entities/PatientAccount" },
+      "description": "Patient accounts indexed by 10-digit national mobile number"
+    },
     "/website_data/{docId}": {
       "schema": { "$ref": "#/entities/WebsiteData" },
       "description": "Patient intake records stored in website_data collection"

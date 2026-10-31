@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Modality } from '@google/genai';
@@ -857,7 +858,7 @@ Remind patients that in acute emergencies (such as sudden weakness, facial drop,
         date: targetDate, // Assigned date (original or auto-shifted next day)
         slotNumber: targetSlotNumber,
         tokenNumber,
-        status: req.body.status || 'Confirmed',
+        status: req.body.status || 'Pending',
         doctor: req.body.doctor || 'Dr. Sanjay Sopan Varade (MD, DM Neuro)',
         createdAt: new Date().toISOString(),
         bookedAt: new Date().toISOString(),
@@ -876,9 +877,10 @@ Remind patients that in acute emergencies (such as sudden weakness, facial drop,
         slotNumber: targetSlotNumber,
         tokenNumber,
         autoShifted: wasShifted,
+        status: appointmentData.status,
         message: wasShifted
-          ? `Quota for ${initialRequestedDate} was full. Appointment automatically booked for next day (${targetDate}).`
-          : 'OPD appointment confirmed successfully.',
+          ? `Quota for ${initialRequestedDate} was full. Appointment booked for next day (${targetDate}) with status: PENDING awaiting Admin approval.`
+          : 'OPD appointment submitted successfully. Status: PENDING awaiting Admin approval.',
         currentStatus: updatedStatus
       });
     } catch (error: any) {
@@ -940,6 +942,613 @@ Remind patients that in acute emergencies (such as sudden weakness, facial drop,
 
   app.get('/api/opd/status', handleOpdStatus);
   app.get('/api/opd-status', handleOpdStatus);
+
+  // ========================================================
+  // PATIENT PORTAL SECURE 6-DIGIT PIN AUTHENTICATION SYSTEM
+  // ========================================================
+  const PATIENT_SESSION_SECRET = process.env.PATIENT_SESSION_SECRET || 'sopan-neuro-patient-session-sec-2026-auth';
+
+  // Helper: Secure Session Token Creation
+  function createPatientSessionToken(phone: string, patientName: string = ''): string {
+    const payload = {
+      phone,
+      patientName,
+      exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days session
+      iat: Date.now()
+    };
+    const dataStr = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto.createHmac('sha256', PATIENT_SESSION_SECRET).update(dataStr).digest('base64url');
+    return `${dataStr}.${signature}`;
+  }
+
+  // Helper: Secure Session Token Verification
+  function verifyPatientSessionToken(token: string): { valid: boolean; phone?: string; patientName?: string; error?: string } {
+    try {
+      if (!token || !token.includes('.')) {
+        return { valid: false, error: 'Malformed session token' };
+      }
+      const [dataStr, signature] = token.split('.');
+      const expectedSig = crypto.createHmac('sha256', PATIENT_SESSION_SECRET).update(dataStr).digest('base64url');
+      if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+        return { valid: false, error: 'Invalid session signature' };
+      }
+      const payload = JSON.parse(Buffer.from(dataStr, 'base64url').toString('utf8'));
+      if (Date.now() > payload.exp) {
+        return { valid: false, error: 'Session expired. Please log in again.' };
+      }
+      return { valid: true, phone: payload.phone, patientName: payload.patientName };
+    } catch (err: any) {
+      return { valid: false, error: err?.message || 'Invalid session' };
+    }
+  }
+
+  // Helper: Cryptographically Salted PIN Hash (PBKDF2 100,000 rounds)
+  function hashPatientPin(pin: string, salt: string): string {
+    return crypto.pbkdf2Sync(pin, salt, 100000, 64, 'sha512').toString('hex');
+  }
+
+  // Helper: Normalize security question answer (case-insensitive, trimmed, single spaces)
+  function normalizeSecurityAnswer(answer: string): string {
+    return (answer || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  }
+
+  // Helper: Cryptographically Salted Security Answer Hash (PBKDF2 100,000 rounds)
+  function hashSecurityAnswer(answer: string, salt: string): string {
+    const normalized = normalizeSecurityAnswer(answer);
+    return crypto.pbkdf2Sync(normalized, salt, 100000, 64, 'sha512').toString('hex');
+  }
+
+  // Helper: Generate short-lived signed PIN reset token (10 min expiry)
+  function createPinResetToken(phone: string): string {
+    const payload = {
+      phone,
+      purpose: 'pin_reset',
+      exp: Date.now() + 10 * 60 * 1000,
+      iat: Date.now()
+    };
+    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto.createHmac('sha256', PATIENT_SESSION_SECRET).update(encoded).digest('base64url');
+    return `${encoded}.${signature}`;
+  }
+
+  // Helper: Verify short-lived signed PIN reset token
+  function verifyPinResetToken(token: string): { valid: boolean; phone?: string; error?: string } {
+    try {
+      if (!token || !token.includes('.')) {
+        return { valid: false, error: 'Invalid reset token' };
+      }
+      const [encoded, signature] = token.split('.');
+      const expectedSig = crypto.createHmac('sha256', PATIENT_SESSION_SECRET).update(encoded).digest('base64url');
+      if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+        return { valid: false, error: 'Tampered reset token' };
+      }
+      const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+      if (payload.purpose !== 'pin_reset') {
+        return { valid: false, error: 'Invalid token purpose' };
+      }
+      if (Date.now() > payload.exp) {
+        return { valid: false, error: 'Reset session expired. Please verify your security answer again.' };
+      }
+      return { valid: true, phone: payload.phone };
+    } catch (err: any) {
+      return { valid: false, error: err?.message || 'Invalid reset token' };
+    }
+  }
+
+  // Helper: Normalizes 10-digit Indian mobile number
+  function normalizePatientPhone(raw: string): { national: string; e164: string; isValid: boolean } {
+    const digits = (raw || '').replace(/\D/g, '');
+    let national = digits;
+    if (digits.length === 12 && digits.startsWith('91')) {
+      national = digits.slice(2);
+    } else if (digits.length === 11 && digits.startsWith('0')) {
+      national = digits.slice(1);
+    } else if (digits.length > 10) {
+      national = digits.slice(-10);
+    }
+    const isValid = national.length === 10 && /^[6-9]\d{9}$/.test(national);
+    return {
+      national,
+      e164: `+91${national}`,
+      isValid
+    };
+  }
+
+  // In-Memory fallback cache for instant resilience during Firestore rules propagation
+  const patientAccountsCache = new Map<string, any>();
+
+  async function getPatientAccountData(nationalPhone: string): Promise<any | null> {
+    try {
+      const accountRef = doc(db, 'patient_accounts', nationalPhone);
+      const snap = await getDoc(accountRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        patientAccountsCache.set(nationalPhone, data);
+        return data;
+      }
+    } catch (err: any) {
+      console.warn('Notice accessing Firestore patient_accounts, using cache fallback:', err?.message || err);
+    }
+    return patientAccountsCache.get(nationalPhone) || null;
+  }
+
+  async function savePatientAccountData(nationalPhone: string, update: any): Promise<any> {
+    const existing = (await getPatientAccountData(nationalPhone)) || {};
+    const merged = { ...existing, ...update, phone: nationalPhone, updatedAt: new Date().toISOString() };
+    patientAccountsCache.set(nationalPhone, merged);
+    try {
+      const accountRef = doc(db, 'patient_accounts', nationalPhone);
+      await setDoc(accountRef, merged, { merge: true });
+    } catch (err: any) {
+      console.warn('Notice saving to Firestore patient_accounts, cached locally:', err?.message || err);
+    }
+    return merged;
+  }
+
+  // 1. Check Mobile Number Status (For Registration / Login Routing)
+  app.post('/api/patient-auth/check-status', async (req, res) => {
+    try {
+      const { phone } = req.body;
+      const { national, e164, isValid } = normalizePatientPhone(phone);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number.' });
+      }
+
+      const existingAccount = await getPatientAccountData(national);
+
+      // Check temporary lockout
+      if (existingAccount && existingAccount.lockedUntil && new Date(existingAccount.lockedUntil).getTime() > Date.now()) {
+        const remainingMinutes = Math.ceil((new Date(existingAccount.lockedUntil).getTime() - Date.now()) / (60 * 1000));
+        return res.status(423).json({
+          isLocked: true,
+          lockedUntil: existingAccount.lockedUntil,
+          error: `Account temporarily locked due to too many failed attempts. Please wait ${remainingMinutes} minute(s).`
+        });
+      }
+
+      // Check Firestore appointments for this patient phone
+      let patientAppts: any[] = [];
+      try {
+        const apptsRef = collection(db, 'appointments');
+        const allApptsSnap = await getDocs(apptsRef);
+        allApptsSnap.docs.forEach(d => {
+          const ad = d.data();
+          const p = (ad.contactNumber || ad.phone || ad.patientPhone || '').replace(/\D/g, '');
+          if (p.endsWith(national)) {
+            patientAppts.push({ id: d.id, ...ad });
+          }
+        });
+      } catch (apptErr: any) {
+        console.warn('Notice querying appointments in check-status:', apptErr?.message || apptErr);
+      }
+
+      const hasAppointments = patientAppts.length > 0;
+      const isPinSet = Boolean(existingAccount?.isPinSet);
+
+      return res.json({
+        success: true,
+        phone: national,
+        e164,
+        isRegistered: isPinSet,
+        isPinSet,
+        isLocked: false
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/check-status:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to check patient account status' });
+    }
+  });
+
+  // 2. Patient Registration: Set PIN + Security Question + Answer (Direct patient registration - no reception/admin code needed)
+  app.post('/api/patient-auth/register', async (req, res) => {
+    try {
+      const { phone, pin, confirmPin, securityQuestion, securityAnswer, patientName: clientName } = req.body;
+      const { national, e164, isValid } = normalizePatientPhone(phone);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Valid 10-digit mobile number is required.' });
+      }
+
+      if (!pin || !confirmPin) {
+        return res.status(400).json({ error: 'Both PIN fields are required.' });
+      }
+      if (pin !== confirmPin) {
+        return res.status(400).json({ error: 'PINs do not match. Please ensure both 6-digit fields are identical.' });
+      }
+      if (!/^\d{6}$/.test(pin)) {
+        return res.status(400).json({ error: 'PIN must be exactly 6 numeric digits (0-9).' });
+      }
+
+      if (!securityQuestion || typeof securityQuestion !== 'string' || securityQuestion.trim().length < 5) {
+        return res.status(400).json({ error: 'Please select a valid security question.' });
+      }
+
+      if (!securityAnswer || typeof securityAnswer !== 'string' || securityAnswer.trim().length < 2) {
+        return res.status(400).json({ error: 'Please enter a valid answer to your security question (at least 2 characters).' });
+      }
+
+      const existingAccount = await getPatientAccountData(national);
+      if (existingAccount && existingAccount.isPinSet) {
+        return res.status(400).json({
+          error: 'An account with this mobile number already exists. Please log in or use Forgot PIN.'
+        });
+      }
+
+      // Explicit patient profile name - do not automatically inherit unrelated sample names
+      const patientName = clientName ? clientName.trim() : (existingAccount?.patientName && existingAccount.patientName !== 'Patient' ? existingAccount.patientName : '');
+
+      // Salt and hash PIN
+      const pinSalt = crypto.randomBytes(16).toString('hex');
+      const pinHash = hashPatientPin(pin, pinSalt);
+
+      // Salt and hash Security Answer
+      const answerSalt = crypto.randomBytes(16).toString('hex');
+      const securityAnswerHash = hashSecurityAnswer(securityAnswer, answerSalt);
+
+      const savedAccount = await savePatientAccountData(national, {
+        phone: national,
+        e164,
+        patientName,
+        pinHash,
+        pinSalt,
+        securityQuestion: securityQuestion.trim(),
+        securityAnswerHash,
+        answerSalt,
+        isPinSet: true,
+        failedAttempts: 0,
+        failedAnswerAttempts: 0,
+        lockedUntil: null,
+        createdAt: new Date().toISOString()
+      });
+
+      const sessionToken = createPatientSessionToken(national, patientName || 'Patient');
+
+      return res.json({
+        success: true,
+        message: 'PIN setup complete!',
+        token: sessionToken,
+        phone: national,
+        e164,
+        patientName
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/register:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to complete registration' });
+    }
+  });
+
+  // 2b. Patient Profile: Save / Update Patient Profile Name
+  app.post('/api/patient-auth/update-profile-name', async (req, res) => {
+    try {
+      const { phone, patientName } = req.body;
+      const { national, e164, isValid } = normalizePatientPhone(phone);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Valid 10-digit mobile number is required.' });
+      }
+      if (!patientName || typeof patientName !== 'string' || patientName.trim().length < 2) {
+        return res.status(400).json({ error: 'Please enter your full patient name (at least 2 characters).' });
+      }
+
+      const trimmedName = patientName.trim();
+      await savePatientAccountData(national, {
+        patientName: trimmedName,
+        updatedAt: new Date().toISOString()
+      });
+
+      const sessionToken = createPatientSessionToken(national, trimmedName);
+
+      return res.json({
+        success: true,
+        patientName: trimmedName,
+        phone: national,
+        e164,
+        token: sessionToken
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/update-profile-name:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to update profile name' });
+    }
+  });
+
+  // 3. Patient Login: Mobile Number + 6-Digit PIN
+  app.post('/api/patient-auth/login', async (req, res) => {
+    try {
+      const { phone, pin } = req.body;
+      const { national, e164, isValid } = normalizePatientPhone(phone);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number.' });
+      }
+      if (!pin || !/^\d{6}$/.test(pin)) {
+        return res.status(400).json({ error: 'Please enter your complete 6-digit PIN.' });
+      }
+
+      const accountData = await getPatientAccountData(national);
+      if (!accountData || !accountData.isPinSet) {
+        return res.status(400).json({ error: 'PIN not found for this mobile number. Please register first.' });
+      }
+
+      // Check temporary lockout
+      if (accountData.lockedUntil && new Date(accountData.lockedUntil).getTime() > Date.now()) {
+        const remainingMinutes = Math.ceil((new Date(accountData.lockedUntil).getTime() - Date.now()) / (60 * 1000));
+        return res.status(423).json({
+          isLocked: true,
+          lockedUntil: accountData.lockedUntil,
+          error: `Account temporarily locked due to too many failed attempts. Please wait ${remainingMinutes} minute(s).`
+        });
+      }
+
+      // Verify salted PIN hash
+      const candidateHash = hashPatientPin(pin, accountData.pinSalt || '');
+      const isMatch = crypto.timingSafeEqual(
+        Buffer.from(candidateHash, 'hex'),
+        Buffer.from(accountData.pinHash || '', 'hex')
+      );
+
+      if (!isMatch) {
+        const failedAttempts = (accountData.failedAttempts || 0) + 1;
+        let lockedUntil = null;
+        let errorMsg = `Incorrect 6-digit PIN. ${Math.max(0, 5 - failedAttempts)} attempt(s) remaining before temporary lockout.`;
+
+        if (failedAttempts >= 5) {
+          lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes lockout
+          errorMsg = 'Incorrect PIN. You have exceeded 5 failed attempts. Account is temporarily locked for 15 minutes.';
+        }
+
+        await savePatientAccountData(national, {
+          failedAttempts,
+          lockedUntil
+        });
+
+        return res.status(failedAttempts >= 5 ? 423 : 401).json({
+          error: errorMsg,
+          failedAttempts,
+          isLocked: failedAttempts >= 5,
+          remainingAttempts: Math.max(0, 5 - failedAttempts)
+        });
+      }
+
+      // Successful login: reset failed attempts
+      await savePatientAccountData(national, {
+        failedAttempts: 0,
+        failedAnswerAttempts: 0,
+        lockedUntil: null,
+        lastLoginAt: new Date().toISOString()
+      });
+
+      const currentProfileName = accountData.patientName && accountData.patientName !== 'Patient' ? accountData.patientName : '';
+      const sessionToken = createPatientSessionToken(national, currentProfileName || 'Patient');
+
+      return res.json({
+        success: true,
+        token: sessionToken,
+        phone: national,
+        e164,
+        patientName: currentProfileName,
+        requiresProfileName: !currentProfileName
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/login:', err);
+      return res.status(500).json({ error: err?.message || 'Login failed' });
+    }
+  });
+
+  // 4. Forgot PIN: Step 1 - Fetch Security Question for Mobile Number
+  app.post('/api/patient-auth/forgot-pin/get-question', async (req, res) => {
+    try {
+      const { phone } = req.body;
+      const { national, isValid } = normalizePatientPhone(phone);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Valid 10-digit mobile number is required.' });
+      }
+
+      const accountData = await getPatientAccountData(national);
+
+      // Check temporary lockout
+      if (accountData && accountData.lockedUntil && new Date(accountData.lockedUntil).getTime() > Date.now()) {
+        const remainingMinutes = Math.ceil((new Date(accountData.lockedUntil).getTime() - Date.now()) / (60 * 1000));
+        return res.status(423).json({
+          isLocked: true,
+          lockedUntil: accountData.lockedUntil,
+          error: `Account temporarily locked due to too many failed attempts. Please wait ${remainingMinutes} minute(s).`
+        });
+      }
+
+      if (!accountData || !accountData.isPinSet || !accountData.securityQuestion) {
+        return res.status(404).json({
+          error: 'No registered account with a security question found for this mobile number.'
+        });
+      }
+
+      // Return only the question string - never expose answers or hashes
+      return res.json({
+        success: true,
+        phone: national,
+        securityQuestion: accountData.securityQuestion
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/forgot-pin/get-question:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to retrieve security question' });
+    }
+  });
+
+  // 5. Forgot PIN: Step 2 - Verify Security Question Answer & Return Signed Reset Token
+  app.post('/api/patient-auth/forgot-pin/verify-answer', async (req, res) => {
+    try {
+      const { phone } = req.body;
+      const securityAnswer = req.body.securityAnswer || req.body.answer;
+      const { national, isValid } = normalizePatientPhone(phone);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Valid 10-digit mobile number is required.' });
+      }
+
+      if (!securityAnswer || typeof securityAnswer !== 'string' || !securityAnswer.trim()) {
+        return res.status(400).json({ error: 'Please enter your answer.' });
+      }
+
+      const accountData = await getPatientAccountData(national);
+
+      // Check temporary lockout
+      if (accountData && accountData.lockedUntil && new Date(accountData.lockedUntil).getTime() > Date.now()) {
+        const remainingMinutes = Math.ceil((new Date(accountData.lockedUntil).getTime() - Date.now()) / (60 * 1000));
+        return res.status(423).json({
+          isLocked: true,
+          lockedUntil: accountData.lockedUntil,
+          error: `Account temporarily locked. Please wait ${remainingMinutes} minute(s).`
+        });
+      }
+
+      if (!accountData || !accountData.securityAnswerHash || !accountData.answerSalt) {
+        return res.status(400).json({
+          error: 'Account does not have a security question configured.'
+        });
+      }
+
+      const candidateHash = hashSecurityAnswer(securityAnswer, accountData.answerSalt);
+      const isMatch = crypto.timingSafeEqual(
+        Buffer.from(candidateHash, 'hex'),
+        Buffer.from(accountData.securityAnswerHash, 'hex')
+      );
+
+      if (!isMatch) {
+        const failedAnswerAttempts = (accountData.failedAnswerAttempts || 0) + 1;
+        let lockedUntil = null;
+        let errorMsg = `Incorrect answer. ${Math.max(0, 5 - failedAnswerAttempts)} attempt(s) remaining before temporary lockout.`;
+
+        if (failedAnswerAttempts >= 5) {
+          lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+          errorMsg = 'Incorrect answer. You have exceeded 5 attempts. Account is temporarily locked for 15 minutes to prevent guessing.';
+        }
+
+        await savePatientAccountData(national, {
+          failedAnswerAttempts,
+          lockedUntil
+        });
+
+        return res.status(failedAnswerAttempts >= 5 ? 423 : 401).json({
+          error: errorMsg,
+          isLocked: failedAnswerAttempts >= 5,
+          remainingAttempts: Math.max(0, 5 - failedAnswerAttempts)
+        });
+      }
+
+      // Reset failed attempts on correct answer
+      await savePatientAccountData(national, {
+        failedAnswerAttempts: 0
+      });
+
+      // Issue short-lived, HMAC-signed PIN reset token
+      const resetToken = createPinResetToken(national);
+
+      return res.json({
+        success: true,
+        resetToken,
+        message: 'Security answer verified successfully. You may now create a new PIN.'
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/forgot-pin/verify-answer:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to verify security answer' });
+    }
+  });
+
+  // 6. Forgot PIN: Step 3 - Set and Confirm New 6-Digit PIN
+  app.post('/api/patient-auth/forgot-pin/reset-pin', async (req, res) => {
+    try {
+      const { phone, resetToken, newPin, confirmPin, confirmNewPin } = req.body;
+      const effectiveConfirmPin = confirmPin || confirmNewPin;
+      const { national, e164, isValid } = normalizePatientPhone(phone);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Valid 10-digit mobile number is required.' });
+      }
+
+      if (!resetToken) {
+        return res.status(401).json({ error: 'Reset authorization token required. Please answer your security question first.' });
+      }
+
+      const tokenCheck = verifyPinResetToken(resetToken);
+      if (!tokenCheck.valid || tokenCheck.phone !== national) {
+        return res.status(403).json({ error: tokenCheck.error || 'Invalid or expired reset session. Please answer your security question again.' });
+      }
+
+      if (!newPin || !effectiveConfirmPin) {
+        return res.status(400).json({ error: 'Both PIN fields are required.' });
+      }
+      if (newPin !== effectiveConfirmPin) {
+        return res.status(400).json({ error: 'PINs do not match. Please ensure both 6-digit fields are identical.' });
+      }
+      if (!/^\d{6}$/.test(newPin)) {
+        return res.status(400).json({ error: 'New PIN must be exactly 6 numeric digits (0-9).' });
+      }
+
+      const accountData = await getPatientAccountData(national);
+      if (!accountData) {
+        return res.status(404).json({ error: 'Account not found.' });
+      }
+
+      // Salt & Hash new PIN
+      const pinSalt = crypto.randomBytes(16).toString('hex');
+      const pinHash = hashPatientPin(newPin, pinSalt);
+
+      await savePatientAccountData(national, {
+        pinHash,
+        pinSalt,
+        failedAttempts: 0,
+        failedAnswerAttempts: 0,
+        lockedUntil: null,
+        updatedAt: new Date().toISOString()
+      });
+
+      const sessionToken = createPatientSessionToken(national, accountData.patientName || 'Patient');
+
+      return res.json({
+        success: true,
+        message: 'Your 6-digit PIN has been reset successfully! Logging you in...',
+        token: sessionToken,
+        phone: national,
+        e164,
+        patientName: accountData.patientName || 'Patient'
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/forgot-pin/reset-pin:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to reset PIN' });
+    }
+  });
+
+  // 6. Secure Authenticated Appointments Retrieval
+  // Enforces that patients can ONLY see their own records using the authenticated session token
+  app.get('/api/patient-auth/appointments', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const session = verifyPatientSessionToken(token);
+
+      if (!session.valid || !session.phone) {
+        return res.status(401).json({ error: session.error || 'Authentication required. Please log in with your PIN.' });
+      }
+
+      const phone = session.phone;
+      const apptsRef = collection(db, 'appointments');
+      const snap = await getDocs(apptsRef);
+
+      const patientAppointments: any[] = [];
+      snap.docs.forEach(d => {
+        const ad = d.data();
+        const p = (ad.contactNumber || ad.phone || ad.patientPhone || '').replace(/\D/g, '');
+        if (p.endsWith(phone)) {
+          patientAppointments.push({ id: d.id, ...ad });
+        }
+      });
+
+      patientAppointments.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+      return res.json({
+        success: true,
+        phone,
+        appointments: patientAppointments
+      });
+    } catch (err: any) {
+      console.error('Error in /api/patient-auth/appointments:', err);
+      return res.status(500).json({ error: err?.message || 'Failed to fetch authenticated appointments' });
+    }
+  });
 
   // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {

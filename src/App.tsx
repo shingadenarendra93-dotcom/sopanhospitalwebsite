@@ -4,6 +4,7 @@ import { HeroBanner } from './components/HeroBanner';
 import { VRBrainViewer } from './components/VRBrainViewer';
 import { DiseaseArticles } from './components/DiseaseArticles';
 import { AppointmentScheduler } from './components/AppointmentScheduler';
+import { PatientPortal } from './components/PatientPortal';
 import { GoogleReviews } from './components/GoogleReviews';
 import { PatientExperienceFeedbackModalOrSection } from './components/PatientExperienceFeedback';
 import { PatientSuccessStories } from './components/PatientSuccessStories';
@@ -32,157 +33,14 @@ import {
   Stethoscope,
   Activity,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getMessaging, getToken } from "firebase/messaging";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCrh8X94Zm7c6HK8WdnqmBJYC1WhoYb14w",
-  authDomain: "sopanhospital-be933.firebaseapp.com",
-  projectId: "sopanhospital-be933",
-  storageBucket: "sopanhospital-be933.firebasestorage.app",
-  messagingSenderId: "739498122034",
-  appId: "1:739498122034:web:35f5d0cb3f91b17a37152b"
-};
-
-const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const messaging = getMessaging(firebaseApp);
-
-function BrainHealthAssessment({ onBookAppointment }: { onBookAppointment: () => void }) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [score, setScore] = useState(0);
-
-  const questions = [
-    { question: "Do you have High Blood Pressure (Hypertension)?", points: 2 },
-    { question: "Do you have Diabetes?", points: 2 },
-    { question: "Do you smoke or consume tobacco products?", points: 2 },
-    { question: "Do you have a history of heart disease or irregular heartbeat?", points: 2 },
-    { question: "Is there a family history of Stroke or Brain related issues?", points: 1 },
-    { question: "Are you over the age of 55?", points: 1 },
-  ];
-
-  const handleAnswer = (points: number) => {
-    setScore(score + points);
-    setCurrentStep(currentStep + 1);
-  };
-
-  const resetAssessment = () => {
-    setScore(0);
-    setCurrentStep(0);
-  };
-
-  return (
-    <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-6 md:p-10 max-w-4xl mx-auto animate-fade-in-up">
-      <div className="flex items-center gap-4 mb-8 border-b border-slate-100 pb-6">
-        <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm">
-          <Activity className="w-8 h-8" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-black text-slate-800">Brain Health & Stroke Risk Test</h2>
-          <p className="text-sm text-slate-500 font-medium mt-1">Free 6-step assessment by Sopan Hospital</p>
-        </div>
-      </div>
-
-      {currentStep === 0 && (
-        <div className="text-center py-8">
-          <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-4 opacity-80" />
-          <h3 className="text-xl font-bold text-slate-800 mb-4">Are you at risk of a Stroke?</h3>
-          <p className="text-slate-600 mb-8 max-w-md mx-auto leading-relaxed">
-            Take this quick 1-minute assessment to understand your brain health and potential stroke risk factors. Early detection saves lives.
-          </p>
-          <button
-            onClick={() => setCurrentStep(1)}
-            className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-bold shadow-lg shadow-indigo-200 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 mx-auto cursor-pointer"
-          >
-            Start Assessment <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-
-      {currentStep > 0 && currentStep <= questions.length && (
-        <div className="py-6">
-          <div className="flex justify-between items-center text-sm font-bold text-slate-400 mb-6">
-            <span>Question {currentStep} of {questions.length}</span>
-            <div className="flex gap-1">
-              {questions.map((_, idx) => (
-                <div key={idx} className={`h-1.5 w-6 rounded-full ${idx < currentStep ? 'bg-indigo-600' : 'bg-slate-200'}`} />
-              ))}
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-slate-800 mb-10 text-center leading-snug">
-            {questions[currentStep - 1].question}
-          </h3>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
-            <button
-              onClick={() => handleAnswer(questions[currentStep - 1].points)}
-              className="flex-1 py-4 border-2 border-indigo-100 hover:border-indigo-600 hover:bg-indigo-50 rounded-2xl text-lg font-bold text-indigo-900 transition-all hover:shadow-md cursor-pointer"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => handleAnswer(0)}
-              className="flex-1 py-4 border-2 border-slate-100 hover:border-slate-300 hover:bg-slate-50 rounded-2xl text-lg font-bold text-slate-600 transition-all hover:shadow-md cursor-pointer"
-            >
-              No
-            </button>
-          </div>
-        </div>
-      )}
-
-      {currentStep > questions.length && (
-        <div className="text-center py-6 animate-fade-in">
-          <div className="mb-6">
-            {score <= 2 ? (
-              <div className="w-24 h-24 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-12 h-12" />
-              </div>
-            ) : score <= 5 ? (
-              <div className="w-24 h-24 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-12 h-12" />
-              </div>
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
-                <Activity className="w-12 h-12" />
-              </div>
-            )}
-            
-            <h3 className="text-3xl font-black text-slate-800 mb-2">
-              {score <= 2 ? "Low Risk" : score <= 5 ? "Moderate Risk" : "High Risk"}
-            </h3>
-            
-            <p className="text-slate-600 max-w-lg mx-auto mt-4 leading-relaxed">
-              {score <= 2 
-                ? "Your stroke risk appears to be low. Continue maintaining a healthy lifestyle, regular exercise, and a balanced diet to keep your brain healthy." 
-                : score <= 5 
-                ? "You have some risk factors for stroke. We recommend scheduling a routine check-up with Dr. Sanjay Varade to discuss preventive measures." 
-                : "Your assessment indicates multiple high-risk factors. It is highly recommended that you consult a Neurologist immediately for a comprehensive evaluation."}
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <button
-              onClick={onBookAppointment}
-              className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Stethoscope className="w-5 h-5" /> Book Consultation
-            </button>
-            <button
-              onClick={resetAssessment}
-              className="px-8 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all cursor-pointer"
-            >
-              Retake Test
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+import { getNextDateString } from './utils/opdSlotUtils';
 
 function MainApp() {
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<string>('appointments');
+  const [activeTab, setActiveTab] = useState<string>('patient-portal');
   const [appointmentPrefill, setAppointmentPrefill] = useState<{
     symptoms?: string;
     condition?: string;
@@ -193,7 +51,78 @@ function MainApp() {
   const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState<boolean>(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
   const [adminInitialTab, setAdminInitialTab] = useState<'fee' | 'counter' | 'appointments' | 'logs' | 'gallery'>('fee');
+  const [portalInitialShowBooking, setPortalInitialShowBooking] = useState<boolean>(false);
   const subTabsNavRef = React.useRef<HTMLDivElement>(null);
+
+  // Live OPD Counter state for Today and Tomorrow
+  const [opdTodayQuota, setOpdTodayQuota] = useState<{
+    date: string;
+    total: number;
+    booked: number;
+    remaining: number;
+    isFull: boolean;
+  }>(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return {
+      date: today,
+      total: 50,
+      booked: 0,
+      remaining: 50,
+      isFull: false
+    };
+  });
+
+  const [opdTomorrowQuota, setOpdTomorrowQuota] = useState<{
+    date: string;
+    total: number;
+    booked: number;
+    remaining: number;
+    isFull: boolean;
+  } | null>(null);
+
+  // Synchronize live OPD counter
+  const refreshOpdCounter = React.useCallback(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = getNextDateString(today);
+
+    fetch(`/api/opd/status?date=${today}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.adminTotalQuota !== undefined) {
+          const total = data.adminTotalQuota;
+          const booked = data.bookedCount || 0;
+          const remaining = data.remainingCount !== undefined ? data.remainingCount : Math.max(0, total - booked);
+          const isFull = remaining <= 0 || Boolean(data.isFull);
+          setOpdTodayQuota({
+            date: today,
+            total,
+            booked,
+            remaining,
+            isFull
+          });
+
+          // Fetch tomorrow's status to suggest if today is full
+          fetch(`/api/opd/status?date=${tomorrow}`)
+            .then(r2 => r2.json())
+            .then(tData => {
+              if (tData && tData.adminTotalQuota !== undefined) {
+                const tTotal = tData.adminTotalQuota;
+                const tBooked = tData.bookedCount || 0;
+                const tRemaining = tData.remainingCount !== undefined ? tData.remainingCount : Math.max(0, tTotal - tBooked);
+                setOpdTomorrowQuota({
+                  date: tomorrow,
+                  total: tTotal,
+                  booked: tBooked,
+                  remaining: tRemaining,
+                  isFull: tRemaining <= 0 || Boolean(tData.isFull)
+                });
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const scrollSubTabs = (direction: 'left' | 'right') => {
     if (subTabsNavRef.current) {
@@ -206,6 +135,7 @@ function MainApp() {
   };
 
   React.useEffect(() => {
+    // Keep the doctor photo default: purge any legacy local storage overrides
     if (typeof window !== 'undefined' && localStorage.getItem('sopan_dr_custom_photo')) {
       localStorage.removeItem('sopan_dr_custom_photo');
       window.dispatchEvent(new Event('sopan_photo_updated'));
@@ -213,28 +143,31 @@ function MainApp() {
 
     const handleQuota = () => setGmpQuotaExceeded(true);
     window.addEventListener('gmp-quota-exceeded', handleQuota);
-    return () => window.removeEventListener('gmp-quota-exceeded', handleQuota);
-  }, []);
 
-  React.useEffect(() => {
-    const requestNotificationPermission = async () => {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-          const token = await getToken(messaging, {
-            vapidKey: "BIDoGB7p-2C1sPNl5hsDIOas3Ku97hK7NQ23L2KX81qHYQJl_B2pfh3Qs4n-ya_Kl1BAOKS2YuV3FD_OzSmaJn4" 
-          });
-          console.log("FCM Push Token:", token);
-        } else {
-          console.log("User denied notification permission");
-        }
-      } catch (error) {
-        console.error("Error getting notification permission:", error);
+    const handleCustomNav = (e: any) => {
+      if (e?.detail) {
+        setActiveTab(e.detail);
+        window.scrollTo({ top: 380, behavior: 'smooth' });
       }
     };
+    window.addEventListener('sopan_navigate_tab', handleCustomNav);
 
-    requestNotificationPermission();
-  }, []);
+    // Initial fetch and real-time listeners for OPD counter
+    refreshOpdCounter();
+    const counterInterval = setInterval(refreshOpdCounter, 12000);
+    window.addEventListener('sopan_opd_quota_changed', refreshOpdCounter);
+    window.addEventListener('sopan_opd_quota_updated', refreshOpdCounter);
+    window.addEventListener('storage', refreshOpdCounter);
+
+    return () => {
+      clearInterval(counterInterval);
+      window.removeEventListener('gmp-quota-exceeded', handleQuota);
+      window.removeEventListener('sopan_navigate_tab', handleCustomNav);
+      window.removeEventListener('sopan_opd_quota_changed', refreshOpdCounter);
+      window.removeEventListener('sopan_opd_quota_updated', refreshOpdCounter);
+      window.removeEventListener('storage', refreshOpdCounter);
+    };
+  }, [refreshOpdCounter]);
 
   const handleOpenWhatsApp = (template = 'stroke-emergency') => {
     setWhatsAppDefaultTemplate(template);
@@ -246,14 +179,14 @@ function MainApp() {
       symptoms: symptomsSummary,
       condition: suspectedCondition
     });
-    setActiveTab('appointments');
+    setPortalInitialShowBooking(true);
+    setActiveTab('patient-portal');
     window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
   const subTabs = [
-    { id: 'appointments', label: t('nav.appointments') },
+    { id: 'patient-portal', label: language === 'mr' ? 'रुग्ण पोर्टल' : 'Patient Portal' },
     { id: 'symptom-checker', label: t('nav.symptom_checker') },
-    { id: 'brain-health-test', label: 'Brain Risk Test' },
     { id: 'location', label: t('nav.location') },
     { id: 'stories', label: t('nav.stories') },
     { id: 'gallery', label: t('nav.gallery') },
@@ -265,7 +198,8 @@ function MainApp() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F6F3EE] text-[#27231E] flex flex-col font-sans antialiased selection:bg-[#8E5B3E] selection:text-white">
+    <div className="min-h-screen bg-[#F6F3EE] text-[#27231E] flex flex-col font-sans antialiased selection:bg-[#8E5B3E] selection:text-white overflow-x-clip">
+      {/* Google Maps Quota Warning Banner (GHP Compliance) */}
       {gmpQuotaExceeded && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
           <span>
@@ -283,6 +217,7 @@ function MainApp() {
         </div>
       )}
 
+      {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -290,16 +225,26 @@ function MainApp() {
         onOpenEmergencyCall={() => setIsEmergencyCallModalOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8 min-w-0">
+        {/* Hero Banner (Always visible or contextual) */}
         <HeroBanner
           onNavigate={(tab) => {
-            setActiveTab(tab);
+            if (tab === 'appointments' || tab === 'patient-portal') {
+              setPortalInitialShowBooking(true);
+              setActiveTab('patient-portal');
+              window.dispatchEvent(new CustomEvent('sopan_open_booking'));
+            } else {
+              setActiveTab(tab);
+            }
             window.scrollTo({ top: 380, behavior: 'smooth' });
           }}
           onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
         />
 
+        {/* Dynamic Section Navigation / Sub-tabs (Touch-friendly & easily scrollable with buttons & mouse wheel on PC) */}
         <div className="relative group w-full min-w-0">
+          {/* PC Left Scroll Arrow Button */}
           <button
             type="button"
             onClick={() => scrollSubTabs('left')}
@@ -310,10 +255,12 @@ function MainApp() {
             <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
           </button>
 
+          {/* Sub-tabs horizontal scroll container */}
           <div
             ref={subTabsNavRef}
             onWheel={(e) => {
               if (e.deltaY !== 0 && subTabsNavRef.current) {
+                // Allows standard PC mouse wheel to scroll horizontally smoothly
                 subTabsNavRef.current.scrollLeft += e.deltaY;
               }
             }}
@@ -336,6 +283,7 @@ function MainApp() {
             ))}
           </div>
 
+          {/* PC Right Scroll Arrow Button */}
           <button
             type="button"
             onClick={() => scrollSubTabs('right')}
@@ -347,16 +295,8 @@ function MainApp() {
           </button>
         </div>
 
+        {/* View Switcher Container */}
         <div className="transition-opacity duration-200">
-          {activeTab === 'brain-health-test' && (
-            <BrainHealthAssessment 
-              onBookAppointment={() => {
-                setActiveTab('appointments');
-                window.scrollTo({ top: 380, behavior: 'smooth' });
-              }} 
-            />
-          )}
-
           {activeTab === 'symptom-checker' && (
             <SymptomChecker
               onBookAppointment={handleBookFromSymptomChecker}
@@ -374,7 +314,6 @@ function MainApp() {
               }}
             />
           )}
-
           {activeTab === 'location' && (
             <HospitalMapLocation
               onBookConsultation={() => {
@@ -384,7 +323,6 @@ function MainApp() {
               onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
             />
           )}
-
           {activeTab === 'stories' && (
             <PatientSuccessStories
               onBookAppointment={() => {
@@ -398,7 +336,6 @@ function MainApp() {
               onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
             />
           )}
-
           {activeTab === 'gallery' && (
             <HospitalEventsGallery
               onBookConsultation={() => {
@@ -408,7 +345,6 @@ function MainApp() {
               onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
             />
           )}
-
           {activeTab === 'news' && (
             <LatestNeurologyNews
               onBookConsultation={() => {
@@ -418,9 +354,7 @@ function MainApp() {
               onOpenWhatsApp={() => handleOpenWhatsApp('book-appointment')}
             />
           )}
-
           {activeTab === 'vr-brain' && <VRBrainViewer />}
-
           {activeTab === 'diseases' && (
             <DiseaseArticles
               onOpenVRForArticle={() => {
@@ -428,21 +362,23 @@ function MainApp() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onBookConsultationForDisease={() => {
-                setActiveTab('appointments');
+                setActiveTab('patient-portal');
                 window.scrollTo({ top: 350, behavior: 'smooth' });
               }}
             />
           )}
-
-          {activeTab === 'appointments' && (
-            <AppointmentScheduler
-              initialSymptoms={appointmentPrefill?.symptoms}
-              initialDiseaseContext={appointmentPrefill?.condition}
+          {(activeTab === 'patient-portal' || activeTab === 'appointments') && (
+            <PatientPortal
+              initialShowBookingForm={portalInitialShowBooking}
+              prefillSymptoms={appointmentPrefill?.symptoms}
+              prefillCondition={appointmentPrefill?.condition}
+              onBookNewAppointment={() => {
+                setPortalInitialShowBooking(true);
+                window.dispatchEvent(new CustomEvent('sopan_open_booking'));
+              }}
             />
           )}
-
           {activeTab === 'reviews' && <GoogleReviews />}
-
           {activeTab === 'patient-feedback' && (
             <PatientExperienceFeedbackModalOrSection
               onViewGoogleReviews={() => {
@@ -454,17 +390,21 @@ function MainApp() {
         </div>
       </main>
 
+      {/* OPD Admin Portal Modal for Instant Home Fee & Quota Changes */}
       <OpdAdminPortalModal
         isOpen={isAdminModalOpen}
         initialTab={adminInitialTab}
         onClose={() => setIsAdminModalOpen(false)}
       />
 
+      {/* Persistent Floating Quick Dock (Social Media & WhatsApp) */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2.5">
+        {/* Floating Social Media Buttons Pill - Direct to App, No Header Clutter */}
         <div 
           className="flex items-center gap-2 p-1.5 rounded-full bg-[#27231E]/95 hover:bg-[#27231E] backdrop-blur-md shadow-2xl border border-white/20 transition-all select-none"
           title="Official Social Media: Dr. Sanjay Varade & Sopan Hospital"
         >
+          {/* YouTube Floating Logo */}
           <button
             type="button"
             id="floating-btn-youtube"
@@ -479,6 +419,7 @@ function MainApp() {
             <YouTubeIcon className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
           </button>
 
+          {/* Facebook Floating Logo */}
           <button
             type="button"
             id="floating-btn-facebook"
@@ -494,6 +435,76 @@ function MainApp() {
           </button>
         </div>
 
+        {/* Floating Real-Time OPD Counter Button */}
+        {(() => {
+          const isTodayFull = opdTodayQuota ? (opdTodayQuota.isFull || opdTodayQuota.remaining <= 0) : false;
+          const isTomorrowAvailable = opdTomorrowQuota ? (!opdTomorrowQuota.isFull && opdTomorrowQuota.remaining > 0) : true;
+          const todayRemaining = opdTodayQuota ? opdTodayQuota.remaining : 50;
+          const tomorrowRemaining = opdTomorrowQuota ? opdTomorrowQuota.remaining : 50;
+
+          const handleFloatingOpdCounterClick = () => {
+            playSubtleClickSound();
+            const targetDate = (isTodayFull && isTomorrowAvailable && opdTomorrowQuota)
+              ? opdTomorrowQuota.date
+              : (opdTodayQuota?.date || new Date().toISOString().split('T')[0]);
+
+            setActiveTab('patient-portal');
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('sopan_open_booking', { detail: { date: targetDate } }));
+              window.scrollTo({ top: 380, behavior: 'smooth' });
+            }, 100);
+          };
+
+          return (
+            <button
+              id="btn-floating-opd-counter"
+              type="button"
+              onClick={handleFloatingOpdCounterClick}
+              className={`group relative px-4 py-3 rounded-full shadow-2xl flex items-center gap-2.5 transition-all transform hover:scale-105 active:scale-95 animate-subtle-pulse cursor-pointer border ${
+                isTodayFull
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-700/40 border-rose-300/40'
+                  : 'bg-[#8E5B3E] hover:bg-[#784A31] text-white shadow-amber-950/40 border-amber-300/30'
+              }`}
+              title={
+                isTodayFull
+                  ? `Today's OPD is full. Click to book for tomorrow (${tomorrowRemaining} slots available).`
+                  : `OPD Appointments: ${todayRemaining} slots left today. Click to book.`
+              }
+            >
+              {isTodayFull ? (
+                <>
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-300 border-2 border-white rounded-full animate-ping" />
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 border-2 border-white rounded-full" />
+                  <Calendar className="w-5 h-5 fill-white/20 text-white shrink-0" />
+                  <div className="text-xs font-bold flex items-center gap-1.5 pr-1">
+                    <span className="bg-rose-800/90 px-1.5 py-0.5 rounded text-[10px] uppercase font-black tracking-wide">
+                      Today Full
+                    </span>
+                    {isTomorrowAvailable ? (
+                      <span>
+                        <span className="hidden xs:inline">Tomorrow: </span>
+                        <span className="font-extrabold text-amber-200">{tomorrowRemaining}</span> Left
+                      </span>
+                    ) : (
+                      <span>Check Portal</span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 border-2 border-white rounded-full animate-ping" />
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full" />
+                  <Calendar className="w-5 h-5 text-amber-200 fill-amber-200/20 shrink-0" />
+                  <span className="text-xs font-bold pr-1">
+                    OPD: <span className="font-extrabold text-amber-200">{todayRemaining}</span> Left
+                  </span>
+                </>
+              )}
+            </button>
+          );
+        })()}
+
+        {/* Floating WhatsApp Help Desk Button */}
         <button
           id="btn-floating-whatsapp"
           onClick={() => {
@@ -511,12 +522,14 @@ function MainApp() {
         </button>
       </div>
 
+      {/* WhatsApp Modal */}
       <WhatsAppContactModal
         isOpen={isWhatsAppModalOpen}
         onClose={() => setIsWhatsAppModalOpen(false)}
         defaultTemplate={whatsAppDefaultTemplate}
       />
 
+      {/* Emergency Stroke Call Modal */}
       {isEmergencyCallModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5 text-center">
@@ -585,6 +598,7 @@ function MainApp() {
         </div>
       )}
 
+      {/* Footer */}
       <Footer
         onNavigate={(tab) => {
           setActiveTab(tab);

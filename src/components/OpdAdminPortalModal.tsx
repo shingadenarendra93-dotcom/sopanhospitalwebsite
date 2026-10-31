@@ -85,6 +85,7 @@ import {
   setConsultationFee,
   formatConsultationFee
 } from '../utils/opdSlotUtils';
+import { AppointmentSlipModal } from './AppointmentSlipModal';
 
 interface OpdAdminPortalModalProps {
   isOpen?: boolean;
@@ -206,6 +207,7 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
 
   // Clear logs modal state
   const [isClearLogsModalOpen, setIsClearLogsModalOpen] = useState<boolean>(false);
+  const [selectedSlipAppointment, setSelectedSlipAppointment] = useState<Appointment | null>(null);
 
   // Photo Studio & Upload Window View States
   const [isPhotoStudioMaximized, setIsPhotoStudioMaximized] = useState<boolean>(false);
@@ -2008,6 +2010,17 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
                                 <MessageCircle className="w-4 h-4 text-emerald-600" />
                               </button>
 
+                              {/* View Slip Button: Opens Pending Acknowledgement or Confirmed Token Slip */}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSlipAppointment(apt)}
+                                className="touch-friendly-btn px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="View Appointment Slip / Booking Status"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-[#8E5B3E]" />
+                                <span>View Slip</span>
+                              </button>
+
                               {/* Permanent Remove / Delete Record specifically for Cancelled and Completed appointments */}
                               {(apt.status === 'Cancelled' || apt.status === 'Completed') && (
                                 <button
@@ -3075,6 +3088,21 @@ export const OpdAdminPortalModal: React.FC<OpdAdminPortalModalProps> = ({
         </div>,
         document.body
       )}
+
+      {/* VIEW SLIP MODAL (PENDING ACKNOWLEDGEMENT OR CONFIRMED SLIP) */}
+      <AppointmentSlipModal
+        appointment={selectedSlipAppointment}
+        isOpen={Boolean(selectedSlipAppointment)}
+        onClose={() => setSelectedSlipAppointment(null)}
+        isAdmin={true}
+        onAcceptAppointment={(apt) => {
+          handleAcceptAppointment(apt);
+          setSelectedSlipAppointment({
+            ...apt,
+            status: 'Confirmed'
+          });
+        }}
+      />
     </>
   );
 };

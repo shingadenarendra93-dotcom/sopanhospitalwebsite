@@ -50,6 +50,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Patient accounts: secure PIN authentication, rate limiting & admin verification
+    match /patient_accounts/{phone} {
+      allow read, write: if true;
+    }
+
     // Patient data repository for website_data collection
     match /website_data/{docId} {
       allow read: if true;
